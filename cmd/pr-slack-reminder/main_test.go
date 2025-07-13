@@ -232,6 +232,18 @@ func TestScenarios(t *testing.T) {
 			expectedErrorMsg: "configuration error: error reading input filters: invalid filters: {\"labels\": [\"infra\"], \"labels-ignore\": [\"infra\"]}, error: labels filter cannot contain labels that are in labels-ignore filter",
 		},
 		{
+			name:             "invalid repository filters input: invalid mapping",
+			config:           testhelpers.GetDefaultConfigMinimal(),
+			configOverrides:  &map[string]any{config.InputRepositoryFilters: "asdf"},
+			expectedErrorMsg: "configuration error: error reading input repository-filters: invalid mapping format for repository-filters: 'asdf'",
+		},
+		{
+			name:             "invalid repository filters input: conflicting labels and labels-ignore",
+			config:           testhelpers.GetDefaultConfigMinimal(),
+			configOverrides:  &map[string]any{config.InputRepositoryFilters: "\"test-repo\": {\"labels\": [\"infra\"], \"labels-ignore\": [\"infra\"]}"},
+			expectedErrorMsg: "configuration error: error parsing filters for repository \"test-repo\": invalid filters: {\"labels\": [\"infra\"], \"labels-ignore\": [\"infra\"]}, error: labels filter cannot contain labels that are in labels-ignore filter",
+		},
+		{
 			name:            "no PRs found without message",
 			config:          testhelpers.GetDefaultConfigMinimal(),
 			expectedSummary: "", // no message should be sent
@@ -475,11 +487,8 @@ func TestScenarios(t *testing.T) {
 				t.Errorf("Expected error: %v, got no error", tc.expectedErrorMsg)
 			}
 			if tc.expectedErrorMsg != "" && err != nil && !strings.Contains(err.Error(), tc.expectedErrorMsg) {
-				t.Errorf(
-					"Expected error message '%v', got: %v",
-					tc.expectedErrorMsg,
-					err.Error(),
-				)
+				t.Errorf("Expected error message '%v'", tc.expectedErrorMsg)
+				t.Logf("Got error: %v", err)
 			}
 			if tc.expectedSummary == "" && mockSlackAPI.SentMessage.Text != "" {
 				t.Errorf("Expected no summary message, but got: %v", mockSlackAPI.SentMessage.Text)

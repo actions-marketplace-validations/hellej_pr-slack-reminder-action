@@ -87,12 +87,12 @@ func GetInputMapping(inputName string) (map[string]string, error) {
 		}
 		parts := strings.SplitN(line, ":", 2)
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("invalid mapping format for %s: %s", inputName, line)
+			return nil, fmt.Errorf("invalid mapping format for %s: '%s'", inputName, line)
 		}
 		key := strings.TrimSpace(parts[0])
 		value := strings.TrimSpace(parts[1])
 		if key == "" || value == "" {
-			return nil, fmt.Errorf("invalid mapping key or value for %s: %s", inputName, line)
+			return nil, fmt.Errorf("invalid mapping key or value for %s: '%s'", inputName, line)
 		}
 		mapping[key] = value
 	}
