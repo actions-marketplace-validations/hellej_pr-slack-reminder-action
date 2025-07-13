@@ -3,7 +3,6 @@ package mockslackclient
 import (
 	"encoding/json"
 	"fmt"
-	"slices"
 	"strings"
 )
 
@@ -56,11 +55,17 @@ func (b BlocksWrapper) GetPRLists() []PRList {
 	return prLists
 }
 
-func (b BlocksWrapper) ContainsPRTitle(title string) bool {
+func (b BlocksWrapper) GetAllPRItemTexts() []string {
+	var allTexts []string
 	for _, item := range b.GetPRLists() {
-		if slices.ContainsFunc(item.PRListItems, func(value string) bool {
-			return strings.Contains(value, title)
-		}) {
+		allTexts = append(allTexts, item.PRListItems...)
+	}
+	return allTexts
+}
+
+func (b BlocksWrapper) SomePRItemContainsText(searchText string) bool {
+	for _, text := range b.GetAllPRItemTexts() {
+		if strings.Contains(text, searchText) {
 			return true
 		}
 	}
@@ -77,11 +82,7 @@ func (b BlocksWrapper) ContainsHeading(heading string) bool {
 }
 
 func (b BlocksWrapper) GetPRCount() int {
-	var count int
-	for _, item := range b.GetPRLists() {
-		count += len(item.PRListItems)
-	}
-	return count
+	return len(b.GetAllPRItemTexts())
 }
 
 type Block struct {

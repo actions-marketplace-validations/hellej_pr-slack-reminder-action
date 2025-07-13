@@ -3,6 +3,7 @@ package main_test
 import (
 	"cmp"
 	"errors"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -43,10 +44,13 @@ func getTestPR(options GetTestPROptions) *github.PullRequest {
 			Name: &label,
 		})
 	}
-	prTime := now.Add(-time.Duration(
-		cmp.Or(options.AgeHours, float32(5.0))) * time.Hour,
-	)
 
+	ageMinutes := int(
+		math.Round(
+			float64(cmp.Or(options.AgeHours, float32(5.0)) * 60),
+		),
+	)
+	prTime := now.Add(-time.Duration(ageMinutes) * time.Minute)
 	return &github.PullRequest{
 		Number: &number,
 		Title:  &title,
@@ -149,20 +153,21 @@ func filterPRsByNumbers(
 
 func TestScenarios(t *testing.T) {
 	testCases := []struct {
-		name               string
-		config             testhelpers.TestConfig
-		configOverrides    *map[string]any
-		fetchPRsStatus     int
-		fetchPRsError      error
-		prs                []*github.PullRequest
-		prsByRepo          map[string][]*github.PullRequest
-		reviewsByPRNumber  map[int][]*github.PullRequestReview
-		foundSlackChannels []*mockslackclient.SlackChannel
-		findChannelError   error
-		sendMessageError   error
-		expectedErrorMsg   string
-		expectedPRNumbers  []int
-		expectedSummary    string
+		name                string
+		config              testhelpers.TestConfig
+		configOverrides     *map[string]any
+		fetchPRsStatus      int
+		fetchPRsError       error
+		prs                 []*github.PullRequest
+		prsByRepo           map[string][]*github.PullRequest
+		reviewsByPRNumber   map[int][]*github.PullRequestReview
+		foundSlackChannels  []*mockslackclient.SlackChannel
+		findChannelError    error
+		sendMessageError    error
+		expectedErrorMsg    string
+		expectedPRNumbers   []int
+		expectedPRItemTexts []string
+		expectedSummary     string
 	}{
 		{
 			name:   "unset required inputs",
@@ -342,25 +347,113 @@ func TestScenarios(t *testing.T) {
 			},
 			prs:               getTestPRs(GetTestPRsOptions{Labels: []string{"feature"}}).PRs,
 			expectedPRNumbers: getTestPRs(GetTestPRsOptions{}).PRNumbers,
+			expectedSummary:   "5 open PRs are waiting for attention 👀",
+		},
+		{
+			name:   "5 PRs of which some are approved and some are commented",
+			config: testhelpers.GetDefaultConfigMinimal(),
+			prs: []*github.PullRequest{
+				getTestPR(GetTestPROptions{
+					Number:      1,
+					Title:       "PR 1",
+					AuthorLogin: "stitch",
+					AuthorName:  "Stitch",
+					AgeHours:    0.083, // 5 minutes
+				}),
+				getTestPR(GetTestPROptions{
+					Number:      2,
+					Title:       "PR 2",
+					AuthorLogin: "alice",
+					AuthorName:  "Alice",
+					AgeHours:    3,
+				}),
+				getTestPR(GetTestPROptions{
+					Number:      3,
+					Title:       "PR 3",
+					AuthorLogin: "alice",
+					AuthorName:  "Alice",
+					AgeHours:    48,
+				}),
+				getTestPR(GetTestPROptions{
+					Number:      4,
+					Title:       "PR 4",
+					AuthorLogin: "jim",
+					AuthorName:  "Jim",
+					AgeHours:    5,
+				}),
+			},
+			expectedPRNumbers: []int{1, 2, 3, 4},
+			expectedPRItemTexts: []string{
+				"PR 1 5 minutes ago by Stitch (approved by reviewer1, reviewer2)",
+				"PR 2 3 hours ago by Alice (reviewed by reviewer1, reviewer2)",
+				"PR 3 2 days ago by Alice (reviewed by reviewer3)",
+				"PR 4 5 hours ago by Jim (approved by reviewer2 - reviewed by reviewer3)",
+			},
 			reviewsByPRNumber: map[int][]*github.PullRequestReview{
 				*getTestPRs(GetTestPRsOptions{}).PR1.Number: {
 					{
 						ID:    github.Ptr(int64(1)),
-						Body:  github.Ptr("LGTM ✅"),
+						Body:  github.Ptr("LGTM 🙏🏻"),
 						User:  &github.User{Login: github.Ptr("reviewer1")},
+						State: github.Ptr("APPROVED"),
+					},
+					{
+						ID:    github.Ptr(int64(2)),
+						Body:  github.Ptr("LGTM 🚀"),
+						User:  &github.User{Login: github.Ptr("reviewer2")},
 						State: github.Ptr("APPROVED"),
 					},
 				},
 				*getTestPRs(GetTestPRsOptions{}).PR2.Number: {
 					{
-						ID:    github.Ptr(int64(2)),
+						ID:    github.Ptr(int64(3)),
 						Body:  github.Ptr("LGTM, just a few comments..."),
+						User:  &github.User{Login: github.Ptr("reviewer1")},
+						State: github.Ptr("COMMENTED"),
+					},
+					{
+						ID:    github.Ptr(int64(4)),
+						Body:  github.Ptr("Looks good but..."),
 						User:  &github.User{Login: github.Ptr("reviewer2")},
 						State: github.Ptr("COMMENTED"),
 					},
 				},
+				*getTestPRs(GetTestPRsOptions{}).PR3.Number: {
+					{
+						ID:    github.Ptr(int64(5)),
+						Body:  github.Ptr("Splendid work! Just a few questions..."),
+						User:  &github.User{Login: github.Ptr("reviewer3")},
+						State: github.Ptr("COMMENTED"),
+					},
+				},
+				*getTestPRs(GetTestPRsOptions{}).PR4.Number: {
+					{
+						ID:    github.Ptr(int64(6)),
+						Body:  github.Ptr("Splendid work! Just a few questions..."),
+						User:  &github.User{Login: github.Ptr("reviewer3")},
+						State: github.Ptr("COMMENTED"),
+					},
+					{
+						ID:    github.Ptr(int64(7)),
+						Body:  github.Ptr("Splendid work! Just a few questions..."),
+						User:  &github.User{Login: github.Ptr("reviewer3")},
+						State: github.Ptr("COMMENTED"),
+					}, // duplicate review by reviewer3 should be omitted
+					{
+						ID:    github.Ptr(int64(8)),
+						Body:  github.Ptr("LGTM 🚀"),
+						User:  &github.User{Login: github.Ptr("reviewer2")},
+						State: github.Ptr("APPROVED"),
+					},
+					{
+						ID:    github.Ptr(int64(9)),
+						Body:  github.Ptr("LGTM again 🚀"),
+						User:  &github.User{Login: github.Ptr("reviewer2")},
+						State: github.Ptr("APPROVED"),
+					}, // duplicate approval by reviewer2 should be omitted
+				},
 			},
-			expectedSummary: "5 open PRs are waiting for attention 👀",
+			expectedSummary: "4 open PRs are waiting for attention 👀",
 		},
 	}
 
@@ -407,8 +500,22 @@ func TestScenarios(t *testing.T) {
 			}
 			if len(expectedPRs) > 0 {
 				for _, pr := range expectedPRs {
-					if !mockSlackAPI.SentMessage.Blocks.ContainsPRTitle(*pr.Title) {
-						t.Errorf("Expected PR title '%s' to be in the sent message blocks", *pr.Title)
+					if !mockSlackAPI.SentMessage.Blocks.SomePRItemContainsText(*pr.Title) {
+						t.Errorf("Expected PR title '%s' to be included in the sent message blocks", *pr.Title)
+					}
+				}
+			}
+			if len(tc.expectedPRItemTexts) > 0 {
+				for _, expectedText := range tc.expectedPRItemTexts {
+					if !mockSlackAPI.SentMessage.Blocks.SomePRItemContainsText(expectedText) {
+						t.Errorf(
+							"Expected list item text '%s' to be in the sent message blocks", expectedText,
+						)
+						prItems := mockSlackAPI.SentMessage.Blocks.GetAllPRItemTexts()
+						t.Logf("Found PR items:")
+						for _, prItem := range prItems {
+							t.Log(prItem)
+						}
 					}
 				}
 			}

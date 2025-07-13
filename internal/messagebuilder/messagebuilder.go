@@ -39,14 +39,14 @@ func getReviewersElements(pr prparser.PR) []slack.RichTextSectionElement {
 	))
 
 	for idx, approver := range pr.Approvers {
-		elements = append(elements, slack.NewRichTextSectionTextElement(
-			approver.GetGitHubName(), &slack.RichTextSectionTextStyle{},
-		))
-		if idx > 0 && idx < approverCount-1 {
+		if idx > 0 {
 			elements = append(elements, slack.NewRichTextSectionTextElement(
 				", ", &slack.RichTextSectionTextStyle{},
 			))
 		}
+		elements = append(elements, slack.NewRichTextSectionTextElement(
+			approver.GetGitHubName(), &slack.RichTextSectionTextStyle{},
+		))
 	}
 
 	if commenterCount == 0 {
@@ -57,19 +57,19 @@ func getReviewersElements(pr prparser.PR) []slack.RichTextSectionElement {
 
 	if reviewerTextPrefix == " (approved by " {
 		elements = append(elements, slack.NewRichTextSectionTextElement(
-			"- reviewed by ", &slack.RichTextSectionTextStyle{},
+			" - reviewed by ", &slack.RichTextSectionTextStyle{},
 		))
 	}
 
 	for idx, commenter := range pr.Commenters {
-		elements = append(elements, slack.NewRichTextSectionTextElement(
-			commenter.GetGitHubName(), &slack.RichTextSectionTextStyle{},
-		))
-		if idx > 0 && idx < commenterCount-1 {
+		if idx > 0 {
 			elements = append(elements, slack.NewRichTextSectionTextElement(
 				", ", &slack.RichTextSectionTextStyle{},
 			))
 		}
+		elements = append(elements, slack.NewRichTextSectionTextElement(
+			commenter.GetGitHubName(), &slack.RichTextSectionTextStyle{},
+		))
 	}
 
 	return append(elements, slack.NewRichTextSectionTextElement(
