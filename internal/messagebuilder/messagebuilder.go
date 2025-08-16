@@ -81,14 +81,12 @@ func buildPRBulletPointBlock(pr prparser.PR) slack.RichTextElement {
 	var ageElements []slack.RichTextSectionElement
 
 	if pr.IsOldPR {
-		// Add alarm emoji before age
 		ageElements = append(ageElements,
-			slack.NewRichTextSectionTextElement(" :rotating_light: ", &slack.RichTextSectionTextStyle{}),
+			slack.NewRichTextSectionTextElement(" 🚨 ", &slack.RichTextSectionTextStyle{}),
 			slack.NewRichTextSectionTextElement(pr.GetPRAgeText(), &slack.RichTextSectionTextStyle{Bold: true}),
-			slack.NewRichTextSectionTextElement(" :rotating_light:", &slack.RichTextSectionTextStyle{}),
+			slack.NewRichTextSectionTextElement(" 🚨", &slack.RichTextSectionTextStyle{}),
 		)
 	} else {
-		// Regular age text
 		ageElements = append(ageElements,
 			slack.NewRichTextSectionTextElement(" "+pr.GetPRAgeText(), &slack.RichTextSectionTextStyle{}),
 		)
