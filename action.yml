@@ -31,7 +31,7 @@ inputs: {
     default: 'There are <pr_count> open PRs 🚀',
   },
   old-pr-threshold-hours: {
-    description: 'Threshold in hours to consider a PR as old (if used, also old-prs-list-heading must be set)',
+    description: 'Threshold in hours to consider a PR as old (old PRs will be highlighted with alarm emojis and bold age text)',
     required: false,
     type: number,
   },
