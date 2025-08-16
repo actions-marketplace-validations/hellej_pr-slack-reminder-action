@@ -43,6 +43,10 @@ inputs: {
     description: 'e.g. {"authors": ["alice", "bob"], "labels": ["bug", "enhancement"], "labels-ignore": ["wip"]}',
     required: false,
   },
+  repository-filters: {
+    description: 'Repository-specific filters (e.g., "repo1: {\"authors-ignore\": [\"alice\"]}; repo2: {\"labels\": [\"bug\"]}")',
+    required: false,
+  },
 }
 
 runs:
