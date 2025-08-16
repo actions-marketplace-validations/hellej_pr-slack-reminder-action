@@ -43,6 +43,9 @@ func (b BlocksWrapper) GetPRLists() []PRList {
 					if element.Text != "" {
 						prText += element.Text
 					}
+					if element.UserID != "" {
+						prText += element.UserID
+					}
 				}
 				prList.PRListItems = append(prList.PRListItems, prText)
 			}
@@ -66,6 +69,15 @@ func (b BlocksWrapper) GetAllPRItemTexts() []string {
 func (b BlocksWrapper) SomePRItemContainsText(searchText string) bool {
 	for _, text := range b.GetAllPRItemTexts() {
 		if strings.Contains(text, searchText) {
+			return true
+		}
+	}
+	return false
+}
+
+func (b BlocksWrapper) SomePRItemTextIsEqualTo(searchText string) bool {
+	for _, text := range b.GetAllPRItemTexts() {
+		if text == searchText {
 			return true
 		}
 	}

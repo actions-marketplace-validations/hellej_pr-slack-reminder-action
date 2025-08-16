@@ -10,6 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+
 	"github.com/google/go-github/v72/github"
 	main "github.com/hellej/pr-slack-reminder-action/cmd/pr-slack-reminder"
 	"github.com/hellej/pr-slack-reminder-action/internal/config"
@@ -33,7 +36,7 @@ func getTestPR(options GetTestPROptions) *github.PullRequest {
 	number := cmp.Or(options.Number, testhelpers.RandomPositiveInt())
 	title := cmp.Or(options.Title, testhelpers.RandomString(10))
 	authorLogin := cmp.Or(options.AuthorLogin, testhelpers.RandomString(10))
-	authorName := cmp.Or(options.AuthorName, strings.ToTitle(authorLogin))
+	authorName := cmp.Or(options.AuthorName, cases.Title(language.English).String(authorLogin))
 
 	var githubLabels []*github.Label
 	if len(options.Labels) == 0 {
@@ -350,7 +353,41 @@ func TestScenarios(t *testing.T) {
 			},
 			prs:               getTestPRs(GetTestPRsOptions{Labels: []string{"feature"}}).PRs,
 			expectedPRNumbers: getTestPRs(GetTestPRsOptions{}).PRNumbers,
-			expectedSummary:   "5 open PRs are waiting for attention 👀",
+			expectedPRItemTexts: []string{
+				"This is a test PR 5 minutes ago by Stitch (no reviews)",
+				"This PR was created 3 hours ago and contains important changes 3 hours ago by U2234567890 (no reviews)",
+				"This PR has the same time as PR2 but a longer title 3 hours ago by U2234567890 (no reviews)",
+				"This PR is getting old and needs attention :rotating_light: 1 days ago :rotating_light: by U3234567890 (no reviews)",
+				"This is a big PR that no one dares to review :rotating_light: 2 days ago :rotating_light: by Jim (no reviews)",
+			},
+			expectedSummary: "5 open PRs are waiting for attention 👀",
+		},
+		{
+			name:   "old PR highlighting with alarm emojis",
+			config: testhelpers.GetDefaultConfigMinimal(),
+			configOverrides: &map[string]any{
+				config.InputOldPRThresholdHours: 24,
+			},
+			prs: []*github.PullRequest{
+				getTestPR(GetTestPROptions{
+					Number:      1,
+					Title:       "Recent PR",
+					AuthorLogin: "alice",
+					AgeHours:    2,
+				}),
+				getTestPR(GetTestPROptions{
+					Number:      2,
+					Title:       "Old PR needs attention",
+					AuthorLogin: "bob",
+					AgeHours:    48,
+				}),
+			},
+			expectedPRNumbers: []int{1, 2},
+			expectedPRItemTexts: []string{
+				"Recent PR 2 hours ago by Alice (no reviews)",
+				"Old PR needs attention :rotating_light: 2 days ago :rotating_light: by Bob (no reviews)",
+			},
+			expectedSummary: "2 open PRs are waiting for attention 👀",
 		},
 		{
 			name:   "5 PRs of which some are approved and some are commented",
@@ -507,7 +544,7 @@ func TestScenarios(t *testing.T) {
 			}
 			if len(tc.expectedPRItemTexts) > 0 {
 				for _, expectedText := range tc.expectedPRItemTexts {
-					if !mockSlackAPI.SentMessage.Blocks.SomePRItemContainsText(expectedText) {
+					if !mockSlackAPI.SentMessage.Blocks.SomePRItemTextIsEqualTo(expectedText) {
 						t.Errorf(
 							"Expected list item text '%s' to be in the sent message blocks", expectedText,
 						)
