@@ -9,7 +9,7 @@ test:
 	$(TEST)
 
 test-with-coverage:
-	$(TEST) -coverprofile=coverage.out -covermode=atomic -coverpkg=./cmd/...,./internal/... 
+	$(TEST) -coverprofile=coverage.out -covermode=atomic -coverpkg=./cmd/...,./internal/...
 	go tool cover -func=coverage.out
 
 publish-code-coverage:
