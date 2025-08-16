@@ -40,9 +40,9 @@ func TestComposeSlackBlocksMessage(t *testing.T) {
 	t.Run("Message summary", func(t *testing.T) {
 		testPRs := getTestPRs()
 		content := messagecontent.Content{
-			SummaryText:     "1 open PRs are waiting for attention 👀",
-			MainListHeading: "🚀 New PRs since 1 days ago",
-			MainList:        testPRs.PRs,
+			SummaryText:   "1 open PRs are waiting for attention 👀",
+			PRListHeading: "🚀 New PRs since 1 days ago",
+			PRList:        testPRs.PRs,
 		}
 		_, got := messagebuilder.BuildMessage(content)
 		if got != content.SummaryText {
@@ -54,9 +54,9 @@ func TestComposeSlackBlocksMessage(t *testing.T) {
 		testPRs := getTestPRs()
 
 		content := messagecontent.Content{
-			SummaryText:     "1 open PRs are waiting for attention 👀",
-			MainListHeading: "🚀 New PRs since 1 days ago",
-			MainList:        testPRs.PRs,
+			SummaryText:   "1 open PRs are waiting for attention 👀",
+			PRListHeading: "🚀 New PRs since 1 days ago",
+			PRList:        testPRs.PRs,
 		}
 		got, _ := messagebuilder.BuildMessage(content)
 
@@ -64,8 +64,8 @@ func TestComposeSlackBlocksMessage(t *testing.T) {
 			t.Errorf("Expected non-empty blocks, got nil or empty")
 		}
 		headerBlock := got.Blocks.BlockSet[0].(*slack.HeaderBlock).Text
-		if headerBlock.Text != content.MainListHeading {
-			t.Errorf("Expected '%s', got '%s'", content.MainListHeading, headerBlock.Text)
+		if headerBlock.Text != content.PRListHeading {
+			t.Errorf("Expected '%s', got '%s'", content.PRListHeading, headerBlock.Text)
 		}
 		prBulletPointTextElements := got.Msg.Blocks.BlockSet[1].(*slack.RichTextBlock).Elements[0].(*slack.RichTextList).Elements[0].(*slack.RichTextSection).Elements
 		prLinkElement := prBulletPointTextElements[0].(*slack.RichTextSectionLinkElement)

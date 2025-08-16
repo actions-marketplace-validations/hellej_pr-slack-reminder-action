@@ -30,7 +30,18 @@ func TestReadInputIntOk(t *testing.T) {
 	t.Setenv("INPUT_TEST", "1")
 	value, _ := utilities.GetInputInt("test")
 	expected := 1
-	if *value != expected {
+	if value != expected {
+		t.Errorf("Expected '%d', got '%v'", expected, value)
+	}
+}
+
+func TestReadInputIntNotSet(t *testing.T) {
+	value, err := utilities.GetInputInt("notSet")
+	if err != nil {
+		t.Errorf("Expected no error for missing int input, got %v", err)
+	}
+	expected := 0
+	if value != expected {
 		t.Errorf("Expected '%d', got '%v'", expected, value)
 	}
 }

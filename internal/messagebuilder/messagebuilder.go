@@ -78,14 +78,31 @@ func getReviewersElements(pr prparser.PR) []slack.RichTextSectionElement {
 }
 
 func buildPRBulletPointBlock(pr prparser.PR) slack.RichTextElement {
+	var ageElements []slack.RichTextSectionElement
+
+	if pr.IsOldPR {
+		// Add alarm emoji before age
+		ageElements = append(ageElements,
+			slack.NewRichTextSectionTextElement(" :rotating_light: ", &slack.RichTextSectionTextStyle{}),
+			slack.NewRichTextSectionTextElement(pr.GetPRAgeText(), &slack.RichTextSectionTextStyle{Bold: true}),
+			slack.NewRichTextSectionTextElement(" :rotating_light:", &slack.RichTextSectionTextStyle{}),
+		)
+	} else {
+		// Regular age text
+		ageElements = append(ageElements,
+			slack.NewRichTextSectionTextElement(" "+pr.GetPRAgeText(), &slack.RichTextSectionTextStyle{}),
+		)
+	}
+
 	titleAgeAndAuthorElements := []slack.RichTextSectionElement{
 		slack.NewRichTextSectionLinkElement(pr.GetHTMLURL(), pr.GetTitle(), &slack.RichTextSectionTextStyle{Bold: true}),
-		slack.NewRichTextSectionTextElement(
-			" "+pr.GetPRAgeText(), &slack.RichTextSectionTextStyle{}),
-		slack.NewRichTextSectionTextElement(
-			" by ", &slack.RichTextSectionTextStyle{}),
-		getUserNameElement(pr),
 	}
+	titleAgeAndAuthorElements = append(titleAgeAndAuthorElements, ageElements...)
+	titleAgeAndAuthorElements = append(titleAgeAndAuthorElements,
+		slack.NewRichTextSectionTextElement(" by ", &slack.RichTextSectionTextStyle{}),
+		getUserNameElement(pr),
+	)
+
 	return slack.NewRichTextSection(
 		append(titleAgeAndAuthorElements, getReviewersElements(pr)...)...,
 	)
@@ -130,13 +147,6 @@ func BuildMessage(content messagecontent.Content) (slack.Message, string) {
 		return slack.NewBlockMessage(blocks...), content.SummaryText
 	}
 
-	if len(content.MainList) > 0 {
-		blocks = addPRListBLock(blocks, content.MainListHeading, content.MainList)
-	}
-
-	if len(content.OldPRsList) > 0 {
-		blocks = addPRListBLock(blocks, content.OldPRsListHeading, content.OldPRsList)
-	}
-
+	blocks = addPRListBLock(blocks, content.PRListHeading, content.PRList)
 	return slack.NewBlockMessage(blocks...), content.SummaryText
 }

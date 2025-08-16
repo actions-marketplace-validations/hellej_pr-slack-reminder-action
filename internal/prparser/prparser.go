@@ -14,6 +14,7 @@ type PR struct {
 	Author     Collaborator
 	Approvers  []Collaborator // Users who have approved the PR at least once
 	Commenters []Collaborator // Users who have commented on the PR but did not approve it
+	IsOldPR    bool           // true if the PR is older than the configured threshold
 }
 
 type Collaborator struct {
@@ -26,6 +27,13 @@ func NewCollaborator(c *githubclient.Collaborator, slackUserId string) Collabora
 		Collaborator: c,
 		SlackUserID:  slackUserId,
 	}
+}
+
+func (pr PR) IsOlderThan(hours int) bool {
+	if pr.GetCreatedAt().IsZero() {
+		return true
+	}
+	return pr.GetCreatedAt().Before(time.Now().Add(-time.Duration(hours) * time.Hour))
 }
 
 func (pr PR) GetPRAgeText() string {

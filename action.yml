@@ -30,10 +30,6 @@ inputs: {
     required: false,
     default: 'There are <pr_count> open PRs 🚀',
   },
-  old-prs-list-heading: {
-    description: 'Heading for the list of old PRs (right under the main heading)',
-    required: false,
-  },
   old-pr-threshold-hours: {
     description: 'Threshold in hours to consider a PR as old (if used, also old-prs-list-heading must be set)',
     required: false,

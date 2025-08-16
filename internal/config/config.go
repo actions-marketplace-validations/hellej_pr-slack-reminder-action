@@ -17,8 +17,7 @@ const (
 	InputSlackChannelID              string = "slack-channel-id"
 	InputSlackUserIdByGitHubUsername string = "github-user-slack-user-id-mapping"
 	InputNoPRsMessage                string = "no-prs-message"
-	InputMainListHeading             string = "main-list-heading"
-	InputOldPRsListHeading           string = "old-prs-list-heading"
+	InputPRListHeading               string = "main-list-heading"
 	InputOldPRThresholdHours         string = "old-pr-threshold-hours"
 	InputGlobalFilters               string = "filters"
 	InputRepositoryFilters           string = "repository-filters"
@@ -26,9 +25,8 @@ const (
 
 type ContentInputs struct {
 	NoPRsMessage        string
-	MainListHeading     string
-	OldPRsListHeading   string
-	OldPRThresholdHours *int
+	PRListHeading       string
+	OldPRThresholdHours int
 }
 
 type Config struct {
@@ -61,7 +59,7 @@ func GetConfig() (Config, error) {
 	repository, err1 := utilities.GetEnvRequired(EnvGithubRepository)
 	githubToken, err2 := utilities.GetInputRequired(InputGithubToken)
 	slackToken, err3 := utilities.GetInputRequired(InputSlackBotToken)
-	mainListHeading, err4 := utilities.GetInputRequired(InputMainListHeading)
+	mainListHeading, err4 := utilities.GetInputRequired(InputPRListHeading)
 	oldPRsThresholdHours, err5 := utilities.GetInputInt(InputOldPRThresholdHours)
 	slackUserIdByGitHubUsername, err6 := utilities.GetInputMapping(InputSlackUserIdByGitHubUsername)
 	globalFilters, err7 := GetGlobalFiltersFromInput(InputGlobalFilters)
@@ -94,8 +92,7 @@ func GetConfig() (Config, error) {
 		SlackUserIdByGitHubUsername: slackUserIdByGitHubUsername,
 		ContentInputs: ContentInputs{
 			NoPRsMessage:        utilities.GetInput(InputNoPRsMessage),
-			MainListHeading:     mainListHeading,
-			OldPRsListHeading:   utilities.GetInput(InputOldPRsListHeading),
+			PRListHeading:       mainListHeading,
 			OldPRThresholdHours: oldPRsThresholdHours,
 		},
 		GlobalFilters:     globalFilters,
@@ -104,11 +101,6 @@ func GetConfig() (Config, error) {
 	if config.SlackChannelID == "" && config.SlackChannelName == "" {
 		return Config{}, fmt.Errorf(
 			"either %s or %s must be set", InputSlackChannelID, InputSlackChannelName,
-		)
-	}
-	if config.ContentInputs.OldPRThresholdHours != nil && config.ContentInputs.OldPRsListHeading == "" {
-		return Config{}, fmt.Errorf(
-			"if %s is set, %s must also be set", InputOldPRThresholdHours, InputOldPRsListHeading,
 		)
 	}
 	return config, nil

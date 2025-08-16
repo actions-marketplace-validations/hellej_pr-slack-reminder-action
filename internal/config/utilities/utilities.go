@@ -37,18 +37,18 @@ func GetInputRequired(name string) (string, error) {
 }
 
 // Retrieves the value of the input, attempts to parse it as an integer,
-// and returns a pointer to the parsed value.
-// Returns nil if the environment variable is not set.
-func GetInputInt(name string) (*int, error) {
+// and returns the parsed value.
+// Returns 0 if the environment variable is not set.
+func GetInputInt(name string) (int, error) {
 	val := GetInput(name)
 	if val == "" {
-		return nil, nil
+		return 0, nil
 	}
 	parsed, err := strconv.Atoi(val)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing input %s as integer: %v", name, err)
+		return 0, fmt.Errorf("error parsing input %s as integer: %v", name, err)
 	}
-	return &parsed, nil
+	return parsed, nil
 }
 
 func GetInputList(name string) []string {

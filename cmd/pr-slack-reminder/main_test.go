@@ -187,15 +187,6 @@ func TestScenarios(t *testing.T) {
 			expectedErrorMsg: "configuration error: either slack-channel-id or slack-channel-name must be set",
 		},
 		{
-			name:   "old PRs threshold hours but no heading",
-			config: testhelpers.GetDefaultConfigMinimal(),
-			configOverrides: &map[string]any{
-				config.InputOldPRThresholdHours: 10,
-				config.InputOldPRsListHeading:   nil,
-			},
-			expectedErrorMsg: "configuration error: if old-pr-threshold-hours is set, old-prs-list-heading must also be set",
-		},
-		{
 			name:             "invalid repository input 1",
 			config:           testhelpers.GetDefaultConfigMinimal(),
 			configOverrides:  &map[string]any{config.EnvGithubRepository: "invalid/repo/name"},
@@ -537,7 +528,7 @@ func TestScenarios(t *testing.T) {
 			expectedHeading := ""
 			if len(expectedPRs) > 0 {
 				expectedHeading = strings.ReplaceAll(
-					tc.config.ContentInputs.MainListHeading, "<pr_count>", strconv.Itoa(len(expectedPRs)),
+					tc.config.ContentInputs.PRListHeading, "<pr_count>", strconv.Itoa(len(expectedPRs)),
 				)
 			}
 			if expectedHeading != "" && !mockSlackAPI.SentMessage.Blocks.ContainsHeading(expectedHeading) {
