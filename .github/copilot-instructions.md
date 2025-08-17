@@ -1,5 +1,17 @@
 # Copilot Instructions for PR Slack Reminder Action
 
+## Code Style
+- Help the author to learn writing idiomatic Go code (the author is new to Go programming language)
+- Encourage the use of Go modules and proper package structure
+- Promote the use of clear and descriptive naming conventions for variables and functions
+- Advocate for the use of idiomatic error handling patterns (e.g., returning errors instead of panicking)
+- Encourage writing unit/integration tests for new features and maintaining high test coverage
+
+## AI Code Generation
+- Ask for more instructions and context if the prompt is unclear or lacks detail
+- Do not add comments explaining code, unless it is complex or non-obvious
+- Aim for simplicity and clarity in generated code
+
 ## Architecture Overview
 This is a GitHub Action written in Go that fetches PRs from GitHub repositories and sends a Slack reminder listing them. The architecture follows a clear data pipeline:
 
@@ -63,15 +75,3 @@ go run .github/scripts/check_inputs.go
 3. Update `Config` struct and `GetConfig()` function
 4. Update `testhelpers/confighelpers.go` for test support
 5. Implement feature logic in appropriate pipeline stage
-
-## Code Style
-- Help the author to learn writing idiomatic Go code (the author is new to Go programming language)
-- Encourage the use of Go modules and proper package structure
-- Promote the use of clear and descriptive naming conventions for variables and functions
-- Advocate for the use of idiomatic error handling patterns (e.g., returning errors instead of panicking)
-- Encourage writing unit/integration tests for new features and maintaining high test coverage
-
-## AI Code Generation
-- Ask for more instructions and context if the prompt is unclear or lacks detail
-- Do not add comments explaining code, unless it is complex or non-obvious
-- Aim for simplicity and clarity in generated code
