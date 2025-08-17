@@ -21,6 +21,7 @@ const (
 	InputOldPRThresholdHours         string = "old-pr-threshold-hours"
 	InputGlobalFilters               string = "filters"
 	InputRepositoryFilters           string = "repository-filters"
+	InputRepositoryPrefixes          string = "repository-prefixes"
 )
 
 type ContentInputs struct {
@@ -40,6 +41,7 @@ type Config struct {
 	ContentInputs               ContentInputs
 	GlobalFilters               Filters
 	RepositoryFilters           map[string]Filters
+	RepositoryPrefixes          map[string]string
 }
 
 func (c Config) Print() {
@@ -64,8 +66,9 @@ func GetConfig() (Config, error) {
 	slackUserIdByGitHubUsername, err6 := utilities.GetInputMapping(InputSlackUserIdByGitHubUsername)
 	globalFilters, err7 := GetGlobalFiltersFromInput(InputGlobalFilters)
 	repositoryFilters, err8 := GetRepositoryFiltersFromInput(InputRepositoryFilters)
+	repositoryPrefixes, err9 := utilities.GetInputMapping(InputRepositoryPrefixes)
 
-	if err := selectNonNilError(err1, err2, err3, err4, err5, err6, err7, err8); err != nil {
+	if err := selectNonNilError(err1, err2, err3, err4, err5, err6, err7, err8, err9); err != nil {
 		return Config{}, err
 	}
 
@@ -95,8 +98,9 @@ func GetConfig() (Config, error) {
 			PRListHeading:       mainListHeading,
 			OldPRThresholdHours: oldPRsThresholdHours,
 		},
-		GlobalFilters:     globalFilters,
-		RepositoryFilters: repositoryFilters,
+		GlobalFilters:      globalFilters,
+		RepositoryFilters:  repositoryFilters,
+		RepositoryPrefixes: repositoryPrefixes,
 	}
 	if config.SlackChannelID == "" && config.SlackChannelName == "" {
 		return Config{}, fmt.Errorf(

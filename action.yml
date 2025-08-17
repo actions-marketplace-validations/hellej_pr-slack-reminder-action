@@ -47,6 +47,10 @@ inputs: {
     description: 'Repository-specific filters (e.g., "repo1: {\"authors-ignore\": [\"alice\"]}; repo2: {\"labels\": [\"bug\"]}")',
     required: false,
   },
+  repository-prefixes: {
+    description: 'Repository-specific prefixes to display before PR titles (e.g., "repo1: 🚀; repo2: 📦")',
+    required: false,
+  },
 }
 
 runs:

@@ -15,6 +15,7 @@ type PR struct {
 	Approvers  []Collaborator // Users who have approved the PR at least once
 	Commenters []Collaborator // Users who have commented on the PR but did not approve it
 	IsOldPR    bool           // true if the PR is older than the configured threshold
+	Prefix     string
 }
 
 type Collaborator struct {
@@ -50,20 +51,26 @@ func (pr PR) GetPRAgeText() string {
 	}
 }
 
-func ParsePRs(prs []githubclient.PR, slackUserIdByGitHubUsername map[string]string) []PR {
+func ParsePRs(prs []githubclient.PR, slackUserIdByGitHubUsername map[string]string, repositoryPrefixes map[string]string) []PR {
 	var parsedPRs []PR
 	for _, pr := range prs {
-		parsedPRs = append(parsedPRs, parsePR(pr, slackUserIdByGitHubUsername))
+		parsedPRs = append(parsedPRs, parsePR(pr, slackUserIdByGitHubUsername, repositoryPrefixes))
 	}
 	return sortPRsByCreatedAt(parsedPRs)
 }
 
-func parsePR(pr githubclient.PR, slackUserIdByGitHubUsername map[string]string) PR {
+func parsePR(pr githubclient.PR, slackUserIdByGitHubUsername map[string]string, repositoryPrefixes map[string]string) PR {
+	prefix := ""
+	if repositoryPrefixes != nil {
+		prefix = repositoryPrefixes[pr.Repository]
+	}
+
 	return PR{
 		PR:         &pr,
 		Author:     NewCollaborator(&pr.Author, slackUserIdByGitHubUsername[pr.Author.Login]),
 		Approvers:  withSlackUserIds(pr.ApprovedByUsers, slackUserIdByGitHubUsername),
 		Commenters: withSlackUserIds(pr.CommentedByUsers, slackUserIdByGitHubUsername),
+		Prefix:     prefix,
 	}
 }
 
