@@ -31,16 +31,6 @@ func NewCollaborator(c *githubclient.Collaborator, slackUserId string) Collabora
 	}
 }
 
-func isOlderThan(pr *githubclient.PR, hours int) bool {
-	if hours == 0 {
-		return false
-	}
-	if pr.GetCreatedAt().IsZero() {
-		return true
-	}
-	return pr.GetCreatedAt().Before(time.Now().Add(-time.Duration(hours) * time.Hour))
-}
-
 func (pr PR) GetPRAgeText() string {
 	duration := time.Since(pr.CreatedAt.Time)
 	if duration.Hours() >= 24 {
@@ -98,4 +88,14 @@ func sortPRsByCreatedAt(prs []PR) []PR {
 		return b.GetUpdatedAt().Time.Compare(a.GetUpdatedAt().Time)
 	})
 	return prs
+}
+
+func isOlderThan(pr *githubclient.PR, hours int) bool {
+	if hours == 0 {
+		return false
+	}
+	if pr.GetCreatedAt().IsZero() {
+		return true
+	}
+	return pr.GetCreatedAt().Before(time.Now().Add(-time.Duration(hours) * time.Hour))
 }
