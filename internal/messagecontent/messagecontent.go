@@ -35,32 +35,17 @@ func getSummaryText(prCount int) string {
 	return fmt.Sprintf("%d open PRs are waiting for attention 👀", prCount)
 }
 
-func setPRIsOldProperty(prs []prparser.PR, oldPRThresholdHours int) []prparser.PR {
-	if oldPRThresholdHours == 0 {
-		return prs
-	}
-
-	processedPRs := make([]prparser.PR, len(prs))
-	for i, pr := range prs {
-		processedPRs[i] = pr
-		processedPRs[i].IsOldPR = pr.IsOlderThan(oldPRThresholdHours)
-	}
-	return processedPRs
-}
-
 func GetContent(openPRs []prparser.PR, contentInputs config.ContentInputs) Content {
-	processedPRs := setPRIsOldProperty(openPRs, contentInputs.OldPRThresholdHours)
-
 	switch {
-	case len(processedPRs) == 0:
+	case len(openPRs) == 0:
 		return Content{
 			SummaryText: contentInputs.NoPRsMessage,
 		}
 	default:
 		return Content{
-			SummaryText:   getSummaryText(len(processedPRs)),
-			PRListHeading: formatListHeading(contentInputs.PRListHeading, len(processedPRs)),
-			PRList:        processedPRs,
+			SummaryText:   getSummaryText(len(openPRs)),
+			PRListHeading: formatListHeading(contentInputs.PRListHeading, len(openPRs)),
+			PRList:        openPRs,
 		}
 	}
 }

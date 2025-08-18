@@ -37,14 +37,14 @@ func GetDefaultConfigFull() TestConfig {
 
 	return TestConfig{
 		Config: config.Config{
-			GithubToken:                 "SOME_TOKEN",
-			SlackBotToken:               "SOME_TOKEN",
-			SlackChannelName:            "some-channel-name",
-			SlackUserIdByGitHubUsername: slackUserIdByGithubUsername,
+			GithubToken:      "SOME_TOKEN",
+			SlackBotToken:    "SOME_TOKEN",
+			SlackChannelName: "some-channel-name",
 			ContentInputs: config.ContentInputs{
-				NoPRsMessage:        "No open PRs found.",
-				PRListHeading:       "There are <pr_count> open PRs 🚀",
-				OldPRThresholdHours: oldPRsThresholdHours,
+				NoPRsMessage:                "No open PRs found.",
+				PRListHeading:               "There are <pr_count> open PRs 🚀",
+				SlackUserIdByGitHubUsername: slackUserIdByGithubUsername,
+				OldPRThresholdHours:         oldPRsThresholdHours,
 			},
 		},
 		Repository:            "test-org/test-repo",
@@ -76,7 +76,7 @@ func setEnvFromConfig(t *testing.T, c TestConfig, overrides *map[string]any) {
 	setInputEnv(t, overrides, config.InputSlackBotToken, c.SlackBotToken)
 	setInputEnv(t, overrides, config.InputSlackChannelName, c.SlackChannelName)
 	setInputEnv(t, overrides, config.InputSlackChannelID, c.SlackChannelID)
-	setInputEnv(t, overrides, config.InputSlackUserIdByGitHubUsername, c.SlackUserIdByGitHubUsername)
+	setInputEnv(t, overrides, config.InputSlackUserIdByGitHubUsername, c.ContentInputs.SlackUserIdByGitHubUsername)
 	setInputEnv(t, overrides, config.InputNoPRsMessage, c.ContentInputs.NoPRsMessage)
 	setInputEnv(t, overrides, config.InputPRListHeading, c.ContentInputs.PRListHeading)
 	setInputEnv(t, overrides, config.InputOldPRThresholdHours, c.ContentInputs.OldPRThresholdHours)

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/hellej/pr-slack-reminder-action/internal/apiclients/githubclient"
+	"github.com/hellej/pr-slack-reminder-action/internal/config"
 )
 
 type PR struct {
@@ -30,7 +31,10 @@ func NewCollaborator(c *githubclient.Collaborator, slackUserId string) Collabora
 	}
 }
 
-func (pr PR) IsOlderThan(hours int) bool {
+func isOlderThan(pr *githubclient.PR, hours int) bool {
+	if hours == 0 {
+		return false
+	}
 	if pr.GetCreatedAt().IsZero() {
 		return true
 	}
@@ -51,25 +55,26 @@ func (pr PR) GetPRAgeText() string {
 	}
 }
 
-func ParsePRs(prs []githubclient.PR, slackUserIdByGitHubUsername map[string]string, repositoryPrefixes map[string]string) []PR {
+func ParsePRs(prs []githubclient.PR, config config.ContentInputs) []PR {
 	var parsedPRs []PR
 	for _, pr := range prs {
-		parsedPRs = append(parsedPRs, parsePR(pr, slackUserIdByGitHubUsername, repositoryPrefixes))
+		parsedPRs = append(parsedPRs, parsePR(pr, config))
 	}
 	return sortPRsByCreatedAt(parsedPRs)
 }
 
-func parsePR(pr githubclient.PR, slackUserIdByGitHubUsername map[string]string, repositoryPrefixes map[string]string) PR {
+func parsePR(pr githubclient.PR, config config.ContentInputs) PR {
 	prefix := ""
-	if repositoryPrefixes != nil {
-		prefix = repositoryPrefixes[pr.Repository]
+	if config.RepositoryPrefixes != nil {
+		prefix = config.RepositoryPrefixes[pr.Repository]
 	}
 
 	return PR{
 		PR:         &pr,
-		Author:     NewCollaborator(&pr.Author, slackUserIdByGitHubUsername[pr.Author.Login]),
-		Approvers:  withSlackUserIds(pr.ApprovedByUsers, slackUserIdByGitHubUsername),
-		Commenters: withSlackUserIds(pr.CommentedByUsers, slackUserIdByGitHubUsername),
+		Author:     NewCollaborator(&pr.Author, config.SlackUserIdByGitHubUsername[pr.Author.Login]),
+		Approvers:  withSlackUserIds(pr.ApprovedByUsers, config.SlackUserIdByGitHubUsername),
+		Commenters: withSlackUserIds(pr.CommentedByUsers, config.SlackUserIdByGitHubUsername),
+		IsOldPR:    isOlderThan(&pr, config.OldPRThresholdHours),
 		Prefix:     prefix,
 	}
 }

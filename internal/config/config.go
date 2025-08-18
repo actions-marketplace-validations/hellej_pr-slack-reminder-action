@@ -25,23 +25,23 @@ const (
 )
 
 type ContentInputs struct {
-	NoPRsMessage        string
-	PRListHeading       string
-	OldPRThresholdHours int
+	NoPRsMessage                string
+	PRListHeading               string
+	OldPRThresholdHours         int
+	RepositoryPrefixes          map[string]string
+	SlackUserIdByGitHubUsername map[string]string
 }
 
 type Config struct {
-	GithubToken                 string
-	SlackBotToken               string
-	repository                  string
-	Repositories                []Repository
-	SlackChannelName            string
-	SlackChannelID              string
-	SlackUserIdByGitHubUsername map[string]string
-	ContentInputs               ContentInputs
-	GlobalFilters               Filters
-	RepositoryFilters           map[string]Filters
-	RepositoryPrefixes          map[string]string
+	GithubToken       string
+	SlackBotToken     string
+	repository        string
+	Repositories      []Repository
+	SlackChannelName  string
+	SlackChannelID    string
+	GlobalFilters     Filters
+	RepositoryFilters map[string]Filters
+	ContentInputs     ContentInputs
 }
 
 func (c Config) Print() {
@@ -86,21 +86,21 @@ func GetConfig() (Config, error) {
 	}
 
 	config := Config{
-		repository:                  repository,
-		Repositories:                repositories,
-		GithubToken:                 githubToken,
-		SlackBotToken:               slackToken,
-		SlackChannelName:            utilities.GetInput(InputSlackChannelName),
-		SlackChannelID:              utilities.GetInput(InputSlackChannelID),
-		SlackUserIdByGitHubUsername: slackUserIdByGitHubUsername,
+		repository:       repository,
+		Repositories:     repositories,
+		GithubToken:      githubToken,
+		SlackBotToken:    slackToken,
+		SlackChannelName: utilities.GetInput(InputSlackChannelName),
+		SlackChannelID:   utilities.GetInput(InputSlackChannelID),
 		ContentInputs: ContentInputs{
-			NoPRsMessage:        utilities.GetInput(InputNoPRsMessage),
-			PRListHeading:       mainListHeading,
-			OldPRThresholdHours: oldPRsThresholdHours,
+			SlackUserIdByGitHubUsername: slackUserIdByGitHubUsername,
+			NoPRsMessage:                utilities.GetInput(InputNoPRsMessage),
+			PRListHeading:               mainListHeading,
+			OldPRThresholdHours:         oldPRsThresholdHours,
+			RepositoryPrefixes:          repositoryPrefixes,
 		},
-		GlobalFilters:      globalFilters,
-		RepositoryFilters:  repositoryFilters,
-		RepositoryPrefixes: repositoryPrefixes,
+		GlobalFilters:     globalFilters,
+		RepositoryFilters: repositoryFilters,
 	}
 	if config.SlackChannelID == "" && config.SlackChannelName == "" {
 		return Config{}, fmt.Errorf(
