@@ -24,9 +24,9 @@ type Collaborator struct {
 	SlackUserID string // empty string if not available
 }
 
-func NewCollaborator(c *githubclient.Collaborator, slackUserId string) Collaborator {
+func NewCollaborator(c githubclient.Collaborator, slackUserId string) Collaborator {
 	return Collaborator{
-		Collaborator: c,
+		Collaborator: &c,
 		SlackUserID:  slackUserId,
 	}
 }
@@ -61,10 +61,10 @@ func parsePR(pr githubclient.PR, config config.ContentInputs) PR {
 
 	return PR{
 		PR:         &pr,
-		Author:     NewCollaborator(&pr.Author, config.SlackUserIdByGitHubUsername[pr.Author.Login]),
+		Author:     NewCollaborator(pr.Author, config.SlackUserIdByGitHubUsername[pr.Author.Login]),
 		Approvers:  withSlackUserIds(pr.ApprovedByUsers, config.SlackUserIdByGitHubUsername),
 		Commenters: withSlackUserIds(pr.CommentedByUsers, config.SlackUserIdByGitHubUsername),
-		IsOldPR:    isOlderThan(&pr, config.OldPRThresholdHours),
+		IsOldPR:    isOlderThan(pr, config.OldPRThresholdHours),
 		Prefix:     prefix,
 	}
 }
@@ -75,7 +75,7 @@ func withSlackUserIds(
 ) []Collaborator {
 	result := make([]Collaborator, len(collaborators))
 	for i, c := range collaborators {
-		result[i] = NewCollaborator(&c, slackUserIdByGitHubUsername[c.Login])
+		result[i] = NewCollaborator(c, slackUserIdByGitHubUsername[c.Login])
 	}
 	return result
 }
@@ -90,7 +90,7 @@ func sortPRsByCreatedAt(prs []PR) []PR {
 	return prs
 }
 
-func isOlderThan(pr *githubclient.PR, hours int) bool {
+func isOlderThan(pr githubclient.PR, hours int) bool {
 	if hours == 0 {
 		return false
 	}
