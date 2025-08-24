@@ -1,5 +1,7 @@
 name: 'PR Slack Reminder'
 description: 'Sends a Slack reminder about open and stale PRs'
+icon: 'git-pull-request'
+color: 'green'
 inputs: {
   github-token: {
     description: 'GitHub token to access the repository',
