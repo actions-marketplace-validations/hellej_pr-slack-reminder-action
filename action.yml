@@ -1,7 +1,11 @@
 name: 'PR Slack Reminder'
-description: 'Sends a Slack reminder about open and stale PRs'
-icon: 'git-pull-request'
-color: 'green'
+description: 'Sends a Slack reminder about open PRs'
+runs:
+  using: 'node20'
+  main: 'invoke-binary.js'
+branding:
+  icon: 'git-pull-request'
+  color: 'green'
 inputs: {
   github-token: {
     description: 'GitHub token to access the repository',
@@ -54,7 +58,3 @@ inputs: {
     required: false,
   },
 }
-
-runs:
-  using: 'node20'
-  main: 'invoke-binary.js'
