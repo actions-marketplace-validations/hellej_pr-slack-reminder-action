@@ -12,11 +12,11 @@ import (
 type Content struct {
 	SummaryText   string
 	PRListHeading string
-	PRList        []prparser.PR
+	PRs           []prparser.PR
 }
 
 func (c Content) HasPRs() bool {
-	return len(c.PRList) > 0
+	return len(c.PRs) > 0
 }
 
 type PRCategory struct {
@@ -45,7 +45,7 @@ func GetContent(openPRs []prparser.PR, contentInputs config.ContentInputs) Conte
 		return Content{
 			SummaryText:   getSummaryText(len(openPRs)),
 			PRListHeading: formatListHeading(contentInputs.PRListHeading, len(openPRs)),
-			PRList:        openPRs,
+			PRs:           openPRs,
 		}
 	}
 }

@@ -42,7 +42,7 @@ func TestComposeSlackBlocksMessage(t *testing.T) {
 		content := messagecontent.Content{
 			SummaryText:   "1 open PRs are waiting for attention 👀",
 			PRListHeading: "🚀 New PRs since 1 days ago",
-			PRList:        testPRs.PRs,
+			PRs:           testPRs.PRs,
 		}
 		_, got := messagebuilder.BuildMessage(content)
 		if got != content.SummaryText {
@@ -56,7 +56,7 @@ func TestComposeSlackBlocksMessage(t *testing.T) {
 		content := messagecontent.Content{
 			SummaryText:   "1 open PRs are waiting for attention 👀",
 			PRListHeading: "🚀 New PRs since 1 days ago",
-			PRList:        testPRs.PRs,
+			PRs:           testPRs.PRs,
 		}
 		got, _ := messagebuilder.BuildMessage(content)
 

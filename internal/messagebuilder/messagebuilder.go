@@ -153,6 +153,6 @@ func BuildMessage(content messagecontent.Content) (slack.Message, string) {
 		return slack.NewBlockMessage(blocks...), content.SummaryText
 	}
 
-	blocks = addPRListBLock(blocks, content.PRListHeading, content.PRList)
+	blocks = addPRListBLock(blocks, content.PRListHeading, content.PRs)
 	return slack.NewBlockMessage(blocks...), content.SummaryText
 }
