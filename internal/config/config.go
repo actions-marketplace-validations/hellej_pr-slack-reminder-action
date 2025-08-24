@@ -1,3 +1,6 @@
+// Package config handles GitHub Action input parsing and validation.
+// It converts environment variables to structured configuration with
+// support for repository-specific filters, user mappings, and content settings.
 package config
 
 import (
@@ -9,7 +12,8 @@ import (
 )
 
 const (
-	EnvGithubRepository              string = "GITHUB_REPOSITORY"
+	EnvGithubRepository string = "GITHUB_REPOSITORY"
+
 	InputGithubRepositories          string = "github-repositories"
 	InputGithubToken                 string = "github-token"
 	InputSlackBotToken               string = "slack-bot-token"
@@ -24,24 +28,27 @@ const (
 	InputRepositoryPrefixes          string = "repository-prefixes"
 )
 
+type Config struct {
+	GithubToken   string
+	SlackBotToken string
+
+	repository   string
+	Repositories []Repository
+
+	SlackChannelName string
+	SlackChannelID   string
+
+	GlobalFilters     Filters
+	RepositoryFilters map[string]Filters
+	ContentInputs     ContentInputs
+}
+
 type ContentInputs struct {
 	NoPRsMessage                string
 	PRListHeading               string
 	OldPRThresholdHours         int
 	RepositoryPrefixes          map[string]string
 	SlackUserIdByGitHubUsername map[string]string
-}
-
-type Config struct {
-	GithubToken       string
-	SlackBotToken     string
-	repository        string
-	Repositories      []Repository
-	SlackChannelName  string
-	SlackChannelID    string
-	GlobalFilters     Filters
-	RepositoryFilters map[string]Filters
-	ContentInputs     ContentInputs
 }
 
 func (c Config) Print() {

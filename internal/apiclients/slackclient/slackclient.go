@@ -1,3 +1,5 @@
+// Package slackclient provides Slack API integration for sending messages.
+// It handles channel resolution by name and message posting with Block Kit formatting.
 package slackclient
 
 import (

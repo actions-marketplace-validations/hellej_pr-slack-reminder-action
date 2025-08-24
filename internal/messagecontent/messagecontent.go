@@ -1,3 +1,6 @@
+// Package messagecontent structures PR data and configuration into content
+// ready for message formatting. It handles text templating, PR counting,
+// and message content preparation.
 package messagecontent
 
 import (

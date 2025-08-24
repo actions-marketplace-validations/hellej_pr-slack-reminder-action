@@ -1,3 +1,6 @@
+// Package githubclient provides GitHub API integration for fetching PR data.
+// It handles concurrent repository queries, review data fetching, and applies
+// repository-specific and global filters to PRs.
 package githubclient
 
 import (
@@ -31,10 +34,6 @@ type GithubPullRequestsService interface {
 	)
 }
 
-type client struct {
-	prsService GithubPullRequestsService
-}
-
 func NewClient(prsService GithubPullRequestsService) Client {
 	return &client{prsService: prsService}
 }
@@ -42,6 +41,10 @@ func NewClient(prsService GithubPullRequestsService) Client {
 func GetAuthenticatedClient(token string) Client {
 	ghClient := github.NewClient(nil).WithAuthToken(token)
 	return NewClient(ghClient.PullRequests)
+}
+
+type client struct {
+	prsService GithubPullRequestsService
 }
 
 // Returns an error if fetching PRs from any repository fails (and cancels other requests).

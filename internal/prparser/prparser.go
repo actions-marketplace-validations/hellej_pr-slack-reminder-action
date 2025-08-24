@@ -1,3 +1,6 @@
+// Package prparser enriches raw GitHub PR data with additional metadata
+// for message display. It handles Slack user ID mapping, age calculation,
+// repository prefixes, and sorting of PRs for presentation.
 package prparser
 
 import (

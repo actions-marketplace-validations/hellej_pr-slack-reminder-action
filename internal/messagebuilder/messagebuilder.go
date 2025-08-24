@@ -1,3 +1,6 @@
+// Package messagebuilder constructs Slack Block Kit messages for PR reminders.
+// It transforms structured PR content into rich text blocks with formatting,
+// links, and user mentions suitable for Slack messaging.
 package messagebuilder
 
 import (

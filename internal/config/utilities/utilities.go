@@ -1,3 +1,6 @@
+// Package utilities provides helper functions for parsing GitHub Action inputs
+// from environment variables. It handles input name conversion, type parsing,
+// and structured data extraction from string inputs.
 package utilities
 
 import (
