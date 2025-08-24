@@ -24,17 +24,6 @@ type PRCategory struct {
 	PRs     []prparser.PR
 }
 
-func formatListHeading(heading string, prCount int) string {
-	return strings.ReplaceAll(heading, "<pr_count>", strconv.Itoa(prCount))
-}
-
-func getSummaryText(prCount int) string {
-	if prCount == 1 {
-		return "1 open PR is waiting for attention 👀"
-	}
-	return fmt.Sprintf("%d open PRs are waiting for attention 👀", prCount)
-}
-
 func GetContent(openPRs []prparser.PR, contentInputs config.ContentInputs) Content {
 	switch {
 	case len(openPRs) == 0:
@@ -48,4 +37,15 @@ func GetContent(openPRs []prparser.PR, contentInputs config.ContentInputs) Conte
 			PRs:           openPRs,
 		}
 	}
+}
+
+func getSummaryText(prCount int) string {
+	if prCount == 1 {
+		return "1 open PR is waiting for attention 👀"
+	}
+	return fmt.Sprintf("%d open PRs are waiting for attention 👀", prCount)
+}
+
+func formatListHeading(heading string, prCount int) string {
+	return strings.ReplaceAll(heading, "<pr_count>", strconv.Itoa(prCount))
 }

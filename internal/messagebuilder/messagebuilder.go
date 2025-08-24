@@ -6,6 +6,86 @@ import (
 	"github.com/slack-go/slack"
 )
 
+func BuildMessage(content messagecontent.Content) (slack.Message, string) {
+	var blocks []slack.Block
+
+	if !content.HasPRs() {
+		blocks = addNoPRsBlock(blocks, content.SummaryText)
+		return slack.NewBlockMessage(blocks...), content.SummaryText
+	}
+
+	blocks = addPRListBLock(blocks, content.PRListHeading, content.PRs)
+	return slack.NewBlockMessage(blocks...), content.SummaryText
+}
+
+func addNoPRsBlock(blocks []slack.Block, noPRsText string) []slack.Block {
+	return append(blocks,
+		slack.NewRichTextBlock("no_prs_block",
+			slack.NewRichTextSection(
+				slack.NewRichTextSectionTextElement(noPRsText, &slack.RichTextSectionTextStyle{}),
+			),
+		),
+	)
+}
+
+func addPRListBLock(blocks []slack.Block, heading string, prs []prparser.PR) []slack.Block {
+	return append(blocks, slack.NewHeaderBlock(
+		slack.NewTextBlockObject("plain_text", heading, false, false),
+	),
+		makePRListBlock(prs),
+	)
+}
+
+func makePRListBlock(openPRs []prparser.PR) *slack.RichTextBlock {
+	var prBlocks []slack.RichTextElement
+	for _, pr := range openPRs {
+		prBlocks = append(prBlocks, buildPRBulletPointBlock(pr))
+	}
+	return slack.NewRichTextBlock(
+		"open_prs",
+		slack.NewRichTextList(slack.RichTextListElementType("bullet"), 0,
+			prBlocks...,
+		),
+	)
+}
+
+func buildPRBulletPointBlock(pr prparser.PR) slack.RichTextElement {
+	var ageElements []slack.RichTextSectionElement
+
+	if pr.IsOldPR {
+		ageElements = append(ageElements,
+			slack.NewRichTextSectionTextElement(" 🚨 ", &slack.RichTextSectionTextStyle{}),
+			slack.NewRichTextSectionTextElement(pr.GetPRAgeText(), &slack.RichTextSectionTextStyle{Bold: true}),
+			slack.NewRichTextSectionTextElement(" 🚨", &slack.RichTextSectionTextStyle{}),
+		)
+	} else {
+		ageElements = append(ageElements,
+			slack.NewRichTextSectionTextElement(" "+pr.GetPRAgeText(), &slack.RichTextSectionTextStyle{}),
+		)
+	}
+
+	titleAgeAndAuthorElements := []slack.RichTextSectionElement{}
+
+	if pr.Prefix != "" {
+		titleAgeAndAuthorElements = append(titleAgeAndAuthorElements,
+			slack.NewRichTextSectionTextElement(pr.Prefix+" ", &slack.RichTextSectionTextStyle{}),
+		)
+	}
+
+	titleAgeAndAuthorElements = append(titleAgeAndAuthorElements,
+		slack.NewRichTextSectionLinkElement(pr.GetHTMLURL(), pr.GetTitle(), &slack.RichTextSectionTextStyle{Bold: true}),
+	)
+	titleAgeAndAuthorElements = append(titleAgeAndAuthorElements, ageElements...)
+	titleAgeAndAuthorElements = append(titleAgeAndAuthorElements,
+		slack.NewRichTextSectionTextElement(" by ", &slack.RichTextSectionTextStyle{}),
+		getUserNameElement(pr),
+	)
+
+	return slack.NewRichTextSection(
+		append(titleAgeAndAuthorElements, getReviewersElements(pr)...)...,
+	)
+}
+
 func getUserNameElement(pr prparser.PR) slack.RichTextSectionElement {
 	if pr.Author.SlackUserID != "" {
 		return slack.NewRichTextSectionUserElement(
@@ -75,84 +155,4 @@ func getReviewersElements(pr prparser.PR) []slack.RichTextSectionElement {
 	return append(elements, slack.NewRichTextSectionTextElement(
 		")", &slack.RichTextSectionTextStyle{},
 	))
-}
-
-func buildPRBulletPointBlock(pr prparser.PR) slack.RichTextElement {
-	var ageElements []slack.RichTextSectionElement
-
-	if pr.IsOldPR {
-		ageElements = append(ageElements,
-			slack.NewRichTextSectionTextElement(" 🚨 ", &slack.RichTextSectionTextStyle{}),
-			slack.NewRichTextSectionTextElement(pr.GetPRAgeText(), &slack.RichTextSectionTextStyle{Bold: true}),
-			slack.NewRichTextSectionTextElement(" 🚨", &slack.RichTextSectionTextStyle{}),
-		)
-	} else {
-		ageElements = append(ageElements,
-			slack.NewRichTextSectionTextElement(" "+pr.GetPRAgeText(), &slack.RichTextSectionTextStyle{}),
-		)
-	}
-
-	titleAgeAndAuthorElements := []slack.RichTextSectionElement{}
-
-	if pr.Prefix != "" {
-		titleAgeAndAuthorElements = append(titleAgeAndAuthorElements,
-			slack.NewRichTextSectionTextElement(pr.Prefix+" ", &slack.RichTextSectionTextStyle{}),
-		)
-	}
-
-	titleAgeAndAuthorElements = append(titleAgeAndAuthorElements,
-		slack.NewRichTextSectionLinkElement(pr.GetHTMLURL(), pr.GetTitle(), &slack.RichTextSectionTextStyle{Bold: true}),
-	)
-	titleAgeAndAuthorElements = append(titleAgeAndAuthorElements, ageElements...)
-	titleAgeAndAuthorElements = append(titleAgeAndAuthorElements,
-		slack.NewRichTextSectionTextElement(" by ", &slack.RichTextSectionTextStyle{}),
-		getUserNameElement(pr),
-	)
-
-	return slack.NewRichTextSection(
-		append(titleAgeAndAuthorElements, getReviewersElements(pr)...)...,
-	)
-}
-
-func makePRListBlock(openPRs []prparser.PR) *slack.RichTextBlock {
-	var prBlocks []slack.RichTextElement
-	for _, pr := range openPRs {
-		prBlocks = append(prBlocks, buildPRBulletPointBlock(pr))
-	}
-	return slack.NewRichTextBlock(
-		"open_prs",
-		slack.NewRichTextList(slack.RichTextListElementType("bullet"), 0,
-			prBlocks...,
-		),
-	)
-}
-
-func addPRListBLock(blocks []slack.Block, heading string, prs []prparser.PR) []slack.Block {
-	return append(blocks, slack.NewHeaderBlock(
-		slack.NewTextBlockObject("plain_text", heading, false, false),
-	),
-		makePRListBlock(prs),
-	)
-}
-
-func addNoPRsBlock(blocks []slack.Block, noPRsText string) []slack.Block {
-	return append(blocks,
-		slack.NewRichTextBlock("no_prs_block",
-			slack.NewRichTextSection(
-				slack.NewRichTextSectionTextElement(noPRsText, &slack.RichTextSectionTextStyle{}),
-			),
-		),
-	)
-}
-
-func BuildMessage(content messagecontent.Content) (slack.Message, string) {
-	var blocks []slack.Block
-
-	if !content.HasPRs() {
-		blocks = addNoPRsBlock(blocks, content.SummaryText)
-		return slack.NewBlockMessage(blocks...), content.SummaryText
-	}
-
-	blocks = addPRListBLock(blocks, content.PRListHeading, content.PRs)
-	return slack.NewBlockMessage(blocks...), content.SummaryText
 }

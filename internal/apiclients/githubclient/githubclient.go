@@ -18,7 +18,7 @@ type Client interface {
 	) ([]PR, error)
 }
 
-type githubPullRequestsService interface {
+type GithubPullRequestsService interface {
 	List(
 		ctx context.Context, owner string, repo string, opts *github.PullRequestListOptions,
 	) (
@@ -32,10 +32,10 @@ type githubPullRequestsService interface {
 }
 
 type client struct {
-	prsService githubPullRequestsService
+	prsService GithubPullRequestsService
 }
 
-func NewClient(prsService githubPullRequestsService) Client {
+func NewClient(prsService GithubPullRequestsService) Client {
 	return &client{prsService: prsService}
 }
 

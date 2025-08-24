@@ -16,39 +16,6 @@ type Filters struct {
 	LabelsIgnore  []string `json:"labels-ignore,omitempty"`
 }
 
-func (f Filters) validate() error {
-	if len(f.Authors) > 0 && len(f.AuthorsIgnore) > 0 {
-		return fmt.Errorf("cannot use both authors and authors-ignore filters at the same time")
-	}
-
-	if slices.ContainsFunc(f.Labels, func(author string) bool {
-		return slices.Contains(f.LabelsIgnore, author)
-	}) {
-		return fmt.Errorf("labels filter cannot contain labels that are in labels-ignore filter")
-	}
-	return nil
-}
-
-func parseFilters(rawFilters string) (Filters, error) {
-	if rawFilters == "" {
-		return Filters{}, nil
-	}
-
-	dec := json.NewDecoder(bytes.NewReader([]byte(rawFilters)))
-	dec.DisallowUnknownFields()
-	var filters Filters
-	err := dec.Decode(&filters)
-	if err != nil {
-		return Filters{}, fmt.Errorf("unable to parse filters from %v: %v", rawFilters, err)
-	}
-	err = filters.validate()
-	if err != nil {
-		return Filters{}, fmt.Errorf("invalid filters: %v, error: %v", rawFilters, err)
-	}
-
-	return filters, nil
-}
-
 func GetGlobalFiltersFromInput(input string) (Filters, error) {
 	filters, err := parseFilters(utilities.GetInput(input))
 	if err != nil {
@@ -76,4 +43,37 @@ func GetRepositoryFiltersFromInput(input string) (map[string]Filters, error) {
 	}
 
 	return filtersByRepo, nil
+}
+
+func parseFilters(rawFilters string) (Filters, error) {
+	if rawFilters == "" {
+		return Filters{}, nil
+	}
+
+	dec := json.NewDecoder(bytes.NewReader([]byte(rawFilters)))
+	dec.DisallowUnknownFields()
+	var filters Filters
+	err := dec.Decode(&filters)
+	if err != nil {
+		return Filters{}, fmt.Errorf("unable to parse filters from %v: %v", rawFilters, err)
+	}
+	err = filters.validate()
+	if err != nil {
+		return Filters{}, fmt.Errorf("invalid filters: %v, error: %v", rawFilters, err)
+	}
+
+	return filters, nil
+}
+
+func (f Filters) validate() error {
+	if len(f.Authors) > 0 && len(f.AuthorsIgnore) > 0 {
+		return fmt.Errorf("cannot use both authors and authors-ignore filters at the same time")
+	}
+
+	if slices.ContainsFunc(f.Labels, func(author string) bool {
+		return slices.Contains(f.LabelsIgnore, author)
+	}) {
+		return fmt.Errorf("labels filter cannot contain labels that are in labels-ignore filter")
+	}
+	return nil
 }

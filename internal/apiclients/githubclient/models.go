@@ -63,7 +63,7 @@ func (pr PR) isMatch(filters config.Filters) bool {
 type FetchReviewsResult struct {
 	pr      *github.PullRequest
 	reviews []*github.PullRequestReview
-	// Repository name (just the name, no owner)
+	// Repository name (just the name without owner)
 	repository string
 	err        error
 }

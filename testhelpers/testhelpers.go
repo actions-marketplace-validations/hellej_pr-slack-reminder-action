@@ -9,12 +9,6 @@ func AsPointer[T any](v T) *T {
 	return &v
 }
 
-var seededRand *rand.Rand = rand.New(
-	rand.NewSource(time.Now().UnixNano()))
-
-const charset = "abcdefghijklmnopqrstuvwxyz" +
-	"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
 func RandomPositiveInt() int {
 	return seededRand.Intn(100_000) + 1 // Ensures a positive integer
 }
@@ -30,3 +24,9 @@ func RandomStringWithCharset(length int, charset string) string {
 func RandomString(length int) string {
 	return RandomStringWithCharset(length, charset)
 }
+
+const charset = "abcdefghijklmnopqrstuvwxyz" +
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+var seededRand *rand.Rand = rand.New(
+	rand.NewSource(time.Now().UnixNano()))
