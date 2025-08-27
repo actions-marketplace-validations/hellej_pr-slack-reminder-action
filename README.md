@@ -124,20 +124,20 @@ jobs:
 
 ## Inputs
 
-| Name                                | Required | Example                                                              | Description                                                          |
-| ----------------------------------- | -------- | -------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `github-token`                      | ✅       | `${{ secrets.GITHUB_TOKEN }}`                                        | GitHub token for repository access                                   |
-| `slack-bot-token`                   | ✅       | `${{ secrets.SLACK_BOT_TOKEN }}`                                     | Slack bot token for sending messages                                 |
-| `slack-channel-name`                | ❌       | `dev-team`                                                           | Slack channel name (use this OR slack-channel-id)                    |
-| `slack-channel-id`                  | ❌       | `C1234567890`                                                        | Slack channel ID (use this OR slack-channel-name)                    |
-| `github-repositories`               | ❌       | `owner/repo1`<br>`owner/repo2`                                       | Repositories to monitor (defaults to current repo)                   |
-| `github-user-slack-user-id-mapping` | ❌       | `alice: U1234567890`<br>`kronk: U2345678901`                         | Map of GitHub usernames to Slack user IDs                            |
-| `main-list-heading`                 | ❌       | `There are <pr_count> open PRs 💫`                                   | Message heading (`<pr_count>` gets replaced)                         |
-| `no-prs-message`                    | ❌       | `All caught up! 🎉`                                                  | Message when no PRs are found (if not set, no empty message is sent) |
-| `old-pr-threshold-hours`            | ❌       | `48`                                                                 | Hours after which PRs are highlighted as old                         |
-| `repository-prefixes`               | ❌       | `repo1: 🚀`<br>`repo2: 📦`                                           | Repository specific prefixes to display before PR titles             |
-| `filters`                           | ❌       | `{"authors": ["alice"], "labels-ignore": ["wip"]}`                   | Global filters (JSON format)                                         |
-| `repository-filters`                | ❌       | `repo1: {"labels": ["bug"]}`<br>`repo2: {"authors-ignore": ["bot"]}` | Repository-specific filters                                          |
+| Name                                | Required | Description                                                                                                     |
+| ----------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------- |
+| `github-token`                      | ✅       | GitHub token for repository access<br>Example: `${{ secrets.GITHUB_TOKEN }}`                                    |
+| `slack-bot-token`                   | ✅       | Slack bot token for sending messages<br>Example: `${{ secrets.SLACK_BOT_TOKEN }}`                               |
+| `slack-channel-name`                | ❌       | Slack channel name (use this OR `slack-channel-id`)<br>Example: `dev-team`                                      |
+| `slack-channel-id`                  | ❌       | Slack channel ID (use this OR `slack-channel-name`)<br>Example: `C1234567890`                                   |
+| `github-repositories`               | ❌       | Repositories to monitor (defaults to current repo)<br>Example:<br>`owner/repo1`<br>`owner/repo2`                |
+| `github-user-slack-user-id-mapping` | ❌       | Map of GitHub usernames to Slack user IDs<br>Example:<br>`alice: U1234567890`<br>`kronk: U2345678901`           |
+| `main-list-heading`                 | ❌       | Message heading (`<pr_count>` gets replaced)<br>Example: `There are <pr_count> open PRs 💫`                     |
+| `no-prs-message`                    | ❌       | Message when no PRs are found (if not set, no empty message gets sent)<br>Example: `All caught up! 🎉`          |
+| `old-pr-threshold-hours`            | ❌       | Duration in hours after which PRs are highlighted as old<br>Example: `48`                                       |
+| `repository-prefixes`               | ❌       | Repository specific prefixes to display before PR titles<br>Example:<br>`repo1: 🚀`<br>`repo2: 📦`              |
+| `filters`                           | ❌       | Global filters (JSON)<br>Example:<br>`{"authors": ["alice"], "labels-ignore": ["wip"]}`                         |
+| `repository-filters`                | ❌       | Repository-specific filters<br>Example:<br>`repo1: {"labels": ["bug"]}`<br>`repo2: {"authors-ignore": ["bot"]}` |
 
 ### Filter Options
 
