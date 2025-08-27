@@ -16,7 +16,7 @@ This GitHub Action sends friendly Slack reminders about open Pull Requests, help
 ### Prerequisites
 
 - A Slack bot token with permissions to post messages
-- GitHub token with read access to your repositories (see ##)
+- [GitHub token](#-github-token-setup) with read access to your repositories
 
 ### Basic Usage Examples
 
