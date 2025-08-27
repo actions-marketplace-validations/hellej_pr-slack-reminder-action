@@ -2,7 +2,7 @@
 
 # PR Slack Reminder Action
 
-This GitHub Action sends friendly Slack reminders about open Pull Requests, helping your team stay on top of code reviews and keep the development flow moving.
+This GitHub Action sends a friendly Slack reminder about open Pull Requests, helping your team stay on top of code reviews and keep the development flow moving.
 
 ⚠️ **Note**: The action is still experimental and released as `v1-beta` - `v1` is expected to be released by October 2025 (breaking changes may still be released to `v1-beta` until then).
 
