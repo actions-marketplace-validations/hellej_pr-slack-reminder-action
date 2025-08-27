@@ -45,16 +45,16 @@ inputs: {
     description: 'Message to send when there are no open PRs',
     required: false,
   },
+  repository-prefixes: {
+    description: 'Repository-specific prefixes to display before PR titles (e.g., "repo1: 🚀; repo2: 📦")',
+    required: false,
+  },
   filters: {
     description: 'e.g. {"authors": ["alice", "bob"], "labels": ["bug", "enhancement"], "labels-ignore": ["wip"]}',
     required: false,
   },
   repository-filters: {
     description: 'Repository-specific filters (e.g., "repo1: {\"authors-ignore\": [\"alice\"]}; repo2: {\"labels\": [\"bug\"]}")',
-    required: false,
-  },
-  repository-prefixes: {
-    description: 'Repository-specific prefixes to display before PR titles (e.g., "repo1: 🚀; repo2: 📦")',
     required: false,
   },
 }

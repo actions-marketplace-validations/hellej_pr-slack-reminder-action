@@ -70,8 +70,8 @@ func (f Filters) validate() error {
 		return fmt.Errorf("cannot use both authors and authors-ignore filters at the same time")
 	}
 
-	if slices.ContainsFunc(f.Labels, func(author string) bool {
-		return slices.Contains(f.LabelsIgnore, author)
+	if slices.ContainsFunc(f.Labels, func(label string) bool {
+		return slices.Contains(f.LabelsIgnore, label)
 	}) {
 		return fmt.Errorf("labels filter cannot contain labels that are in labels-ignore filter")
 	}

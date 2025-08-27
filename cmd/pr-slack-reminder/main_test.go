@@ -345,6 +345,25 @@ func TestScenarios(t *testing.T) {
 			expectedSummary:   "1 open PR is waiting for attention 👀",
 		},
 		{
+			name:   "PRs not filtered out from repo2 by overriding global filters with empty repository filters for repo2",
+			config: testhelpers.GetDefaultConfigMinimal(),
+			configOverrides: &map[string]any{
+				config.InputGlobalFilters:      "{\"authors-ignore\": [\"alice\"]}",
+				config.InputRepositoryFilters:  "repo2: {}",
+				config.InputGithubRepositories: "some-org/repo1; some-org/repo2",
+			},
+			prsByRepo: map[string][]*github.PullRequest{
+				"repo1": {
+					getTestPR(GetTestPROptions{Number: 1, AuthorLogin: "alice", Title: "The PR by Alice that should be excluded"}),
+				},
+				"repo2": {
+					getTestPR(GetTestPROptions{Number: 2, AuthorLogin: "alice", Title: "PR by Alice that should be included"}),
+				},
+			},
+			expectedPRNumbers: []int{2},
+			expectedSummary:   "1 open PR is waiting for attention 👀",
+		},
+		{
 			name:   "full config with 5 PRs including old PRs",
 			config: testhelpers.GetDefaultConfigFull(),
 			configOverrides: &map[string]any{
