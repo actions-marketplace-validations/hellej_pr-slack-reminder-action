@@ -4,14 +4,28 @@
 
 This GitHub Action sends a friendly Slack reminder about open Pull Requests, helping your team stay on top of code reviews and keep the development flow moving.
 
-> ⚠️ **Beta Version Notice**: This action is currently in beta (`v1-beta`). While functional and tested, the API may change before the stable `v1` release planned for October 2025. Please pin to a specific commit hash in production workflows to avoid unexpected breaking changes.
+> ⚠️ **Beta Version Notice**: This action is currently in beta (`v1-beta`). While functional and tested, the API may change before the stable `v1` release planned for October 2025.
 
-## Features
+## GitHub's Built-in vs This Action
 
-- 🔍 **Multi-repository support** - List open PRs across multiple repositories
-- 🎯 **Configurable filtering** - Find the most important PRs by authors and labels
-- ⏰ **Age highlighting** - Highlight old PRs that need attention
-- 🏷️ **Repository prefixes** - Easily distinguish PRs from different repositories
+You may not need this action. GitHub provides [built-in scheduled reminders for teams](https://docs.github.com/en/organizations/organizing-members-into-teams/managing-scheduled-reminders-for-your-team), which can work well in many situations.
+
+**When to use GitHub's built-in reminders:**
+
+- Your team structure aligns with GitHub teams
+- The CODEOWNERS files of your repositories accurately match your team structure (-> reviews are automatically requested from the right teams)
+- You're okay with the 5 repository limit per reminder
+- You don't need custom message content or formatting
+- You don't need different filtering options for each repository
+
+**What's special about this action:**
+
+- Monitor up to 50 repositories
+- Highlight old PRs that need attention (with optional age threshold input)
+- Repository specific filters
+- No need for official GitHub team setup
+- No need for perfect CODEOWNERS files to get reminded about the right PRs
+- More customizable Slack message content
 
 ## Getting Started
 
@@ -175,10 +189,7 @@ To monitor multiple repositories, you'll need a Personal Access Token:
 1. **Go to GitHub Settings** → Developer settings → Personal access tokens → Fine-grained tokens
 2. **Click "Generate new token"** → Select the repositories of interest and at least read access to PRs
 3. **Add the token as a repository secret** named `PR_REMINDER_GITHUB_TOKEN`
-4. **Use it in your workflow:**
-   ```yaml
-   github-token: ${{ secrets.PR_REMINDER_GITHUB_TOKEN }}
-   ```
+4. **Use it in your workflow:** `github-token: ${{ secrets.PR_REMINDER_GITHUB_TOKEN }}`
 
 ## 💡 Tips
 
