@@ -24,6 +24,7 @@ You may not need this action. GitHub provides [built-in scheduled reminders for 
 - Highlight old PRs that need attention (with optional age threshold input)
 - Repository specific filters
 - No need for official GitHub team setup
+- Anyone can set this up (no need to be GitHub team maintainer)
 - No need for perfect CODEOWNERS files to get reminded about the right PRs
 - More customizable Slack message content
 
