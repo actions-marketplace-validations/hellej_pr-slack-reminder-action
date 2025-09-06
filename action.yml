@@ -39,7 +39,6 @@ inputs: {
   old-pr-threshold-hours: {
     description: 'Threshold in hours to consider a PR as old (old PRs will be highlighted with alarm emojis and bold age text)',
     required: false,
-    type: number,
   },
   no-prs-message: {
     description: 'Message to send when there are no open PRs',
