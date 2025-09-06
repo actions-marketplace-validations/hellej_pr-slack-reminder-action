@@ -32,9 +32,12 @@ func addNoPRsBlock(blocks []slack.Block, noPRsText string) []slack.Block {
 }
 
 func addPRListBLock(blocks []slack.Block, heading string, prs []prparser.PR) []slack.Block {
-	return append(blocks, slack.NewHeaderBlock(
-		slack.NewTextBlockObject("plain_text", heading, false, false),
-	),
+	return append(blocks,
+		slack.NewRichTextBlock("pr_list_heading",
+			slack.NewRichTextSection(
+				slack.NewRichTextSectionTextElement(heading, &slack.RichTextSectionTextStyle{Bold: true}),
+			),
+		),
 		makePRListBlock(prs),
 	)
 }
