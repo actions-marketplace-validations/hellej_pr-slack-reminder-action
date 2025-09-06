@@ -63,9 +63,10 @@ func TestComposeSlackBlocksMessage(t *testing.T) {
 		if len(got.Blocks.BlockSet) < 2 {
 			t.Errorf("Expected non-empty blocks, got nil or empty")
 		}
-		headerBlock := got.Blocks.BlockSet[0].(*slack.HeaderBlock).Text
-		if headerBlock.Text != content.PRListHeading {
-			t.Errorf("Expected '%s', got '%s'", content.PRListHeading, headerBlock.Text)
+		firstBlock := got.Blocks.BlockSet[0]
+		header := firstBlock.(*slack.RichTextBlock).Elements[0].(*slack.RichTextSection).Elements[0].(*slack.RichTextSectionTextElement)
+		if header.Text != content.PRListHeading {
+			t.Errorf("Expected '%s', got '%s'", content.PRListHeading, header.Text)
 		}
 		prBulletPointTextElements := got.Msg.Blocks.BlockSet[1].(*slack.RichTextBlock).Elements[0].(*slack.RichTextList).Elements[0].(*slack.RichTextSection).Elements
 		prLinkElement := prBulletPointTextElements[0].(*slack.RichTextSectionLinkElement)

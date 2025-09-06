@@ -22,11 +22,18 @@ func (b BlocksWrapper) GetPRLists() []PRList {
 
 	currentHeading := ""
 	for _, block := range b.Blocks {
-		if block.Type == "header" && block.Text != nil {
-			currentHeading = block.Text.Text
+		if block.IsHeading() {
+			var richTextSections []RichTextSection
+			err := json.Unmarshal(block.Elements, &richTextSections)
+			if err != nil {
+				panic(fmt.Sprintf("Unexpected rich_text section array type: %v", err))
+			}
+			if len(richTextSections) > 0 && len(richTextSections[0].Elements) > 0 {
+				currentHeading = richTextSections[0].Elements[0].Text
+			}
 		}
 		var prList PRList
-		if currentHeading != "" && block.Type == "rich_text" && block.Elements != nil {
+		if currentHeading != "" && block.IsPRItem() {
 			prList.Heading = currentHeading
 			var richTextLists []RichTextList // we're expecting an array of one
 			err := json.Unmarshal(block.Elements, &richTextLists)
@@ -102,6 +109,14 @@ type Block struct {
 	Text     *TextObject     `json:"text,omitempty"`
 	BlockID  string          `json:"block_id,omitempty"`
 	Elements json.RawMessage `json:"elements,omitempty"` // We'll unmarshal this based on Type
+}
+
+func (b Block) IsHeading() bool {
+	return b.Type == "rich_text" && b.BlockID == "pr_list_heading"
+}
+
+func (b Block) IsPRItem() bool {
+	return b.Type == "rich_text" && b.BlockID != "pr_list_heading" && b.Elements != nil
 }
 
 type TextObject struct {
