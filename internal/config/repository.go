@@ -33,5 +33,4 @@ func parseRepository(repository string) (Repository, error) {
 		Owner: repoOwner,
 		Name:  repoName,
 	}, nil
-
 }
