@@ -14,7 +14,7 @@
 - Do not add comments explaining code, unless it is complex or non-obvious
 - Aim for simplicity and clarity in generated code
 
-### Testing Strategy
+### Testing Strategy & Practices
 
 - **Test-Driven Development**: Use TDD approach when adding new features - write tests first, then implement the functionality whenever possible
 - **Pragmatic Testing**: Balance thoroughness with practicality - focus on critical paths and user-facing behavior
@@ -22,9 +22,7 @@
 - **Readable Tests**: Write tests that are easy to understand with minimal comments - the test structure and assertions should be self-explanatory
 - **Reduce Boilerplate**: Create test helpers for setup and assertions when duplication emerges - check for existing helpers in `testhelpers/` package
 - **Test Coverage**: Maintain high test coverage while avoiding testing internal implementation details that may change during refactoring
-
-### Unit/Integration Testing Practices
-
+- **Table-Driven Tests**: Use table-driven tests for functions with multiple input scenarios to reduce duplication and improve readability
 - **Main Tests**: `cmd/pr-slack-reminder/main_test.go` contains integration tests using full pipeline with mocks
 - **Test Helpers**: `testhelpers/confighelpers.go` provides `TestConfig` struct and `SetTestEnvironment()` for consistent test setup
 - **Mock Clients**: `testhelpers/mock*client/` provide injectable dependencies for testing

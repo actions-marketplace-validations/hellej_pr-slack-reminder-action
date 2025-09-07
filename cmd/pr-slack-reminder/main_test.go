@@ -202,6 +202,20 @@ func TestScenarios(t *testing.T) {
 			expectedErrorMsg: "configuration error: invalid repositories input: owner or repository name cannot be empty in: invalid/",
 		},
 		{
+			name:   "too many repositories",
+			config: testhelpers.GetDefaultConfigMinimal(),
+			configOverrides: &map[string]any{
+				config.InputGithubRepositories: func() string {
+					var repos []string
+					for i := 1; i <= 51; i++ {
+						repos = append(repos, "org"+strconv.Itoa(i)+"/repo"+strconv.Itoa(i))
+					}
+					return strings.Join(repos, "\n")
+				}(),
+			},
+			expectedErrorMsg: "configuration error: too many repositories: maximum of 50 repositories allowed, got 51",
+		},
+		{
 			name:            "no PRs found with message",
 			config:          testhelpers.GetDefaultConfigMinimal(),
 			configOverrides: &map[string]any{config.InputNoPRsMessage: "No PRs found, happy coding! 🎉"},

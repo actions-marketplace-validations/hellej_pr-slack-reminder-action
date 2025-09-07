@@ -1,6 +1,7 @@
 package config_test
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
@@ -495,6 +496,70 @@ func TestGetConfig_InvalidOldPRThreshold(t *testing.T) {
 	expectedErrMsg := "error parsing input old-pr-threshold-hours as integer"
 	if !strings.Contains(err.Error(), expectedErrMsg) {
 		t.Errorf("Expected error to contain '%s', got '%s'", expectedErrMsg, err.Error())
+	}
+}
+
+func TestRepositoryLimit(t *testing.T) {
+	testCases := []struct {
+		name           string
+		repoCount      int
+		expectError    bool
+		expectedErrMsg string
+		expectedRepos  int
+	}{
+		{
+			name:          "below limit",
+			repoCount:     5,
+			expectError:   false,
+			expectedRepos: 5,
+		},
+		{
+			name:          "at maximum limit",
+			repoCount:     50,
+			expectError:   false,
+			expectedRepos: 50,
+		},
+		{
+			name:           "exceeds maximum limit",
+			repoCount:      51,
+			expectError:    true,
+			expectedErrMsg: "too many repositories: maximum of 50 repositories allowed, got 51",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newConfigTestHelpers(t)
+			h.setupMinimalValidConfig(MinimalConfigOptions{
+				SkipGithubRepository: true,
+			})
+			h.setEnv(config.EnvGithubRepository, "default-org/default-repo")
+
+			// Create a list with the specified number of repositories
+			var repos []string
+			for i := 1; i <= tc.repoCount; i++ {
+				repos = append(repos, fmt.Sprintf("org%d/repo%d", i, i))
+			}
+			h.setInputList(config.InputGithubRepositories, repos)
+
+			cfg, err := config.GetConfig()
+
+			if tc.expectError {
+				if err == nil {
+					t.Fatalf("Expected error, got nil")
+				}
+				if err.Error() != tc.expectedErrMsg {
+					t.Errorf("Expected error '%s', got '%s'", tc.expectedErrMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("Expected no error, got: %v", err)
+				}
+				if len(cfg.Repositories) != tc.expectedRepos {
+					t.Errorf("Expected %d repositories, got %d", tc.expectedRepos, len(cfg.Repositories))
+				}
+			}
+		})
 	}
 }
 

@@ -24,7 +24,7 @@ inputs: {
     required: false,
   },
   github-repositories: {
-    description: 'Line break separated list of GitHub repositories to check for open PRs - if not provided, the the repository of the current workflow run will be used',
+    description: 'Line break separated list of GitHub repositories to check for open PRs (maximum 50 repositories) - if not provided, the the repository of the current workflow run will be used',
     required: false,
   },
   github-user-slack-user-id-mapping: {

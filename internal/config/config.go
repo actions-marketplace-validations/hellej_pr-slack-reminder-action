@@ -26,6 +26,8 @@ const (
 	InputGlobalFilters               string = "filters"
 	InputRepositoryFilters           string = "repository-filters"
 	InputRepositoryPrefixes          string = "repository-prefixes"
+
+	MaxRepositories int = 50
 )
 
 type Config struct {
@@ -83,6 +85,11 @@ func GetConfig() (Config, error) {
 	if len(repositoryPaths) == 0 {
 		repositoryPaths = []string{repository}
 	}
+
+	if len(repositoryPaths) > MaxRepositories {
+		return Config{}, fmt.Errorf("too many repositories: maximum of %d repositories allowed, got %d", MaxRepositories, len(repositoryPaths))
+	}
+
 	repositories := make([]Repository, len(repositoryPaths))
 	for i, repoPath := range repositoryPaths {
 		repo, err := parseRepository(repoPath)
