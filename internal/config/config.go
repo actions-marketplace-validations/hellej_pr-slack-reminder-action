@@ -66,6 +66,20 @@ func (c Config) Print() {
 	log.Println(string(asJson))
 }
 
+// Validate performs post-construction validation of business rules for Config.
+// It validates repository limits and Slack channel requirements.
+func (c Config) Validate() error {
+	if len(c.Repositories) > MaxRepositories {
+		return fmt.Errorf("too many repositories: maximum of %d repositories allowed, got %d", MaxRepositories, len(c.Repositories))
+	}
+
+	if c.SlackChannelID == "" && c.SlackChannelName == "" {
+		return fmt.Errorf("either %s or %s must be set", InputSlackChannelID, InputSlackChannelName)
+	}
+
+	return nil
+}
+
 func GetConfig() (Config, error) {
 	repository, err1 := utilities.GetEnvRequired(EnvGithubRepository)
 	githubToken, err2 := utilities.GetInputRequired(InputGithubToken)
@@ -84,10 +98,6 @@ func GetConfig() (Config, error) {
 	repositoryPaths := utilities.GetInputList(InputGithubRepositories)
 	if len(repositoryPaths) == 0 {
 		repositoryPaths = []string{repository}
-	}
-
-	if len(repositoryPaths) > MaxRepositories {
-		return Config{}, fmt.Errorf("too many repositories: maximum of %d repositories allowed, got %d", MaxRepositories, len(repositoryPaths))
 	}
 
 	repositories := make([]Repository, len(repositoryPaths))
@@ -116,11 +126,11 @@ func GetConfig() (Config, error) {
 		GlobalFilters:     globalFilters,
 		RepositoryFilters: repositoryFilters,
 	}
-	if config.SlackChannelID == "" && config.SlackChannelName == "" {
-		return Config{}, fmt.Errorf(
-			"either %s or %s must be set", InputSlackChannelID, InputSlackChannelName,
-		)
+
+	if err := config.Validate(); err != nil {
+		return Config{}, err
 	}
+
 	return config, nil
 }
 

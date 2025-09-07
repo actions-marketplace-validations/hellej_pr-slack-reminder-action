@@ -563,10 +563,84 @@ func TestRepositoryLimit(t *testing.T) {
 	}
 }
 
-func TestConfigPrint(t *testing.T) {
-	cfg := config.Config{
-		GithubToken:   "secret-github-token",
-		SlackBotToken: "secret-slack-token",
+func TestConfig_Validate(t *testing.T) {
+	testCases := []struct {
+		name           string
+		config         config.Config
+		expectError    bool
+		expectedErrMsg string
+	}{
+		{
+			name: "valid config with channel name",
+			config: config.Config{
+				SlackChannelName: "test-channel",
+				Repositories:     make([]config.Repository, 5),
+			},
+			expectError: false,
+		},
+		{
+			name: "valid config with channel ID",
+			config: config.Config{
+				SlackChannelID: "C1234567890",
+				Repositories:   make([]config.Repository, 5),
+			},
+			expectError: false,
+		},
+		{
+			name: "valid config at repository limit",
+			config: config.Config{
+				SlackChannelName: "test-channel",
+				Repositories:     make([]config.Repository, 50),
+			},
+			expectError: false,
+		},
+		{
+			name: "invalid config - no slack channel",
+			config: config.Config{
+				Repositories: make([]config.Repository, 5),
+			},
+			expectError:    true,
+			expectedErrMsg: "either slack-channel-id or slack-channel-name must be set",
+		},
+		{
+			name: "invalid config - too many repositories",
+			config: config.Config{
+				SlackChannelName: "test-channel",
+				Repositories:     make([]config.Repository, 51),
+			},
+			expectError:    true,
+			expectedErrMsg: "too many repositories: maximum of 50 repositories allowed, got 51",
+		},
 	}
-	cfg.Print() // Should not panic
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.config.Validate()
+
+			if tc.expectError {
+				if err == nil {
+					t.Fatalf("Expected error, got nil")
+				}
+				if err.Error() != tc.expectedErrMsg {
+					t.Errorf("Expected error '%s', got '%s'", tc.expectedErrMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("Expected no error, got: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestConfigPrint(t *testing.T) {
+	h := newConfigTestHelpers(t)
+	h.setupMinimalValidConfig(MinimalConfigOptions{})
+
+	cfg, err := config.GetConfig()
+	if err != nil {
+		t.Fatalf("Failed to get config: %v", err)
+	}
+
+	cfg.Print()
 }
