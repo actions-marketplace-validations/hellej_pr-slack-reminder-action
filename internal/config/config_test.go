@@ -56,6 +56,31 @@ func (h *ConfigTestHelpers) inputNameAsEnv(name string) string {
 	return "INPUT_" + e
 }
 
+// createRepositories creates a slice of Repository structs from a slice of "owner/name" strings for testing
+func (h *ConfigTestHelpers) createRepositories(repoPaths ...string) []config.Repository {
+	repos := make([]config.Repository, len(repoPaths))
+	for i, path := range repoPaths {
+		repos[i] = h.createRepository(path)
+	}
+	return repos
+}
+
+// createRepository creates a Repository struct from a "owner/name" string for testing
+func (h *ConfigTestHelpers) createRepository(repoPath string) config.Repository {
+	parts := strings.Split(repoPath, "/")
+	if len(parts) != 2 {
+		h.t.Fatalf("Invalid repository path format: %s (expected owner/name)", repoPath)
+	}
+	if parts[0] == "" || parts[1] == "" {
+		h.t.Fatalf("Owner and repository name cannot be empty in: %s", repoPath)
+	}
+	return config.Repository{
+		Path:  repoPath,
+		Owner: parts[0],
+		Name:  parts[1],
+	}
+}
+
 // MinimalConfigOptions allows selectively disabling certain inputs in setupMinimalValidConfig
 type MinimalConfigOptions struct {
 	SkipGithubRepository bool // Skip setting GITHUB_REPOSITORY
@@ -291,26 +316,17 @@ func TestGetConfig_MissingRequiredInputs(t *testing.T) {
 
 func TestMultipleRepositories(t *testing.T) {
 	h := newConfigTestHelpers(t)
-	h.setupMinimalValidConfig(MinimalConfigOptions{
-		SkipGithubRepository: true, // We'll set our own repository
-	})
-	h.setEnv(config.EnvGithubRepository, "default-org/default-repo")
-	h.setInputList(config.InputGithubRepositories, []string{
-		"org1/repo1",
-		"org2/repo2",
-		"org3/repo3",
-	})
+	h.setupMinimalValidConfig()
+
+	repositories := []string{"org1/repo1", "org2/repo2", "org3/repo3"}
+	h.setInputList(config.InputGithubRepositories, repositories)
 
 	cfg, err := config.GetConfig()
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
 
-	expectedRepos := []config.Repository{
-		{Path: "org1/repo1", Owner: "org1", Name: "repo1"},
-		{Path: "org2/repo2", Owner: "org2", Name: "repo2"},
-		{Path: "org3/repo3", Owner: "org3", Name: "repo3"},
-	}
+	expectedRepos := h.createRepositories(repositories...)
 
 	if len(cfg.Repositories) != len(expectedRepos) {
 		t.Fatalf("Expected %d repositories, got %d", len(expectedRepos), len(cfg.Repositories))
@@ -332,10 +348,7 @@ func TestMultipleRepositories(t *testing.T) {
 
 func TestMultipleRepositories_WithInvalid(t *testing.T) {
 	h := newConfigTestHelpers(t)
-	h.setupMinimalValidConfig(MinimalConfigOptions{
-		SkipGithubRepository: true,
-	})
-	h.setEnv(config.EnvGithubRepository, "default-org/default-repo")
+	h.setupMinimalValidConfig()
 	h.setInputList(config.InputGithubRepositories, []string{
 		"org1/repo1",
 		"invalid-repo", // This should cause an error
@@ -499,48 +512,42 @@ func TestGetConfig_InvalidOldPRThreshold(t *testing.T) {
 	}
 }
 
-func TestRepositoryLimit(t *testing.T) {
+func TestGetConfig_Validation(t *testing.T) {
 	testCases := []struct {
 		name           string
-		repoCount      int
+		setupConfig    func(*ConfigTestHelpers)
 		expectError    bool
 		expectedErrMsg string
-		expectedRepos  int
 	}{
 		{
-			name:          "below limit",
-			repoCount:     5,
-			expectError:   false,
-			expectedRepos: 5,
+			name: "valid config with channel name",
+			setupConfig: func(h *ConfigTestHelpers) {
+				h.setupMinimalValidConfig()
+			},
+			expectError: false,
 		},
 		{
-			name:          "at maximum limit",
-			repoCount:     50,
-			expectError:   false,
-			expectedRepos: 50,
+			name: "valid config with channel ID",
+			setupConfig: func(h *ConfigTestHelpers) {
+				h.setupMinimalValidConfig(MinimalConfigOptions{SkipSlackChannelName: true})
+				h.setInput(config.InputSlackChannelID, "C1234567890")
+			},
+			expectError: false,
 		},
 		{
-			name:           "exceeds maximum limit",
-			repoCount:      51,
+			name: "invalid config - no slack channel",
+			setupConfig: func(h *ConfigTestHelpers) {
+				h.setupMinimalValidConfig(MinimalConfigOptions{SkipSlackChannelName: true})
+			},
 			expectError:    true,
-			expectedErrMsg: "too many repositories: maximum of 50 repositories allowed, got 51",
+			expectedErrMsg: "either slack-channel-id or slack-channel-name must be set",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			h := newConfigTestHelpers(t)
-			h.setupMinimalValidConfig(MinimalConfigOptions{
-				SkipGithubRepository: true,
-			})
-			h.setEnv(config.EnvGithubRepository, "default-org/default-repo")
-
-			// Create a list with the specified number of repositories
-			var repos []string
-			for i := 1; i <= tc.repoCount; i++ {
-				repos = append(repos, fmt.Sprintf("org%d/repo%d", i, i))
-			}
-			h.setInputList(config.InputGithubRepositories, repos)
+			tc.setupConfig(h)
 
 			cfg, err := config.GetConfig()
 
@@ -555,58 +562,142 @@ func TestRepositoryLimit(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Expected no error, got: %v", err)
 				}
-				if len(cfg.Repositories) != tc.expectedRepos {
-					t.Errorf("Expected %d repositories, got %d", tc.expectedRepos, len(cfg.Repositories))
+				// Verify we got a valid config back
+				if cfg.GithubToken == "" {
+					t.Error("Expected GithubToken to be set")
 				}
 			}
 		})
 	}
 }
 
-func TestConfig_Validate(t *testing.T) {
+func TestGetConfig_RepositoryValidation(t *testing.T) {
 	testCases := []struct {
 		name           string
-		config         config.Config
+		setupConfig    func(*ConfigTestHelpers)
 		expectError    bool
 		expectedErrMsg string
 	}{
 		{
-			name: "valid config with channel name",
-			config: config.Config{
-				SlackChannelName: "test-channel",
-				Repositories:     make([]config.Repository, 5),
+			name: "valid - repository filters and prefixes match existing repositories",
+			setupConfig: func(h *ConfigTestHelpers) {
+				h.setupMinimalValidConfig()
+				h.setInputList(config.InputGithubRepositories, []string{"org/repo1", "org/repo2"})
+				h.setInput(config.InputRepositoryFilters, `repo1: {"authors": ["alice"]}`)
+				h.setInputMapping(config.InputRepositoryPrefixes, map[string]string{
+					"repo1": "🚀",
+					"repo2": "📦",
+				})
 			},
 			expectError: false,
 		},
 		{
-			name: "valid config with channel ID",
-			config: config.Config{
-				SlackChannelID: "C1234567890",
-				Repositories:   make([]config.Repository, 5),
+			name: "valid - empty filters and prefixes",
+			setupConfig: func(h *ConfigTestHelpers) {
+				h.setupMinimalValidConfig()
 			},
 			expectError: false,
 		},
 		{
-			name: "valid config at repository limit",
-			config: config.Config{
-				SlackChannelName: "test-channel",
-				Repositories:     make([]config.Repository, 50),
+			name: "valid - no duplicates with different organizations",
+			setupConfig: func(h *ConfigTestHelpers) {
+				h.setupMinimalValidConfig()
+				h.setInputList(config.InputGithubRepositories, []string{
+					"org1/repo1", "org1/repo2", "org2/repo1",
+				})
 			},
 			expectError: false,
 		},
 		{
-			name: "invalid config - no slack channel",
-			config: config.Config{
-				Repositories: make([]config.Repository, 5),
+			name: "invalid - filter for non-existent repository",
+			setupConfig: func(h *ConfigTestHelpers) {
+				h.setupMinimalValidConfig()
+				h.setInputList(config.InputGithubRepositories, []string{"org/repo1"})
+				h.setInput(config.InputRepositoryFilters, `repo2: {"authors": ["alice"]}`)
 			},
 			expectError:    true,
-			expectedErrMsg: "either slack-channel-id or slack-channel-name must be set",
+			expectedErrMsg: "repository-filters contains entry for 'repo2' which is not in github-repositories",
 		},
 		{
-			name: "invalid config - too many repositories",
-			config: config.Config{
-				SlackChannelName: "test-channel",
-				Repositories:     make([]config.Repository, 51),
+			name: "invalid - prefix for non-existent repository",
+			setupConfig: func(h *ConfigTestHelpers) {
+				h.setupMinimalValidConfig()
+				h.setInputList(config.InputGithubRepositories, []string{"org/repo1"})
+				h.setInputMapping(config.InputRepositoryPrefixes, map[string]string{
+					"repo2": "📦",
+				})
+			},
+			expectError:    true,
+			expectedErrMsg: "repository-prefixes contains entry for 'repo2' which is not in github-repositories",
+		},
+		{
+			name: "invalid - multiple non-existent repository names",
+			setupConfig: func(h *ConfigTestHelpers) {
+				h.setupMinimalValidConfig()
+				h.setInputList(config.InputGithubRepositories, []string{"org/repo1"})
+				h.setInput(config.InputRepositoryFilters, `repo2: {"authors": ["alice"]}; repo3: {"labels": ["bug"]}`)
+				h.setInputMapping(config.InputRepositoryPrefixes, map[string]string{
+					"repo4": "🔧",
+				})
+			},
+			expectError:    true,
+			expectedErrMsg: "contains entry for", // Map iteration order is not deterministic
+		},
+		{
+			name: "invalid - exact duplicate repositories",
+			setupConfig: func(h *ConfigTestHelpers) {
+				h.setupMinimalValidConfig()
+				h.setInputList(config.InputGithubRepositories, []string{
+					"org/repo1", "org/repo2", "org/repo1",
+				})
+			},
+			expectError:    true,
+			expectedErrMsg: "duplicate repository 'org/repo1' found in github-repositories",
+		},
+		{
+			name: "invalid - multiple duplicates (reports first one)",
+			setupConfig: func(h *ConfigTestHelpers) {
+				h.setupMinimalValidConfig()
+				h.setInputList(config.InputGithubRepositories, []string{
+					"org/repo1", "org/repo2", "org/repo1", "org/repo2",
+				})
+			},
+			expectError:    true,
+			expectedErrMsg: "duplicate repository 'org/repo1' found in github-repositories",
+		},
+		{
+			name: "valid - below repository limit",
+			setupConfig: func(h *ConfigTestHelpers) {
+				h.setupMinimalValidConfig()
+				var repos []string
+				for i := 1; i <= 5; i++ {
+					repos = append(repos, fmt.Sprintf("org%d/repo%d", i, i))
+				}
+				h.setInputList(config.InputGithubRepositories, repos)
+			},
+			expectError: false,
+		},
+		{
+			name: "valid - at repository limit",
+			setupConfig: func(h *ConfigTestHelpers) {
+				h.setupMinimalValidConfig()
+				var repos []string
+				for i := 1; i <= 50; i++ {
+					repos = append(repos, fmt.Sprintf("org%d/repo%d", i, i))
+				}
+				h.setInputList(config.InputGithubRepositories, repos)
+			},
+			expectError: false,
+		},
+		{
+			name: "invalid - exceeds repository limit",
+			setupConfig: func(h *ConfigTestHelpers) {
+				h.setupMinimalValidConfig()
+				var repos []string
+				for i := 1; i <= 51; i++ { // 51 exceeds the limit of 50
+					repos = append(repos, fmt.Sprintf("org%d/repo%d", i, i))
+				}
+				h.setInputList(config.InputGithubRepositories, repos)
 			},
 			expectError:    true,
 			expectedErrMsg: "too many repositories: maximum of 50 repositories allowed, got 51",
@@ -615,18 +706,25 @@ func TestConfig_Validate(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.config.Validate()
+			h := newConfigTestHelpers(t)
+			tc.setupConfig(h)
+
+			cfg, err := config.GetConfig()
 
 			if tc.expectError {
 				if err == nil {
 					t.Fatalf("Expected error, got nil")
 				}
-				if err.Error() != tc.expectedErrMsg {
-					t.Errorf("Expected error '%s', got '%s'", tc.expectedErrMsg, err.Error())
+				if !strings.Contains(err.Error(), tc.expectedErrMsg) {
+					t.Errorf("Expected error to contain '%s', got '%s'", tc.expectedErrMsg, err.Error())
 				}
 			} else {
 				if err != nil {
 					t.Fatalf("Expected no error, got: %v", err)
+				}
+				// Verify we got a valid config back
+				if cfg.GithubToken == "" {
+					t.Error("Expected GithubToken to be set")
 				}
 			}
 		})

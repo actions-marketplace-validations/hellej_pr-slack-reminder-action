@@ -66,20 +66,6 @@ func (c Config) Print() {
 	log.Println(string(asJson))
 }
 
-// Validate performs post-construction validation of business rules for Config.
-// It validates repository limits and Slack channel requirements.
-func (c Config) Validate() error {
-	if len(c.Repositories) > MaxRepositories {
-		return fmt.Errorf("too many repositories: maximum of %d repositories allowed, got %d", MaxRepositories, len(c.Repositories))
-	}
-
-	if c.SlackChannelID == "" && c.SlackChannelName == "" {
-		return fmt.Errorf("either %s or %s must be set", InputSlackChannelID, InputSlackChannelName)
-	}
-
-	return nil
-}
-
 func GetConfig() (Config, error) {
 	repository, err1 := utilities.GetEnvRequired(EnvGithubRepository)
 	githubToken, err2 := utilities.GetInputRequired(InputGithubToken)
@@ -127,11 +113,58 @@ func GetConfig() (Config, error) {
 		RepositoryFilters: repositoryFilters,
 	}
 
-	if err := config.Validate(); err != nil {
+	if err := config.validate(); err != nil {
 		return Config{}, err
 	}
 
 	return config, nil
+}
+
+// validate performs post-construction validation of business rules for Config.
+// It validates repository limits, Slack channel requirements, and repository consistency.
+func (c Config) validate() error {
+	if c.SlackChannelID == "" && c.SlackChannelName == "" {
+		return fmt.Errorf("either %s or %s must be set", InputSlackChannelID, InputSlackChannelName)
+	}
+	if len(c.Repositories) > MaxRepositories {
+		return fmt.Errorf("too many repositories: maximum of %d repositories allowed, got %d", MaxRepositories, len(c.Repositories))
+	}
+	if err := c.validateRepositoryNames(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c Config) validateRepositoryNames() error {
+	// Check for duplicates
+	repositoryPaths := make(map[string]bool, len(c.Repositories))
+	for _, repo := range c.Repositories {
+		if repositoryPaths[repo.Path] {
+			return fmt.Errorf("duplicate repository '%s' found in github-repositories", repo.Path)
+		}
+		repositoryPaths[repo.Path] = true
+	}
+
+	// Check that repository filters and prefixes reference valid repositories
+	repositoryNames := make(map[string]bool, len(c.Repositories))
+	for _, repo := range c.Repositories {
+		repositoryNames[repo.Name] = true
+	}
+
+	for repoName := range c.RepositoryFilters {
+		if !repositoryNames[repoName] {
+			return fmt.Errorf("repository-filters contains entry for '%s' which is not in github-repositories", repoName)
+		}
+	}
+
+	for repoName := range c.ContentInputs.RepositoryPrefixes {
+		if !repositoryNames[repoName] {
+			return fmt.Errorf("repository-prefixes contains entry for '%s' which is not in github-repositories", repoName)
+		}
+	}
+
+	return nil
 }
 
 func selectNonNilError(errs ...error) error {

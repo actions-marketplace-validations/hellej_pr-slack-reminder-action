@@ -66,7 +66,8 @@ This is a GitHub Action written in Go that fetches PRs from GitHub repositories 
 
 ### Repository Processing
 
-- Multiple repositories supported via `config.Repositories` slice of `Repository` structs
+- Multiple repositories supported via `config.Repositories` slice of `Repository` structs (`config.InputGithubRepositories`)
+- If `config.InputGithubRepositories` is set, `config.EnvGithubRepository` is ignored
 - Repository filters and prefixes are mapped by repository name (not full path)
 - Each PR maintains its `Repository` field for context throughout the pipeline
 

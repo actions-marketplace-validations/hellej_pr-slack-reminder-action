@@ -13,9 +13,8 @@ func filterPRs(
 		if ok {
 			if pr.isMatch(repositoryFilters) {
 				filtered = append(filtered, pr)
-			} else {
-				continue
 			}
+			continue
 		}
 		if pr.isMatch(globalFilters) {
 			filtered = append(filtered, pr)

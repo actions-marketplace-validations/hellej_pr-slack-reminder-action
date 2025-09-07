@@ -50,8 +50,8 @@ func GetDefaultConfigFull() TestConfig {
 		Repository:            "test-org/test-repo",
 		Repositories:          []string{"test-org/test-repo"},
 		GlobalFiltersRaw:      "{\"labels\": [\"feature\", \"fix\"], \"authors\": [\"alice\", \"stitch\"]}",
-		RepositoryFiltersRaw:  "some-other-repo: {\"labels-ignore\": [\"label-to-ignore\"], \"authors-ignore\": [\"author-to-ignore\"]}",
-		RepositoryPrefixesRaw: "test-repo: 🔧; some-other-repo: 📦",
+		RepositoryFiltersRaw:  "test-repo: {\"labels-ignore\": [\"label-to-ignore\"], \"authors-ignore\": [\"author-to-ignore\"]}",
+		RepositoryPrefixesRaw: "test-repo: 🔧",
 	}
 }
 
