@@ -11,11 +11,12 @@ import (
 
 	"github.com/google/go-github/v72/github"
 	"github.com/hellej/pr-slack-reminder-action/internal/config"
+	"github.com/hellej/pr-slack-reminder-action/internal/models"
 )
 
 type Client interface {
 	FetchOpenPRs(
-		repositories []config.Repository,
+		repositories []models.Repository,
 		globalFilters config.Filters,
 		repositoryFilters map[string]config.Filters,
 	) ([]PR, error)
@@ -53,7 +54,7 @@ type client struct {
 // concise implementation. However, the current implementation also serves as learning material
 // so we can save the refactoring for later...
 func (c *client) FetchOpenPRs(
-	repositories []config.Repository,
+	repositories []models.Repository,
 	globalFilters config.Filters,
 	repositoryFilters map[string]config.Filters,
 ) ([]PR, error) {
@@ -66,9 +67,9 @@ func (c *client) FetchOpenPRs(
 
 	for _, repo := range repositories {
 		wg.Add(1)
-		go func(r config.Repository) {
+		go func(r models.Repository) {
 			defer wg.Done()
-			apiResult := c.fetchOpenPRsForRepository(ctx, r.Owner, r.Name)
+			apiResult := c.fetchOpenPRsForRepository(ctx, r)
 			apiResultChannel <- apiResult
 			if apiResult.err != nil {
 				cancel()
@@ -100,32 +101,32 @@ func (c *client) FetchOpenPRs(
 }
 
 func (c *client) fetchOpenPRsForRepository(
-	ctx context.Context, repoOwner string, repoName string,
+	ctx context.Context, repo models.Repository,
 ) PRsOfRepoResult {
-	prs, response, err := c.prsService.List(ctx, repoOwner, repoName, nil)
+	prs, response, err := c.prsService.List(ctx, repo.Owner, repo.Name, nil)
 	if err != nil {
 		if response != nil && response.StatusCode == 404 {
 			return PRsOfRepoResult{
 				prs:        nil,
-				owner:      repoOwner,
-				repository: repoName,
+				repository: repo,
 				err: fmt.Errorf(
 					"repository %s/%s not found - check the repository name and permissions",
-					repoOwner,
-					repoName,
+					repo.Owner,
+					repo.Name,
 				)}
-
 		} else {
 			return PRsOfRepoResult{
-				prs: nil,
-				err: fmt.Errorf("error fetching pull requests from %s/%s: %v", repoOwner, repoName, err),
+				prs:        nil,
+				repository: repo,
+				err: fmt.Errorf(
+					"error fetching pull requests from %s/%s: %v", repo.Owner, repo.Name, err,
+				),
 			}
 		}
 	}
 	return PRsOfRepoResult{
 		prs:        prs,
-		owner:      repoOwner,
-		repository: repoName,
+		repository: repo,
 		err:        nil,
 	}
 }
@@ -151,14 +152,14 @@ func (c *client) addReviewerInfoToPRs(prResults []PRsOfRepoResult) []PR {
 	for _, result := range prResults {
 		for _, pullRequest := range result.prs {
 			wg.Add(1)
-			go func(owner string, repo string, pr *github.PullRequest) {
+			go func(repo models.Repository, pr *github.PullRequest) {
 				defer wg.Done()
-				reviews, response, err := c.prsService.ListReviews(context.Background(), owner, repo, *pr.Number, nil)
+				reviews, response, err := c.prsService.ListReviews(context.Background(), repo.Owner, repo.Name, *pr.Number, nil)
 				if err != nil {
 					err = fmt.Errorf(
 						"error fetching reviews for pull request %s/%s#%d: %v/%v",
-						owner,
-						repo,
+						repo.Owner,
+						repo.Name,
 						*pr.Number,
 						response.Status,
 						err,
@@ -172,7 +173,7 @@ func (c *client) addReviewerInfoToPRs(prResults []PRsOfRepoResult) []PR {
 				}
 				resultChannel <- prWithReviews
 
-			}(result.owner, result.repository, pullRequest)
+			}(result.repository, pullRequest)
 		}
 	}
 

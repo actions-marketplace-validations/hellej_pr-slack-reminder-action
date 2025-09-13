@@ -1,4 +1,4 @@
-package config
+package models
 
 import (
 	"fmt"
@@ -16,7 +16,15 @@ func (r Repository) String() string {
 	return r.Path
 }
 
-func parseRepository(repository string) (Repository, error) {
+func NewRepository(owner, name string) Repository {
+	return Repository{
+		Path:  fmt.Sprintf("%s/%s", owner, name),
+		Owner: owner,
+		Name:  name,
+	}
+}
+
+func ParseRepository(repository string) (Repository, error) {
 	repoParts := strings.Split(repository, "/")
 	if len(repoParts) != 2 {
 		return Repository{}, fmt.Errorf("invalid owner/repository format: %s", repository)

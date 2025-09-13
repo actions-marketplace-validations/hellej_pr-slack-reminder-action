@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/hellej/pr-slack-reminder-action/internal/config"
+	"github.com/hellej/pr-slack-reminder-action/internal/models"
 )
 
 // ConfigTestHelpers provides helper functions for setting up test environments
@@ -57,8 +58,8 @@ func (h *ConfigTestHelpers) inputNameAsEnv(name string) string {
 }
 
 // createRepositories creates a slice of Repository structs from a slice of "owner/name" strings for testing
-func (h *ConfigTestHelpers) createRepositories(repoPaths ...string) []config.Repository {
-	repos := make([]config.Repository, len(repoPaths))
+func (h *ConfigTestHelpers) createRepositories(repoPaths ...string) []models.Repository {
+	repos := make([]models.Repository, len(repoPaths))
 	for i, path := range repoPaths {
 		repos[i] = h.createRepository(path)
 	}
@@ -66,7 +67,7 @@ func (h *ConfigTestHelpers) createRepositories(repoPaths ...string) []config.Rep
 }
 
 // createRepository creates a Repository struct from a "owner/name" string for testing
-func (h *ConfigTestHelpers) createRepository(repoPath string) config.Repository {
+func (h *ConfigTestHelpers) createRepository(repoPath string) models.Repository {
 	parts := strings.Split(repoPath, "/")
 	if len(parts) != 2 {
 		h.t.Fatalf("Invalid repository path format: %s (expected owner/name)", repoPath)
@@ -74,7 +75,7 @@ func (h *ConfigTestHelpers) createRepository(repoPath string) config.Repository 
 	if parts[0] == "" || parts[1] == "" {
 		h.t.Fatalf("Owner and repository name cannot be empty in: %s", repoPath)
 	}
-	return config.Repository{
+	return models.Repository{
 		Path:  repoPath,
 		Owner: parts[0],
 		Name:  parts[1],

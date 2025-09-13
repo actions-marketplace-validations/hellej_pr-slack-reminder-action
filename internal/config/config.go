@@ -10,6 +10,7 @@ import (
 	"slices"
 
 	"github.com/hellej/pr-slack-reminder-action/internal/config/inputhelpers"
+	"github.com/hellej/pr-slack-reminder-action/internal/models"
 	"github.com/hellej/pr-slack-reminder-action/internal/utilities"
 )
 
@@ -37,7 +38,7 @@ type Config struct {
 	SlackBotToken string
 
 	repository   string
-	Repositories []Repository
+	Repositories []models.Repository
 
 	SlackChannelName string
 	SlackChannelID   string
@@ -88,9 +89,9 @@ func GetConfig() (Config, error) {
 		repositoryPaths = []string{repository}
 	}
 
-	repositories := make([]Repository, len(repositoryPaths))
+	repositories := make([]models.Repository, len(repositoryPaths))
 	for i, repoPath := range repositoryPaths {
-		repo, err := parseRepository(repoPath)
+		repo, err := models.ParseRepository(repoPath)
 		if err != nil {
 			return Config{}, fmt.Errorf("invalid repositories input: %v", err)
 		}
@@ -177,14 +178,14 @@ func selectNonNilError(errs ...error) error {
 // validateRepositoryReferences checks if any repository name appears multiple times
 // across different owners, which would make repository-specific configurations ambiguous.
 func validateRepositoryReferences[V any](
-	repositories []Repository,
+	repositories []models.Repository,
 	repoMapping map[string]V,
 	inputName string,
 ) error {
 	for repoNameOrPath := range repoMapping {
 		matches := len(
 			slices.Collect(
-				utilities.Filter(repositories, func(r Repository) bool {
+				utilities.Filter(repositories, func(r models.Repository) bool {
 					return r.Path == repoNameOrPath || r.Name == repoNameOrPath
 				}),
 			),

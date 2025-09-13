@@ -9,7 +9,7 @@ func filterPRs(
 ) []PR {
 	filtered := make([]PR, 0, len(prs))
 	for _, pr := range prs {
-		repositoryFilters, ok := repositoryFilters[pr.Repository]
+		repositoryFilters, ok := repositoryFilters[pr.Repository.Name]
 		if ok {
 			if pr.isMatch(repositoryFilters) {
 				filtered = append(filtered, pr)

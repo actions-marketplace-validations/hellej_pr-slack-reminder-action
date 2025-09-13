@@ -7,12 +7,12 @@ import (
 
 	"github.com/google/go-github/v72/github"
 	"github.com/hellej/pr-slack-reminder-action/internal/config"
+	"github.com/hellej/pr-slack-reminder-action/internal/models"
 )
 
 type PRsOfRepoResult struct {
 	prs        []*github.PullRequest
-	repository string
-	owner      string
+	repository models.Repository
 	err        error
 }
 
@@ -25,8 +25,7 @@ func (r PRsOfRepoResult) GetPRCount() int {
 
 type PR struct {
 	*github.PullRequest
-	// Repository name (just the name, no owner)
-	Repository       string
+	Repository       models.Repository
 	Author           Collaborator
 	CommentedByUsers []Collaborator // reviewers who commented the PR but did not approve it
 	ApprovedByUsers  []Collaborator
@@ -61,10 +60,9 @@ func (pr PR) isMatch(filters config.Filters) bool {
 }
 
 type FetchReviewsResult struct {
-	pr      *github.PullRequest
-	reviews []*github.PullRequestReview
-	// Repository name (just the name without owner)
-	repository string
+	pr         *github.PullRequest
+	reviews    []*github.PullRequestReview
+	repository models.Repository
 	err        error
 }
 

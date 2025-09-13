@@ -59,7 +59,7 @@ func ParsePRs(prs []githubclient.PR, config config.ContentInputs) []PR {
 func parsePR(pr githubclient.PR, config config.ContentInputs) PR {
 	prefix := ""
 	if config.RepositoryPrefixes != nil {
-		prefix = config.RepositoryPrefixes[pr.Repository]
+		prefix = config.RepositoryPrefixes[pr.Repository.Name]
 	}
 
 	return PR{

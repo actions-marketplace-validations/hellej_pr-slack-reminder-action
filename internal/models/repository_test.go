@@ -1,14 +1,14 @@
-package config_test
+package models_test
 
 import (
 	"strings"
 	"testing"
 
-	"github.com/hellej/pr-slack-reminder-action/internal/config"
+	"github.com/hellej/pr-slack-reminder-action/internal/models"
 )
 
 func TestRepositoryString(t *testing.T) {
-	repo := config.Repository{
+	repo := models.Repository{
 		Path:  "test-org/test-repo",
 		Owner: "test-org",
 		Name:  "test-repo",
@@ -24,12 +24,12 @@ func TestParseRepository_Valid(t *testing.T) {
 	testCases := []struct {
 		name           string
 		repositoryPath string
-		expectedRepo   config.Repository
+		expectedRepo   models.Repository
 	}{
 		{
 			name:           "standard repository path",
 			repositoryPath: "octocat/Hello-World",
-			expectedRepo: config.Repository{
+			expectedRepo: models.Repository{
 				Path:  "octocat/Hello-World",
 				Owner: "octocat",
 				Name:  "Hello-World",
@@ -38,7 +38,7 @@ func TestParseRepository_Valid(t *testing.T) {
 		{
 			name:           "repository with numbers",
 			repositoryPath: "org123/repo456",
-			expectedRepo: config.Repository{
+			expectedRepo: models.Repository{
 				Path:  "org123/repo456",
 				Owner: "org123",
 				Name:  "repo456",
@@ -47,7 +47,7 @@ func TestParseRepository_Valid(t *testing.T) {
 		{
 			name:           "repository with hyphens and underscores",
 			repositoryPath: "my-org/my_repo-name",
-			expectedRepo: config.Repository{
+			expectedRepo: models.Repository{
 				Path:  "my-org/my_repo-name",
 				Owner: "my-org",
 				Name:  "my_repo-name",
@@ -57,22 +57,10 @@ func TestParseRepository_Valid(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			h := newConfigTestHelpers(t)
-			h.setupMinimalValidConfig(MinimalConfigOptions{
-				SkipGithubRepository: true, // We'll set our own repository
-			})
-			h.setEnv(config.EnvGithubRepository, tc.repositoryPath)
-
-			cfg, err := config.GetConfig()
+			repo, err := models.ParseRepository(tc.repositoryPath)
 			if err != nil {
 				t.Fatalf("Expected no error, got: %v", err)
 			}
-
-			if len(cfg.Repositories) != 1 {
-				t.Fatalf("Expected 1 repository, got %d", len(cfg.Repositories))
-			}
-
-			repo := cfg.Repositories[0]
 			if repo.Path != tc.expectedRepo.Path {
 				t.Errorf("Expected repository path '%s', got '%s'", tc.expectedRepo.Path, repo.Path)
 			}
@@ -121,13 +109,7 @@ func TestParseRepository_Invalid(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			h := newConfigTestHelpers(t)
-			h.setupMinimalValidConfig(MinimalConfigOptions{
-				SkipGithubRepository: true, // We'll set our own repository
-			})
-			h.setEnv(config.EnvGithubRepository, tc.repositoryPath)
-
-			_, err := config.GetConfig()
+			_, err := models.ParseRepository(tc.repositoryPath)
 			if err == nil {
 				t.Fatalf("Expected error, got nil")
 			}
