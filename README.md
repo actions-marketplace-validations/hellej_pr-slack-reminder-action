@@ -8,21 +8,22 @@ This GitHub Action sends a friendly Slack reminder about open Pull Requests. The
 
 ## GitHub's Built-in vs This Action
 
-You may not need this action. GitHub provides [built-in scheduled reminders for teams](https://docs.github.com/en/organizations/organizing-members-into-teams/managing-scheduled-reminders-for-your-team), which can work well in many situations.
+You may not need this action; GitHub provides [built-in scheduled reminders for teams](https://docs.github.com/en/organizations/organizing-members-into-teams/managing-scheduled-reminders-for-your-team) which can work well in many situations.
 
 **When to use GitHub's built-in reminders:**
 
-- Your team structure aligns with GitHub teams
+- Your team structure aligns well with GitHub teams
 - The CODEOWNERS files of your repositories accurately match your team structure (-> reviews are automatically requested from the right teams)
 - You're okay with the 5 repository limit per reminder
 - You don't need custom message content or formatting
 - You don't need different filtering options for each repository
+- You prefer a GUI (github.com) for setting up the reminders (as opposed to YAML)
 
 **What's special about this action:**
 
 - Monitor up to 50 repositories
 - Highlight old PRs that need attention (with optional age threshold input)
-- Repository specific filters
+- Global and repository specific filters
 - No need for official GitHub team setup
 - Anyone can set this up (no need to be GitHub team maintainer)
 - No need for perfect CODEOWNERS files to get reminded about the right PRs
@@ -32,7 +33,7 @@ You may not need this action. GitHub provides [built-in scheduled reminders for 
 
 ### Prerequisites
 
-- A Slack bot token with permissions to post messages
+- Slack bot token with permissions to post messages
 - [GitHub token](#-github-token-setup) with read access to your repositories
 
 ### Basic Usage Examples
@@ -136,8 +137,9 @@ jobs:
             api-service: {"labels": ["ready-for-review"], "authors-ignore": ["intern-bot"]}
             mobile-app: {}
 ```
+(^ `mobile-app: {}` effectively removes all filtering for that repo -> all mobile-app PRs will be included)
 
-## Inputs
+## ➡️ Inputs
 
 | Name                                | Required | Description                                                                                                     |
 | ----------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------- |
@@ -199,7 +201,7 @@ To monitor multiple repositories, you'll need a Personal Access Token:
 - **Customize messages**: Make the reminders fit your team's culture
 - **Highlight old PRs**: Set a reasonable `old-pr-threshold-hours` to highlight stale PRs (consider weekends too)
 
-## 🤝 Contributing
+## 👋 Contributing
 
 Found a bug or have a feature request? We'd love your help! Feel free to open an issue.
 
