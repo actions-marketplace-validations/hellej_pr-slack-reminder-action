@@ -1,26 +1,26 @@
-package utilities_test
+package inputhelpers_test
 
 import (
 	"testing"
 
-	"github.com/hellej/pr-slack-reminder-action/internal/config/utilities"
+	"github.com/hellej/pr-slack-reminder-action/internal/config/inputhelpers"
 )
 
 func TestReadInput(t *testing.T) {
 	t.Setenv("INPUT_TEST", "test_value")
-	value := utilities.GetInput("test")
+	value := inputhelpers.GetInput("test")
 	if value != "test_value" {
 		t.Errorf("Expected 'test_value', got '%s'", value)
 	}
 
-	nonSetInputValue := utilities.GetInput("notSet")
+	nonSetInputValue := inputhelpers.GetInput("notSet")
 	if nonSetInputValue != "" {
 		t.Errorf("Expected '', got '%s'", value)
 	}
 }
 
 func TestReadInputRequired(t *testing.T) {
-	_, err := utilities.GetInputRequired("test")
+	_, err := inputhelpers.GetInputRequired("test")
 	if err == nil {
 		t.Errorf("Expected error for missing required input, got nil")
 	}
@@ -28,7 +28,7 @@ func TestReadInputRequired(t *testing.T) {
 
 func TestReadInputIntOk(t *testing.T) {
 	t.Setenv("INPUT_TEST", "1")
-	value, _ := utilities.GetInputInt("test")
+	value, _ := inputhelpers.GetInputInt("test")
 	expected := 1
 	if value != expected {
 		t.Errorf("Expected '%d', got '%v'", expected, value)
@@ -36,7 +36,7 @@ func TestReadInputIntOk(t *testing.T) {
 }
 
 func TestReadInputIntNotSet(t *testing.T) {
-	value, err := utilities.GetInputInt("notSet")
+	value, err := inputhelpers.GetInputInt("notSet")
 	if err != nil {
 		t.Errorf("Expected no error for missing int input, got %v", err)
 	}
@@ -48,7 +48,7 @@ func TestReadInputIntNotSet(t *testing.T) {
 
 func TestReadInputIntInvalid(t *testing.T) {
 	t.Setenv("INPUT_TEST", "a")
-	_, err := utilities.GetInputInt("test")
+	_, err := inputhelpers.GetInputInt("test")
 	if err == nil {
 		t.Errorf("Expected error for invalid int input, got nil")
 	}
@@ -60,7 +60,7 @@ func TestReadInputIntInvalid(t *testing.T) {
 
 func TestReadStringMapping(t *testing.T) {
 	t.Setenv("INPUT_TEST", "a:b;c:d")
-	mapping, _ := utilities.GetInputMapping("test")
+	mapping, _ := inputhelpers.GetInputMapping("test")
 	expected := map[string]string{"a": "b", "c": "d"}
 
 	for key, expected := range expected {
@@ -75,7 +75,7 @@ func TestReadStringMapping(t *testing.T) {
 }
 func TestReadInputMappingInvalid1(t *testing.T) {
 	t.Setenv("INPUT_TEST", "a:b;c")
-	_, err := utilities.GetInputMapping("test")
+	_, err := inputhelpers.GetInputMapping("test")
 	if err == nil {
 		t.Errorf("Expected error for invalid mapping input, got nil")
 	}
@@ -83,7 +83,7 @@ func TestReadInputMappingInvalid1(t *testing.T) {
 
 func TestReadInputMappingInvalid2(t *testing.T) {
 	t.Setenv("INPUT_TEST", " ;a:b;c: ")
-	_, err := utilities.GetInputMapping("test")
+	_, err := inputhelpers.GetInputMapping("test")
 	if err == nil {
 		t.Errorf("Expected error for invalid mapping input, got nil")
 	}

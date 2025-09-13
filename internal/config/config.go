@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"slices"
 
-	"github.com/hellej/pr-slack-reminder-action/internal/config/utilities"
+	"github.com/hellej/pr-slack-reminder-action/internal/config/inputhelpers"
+	"github.com/hellej/pr-slack-reminder-action/internal/utilities"
 )
 
 const (
@@ -67,21 +69,21 @@ func (c Config) Print() {
 }
 
 func GetConfig() (Config, error) {
-	repository, err1 := utilities.GetEnvRequired(EnvGithubRepository)
-	githubToken, err2 := utilities.GetInputRequired(InputGithubToken)
-	slackToken, err3 := utilities.GetInputRequired(InputSlackBotToken)
-	mainListHeading, err4 := utilities.GetInputRequired(InputPRListHeading)
-	oldPRsThresholdHours, err5 := utilities.GetInputInt(InputOldPRThresholdHours)
-	slackUserIdByGitHubUsername, err6 := utilities.GetInputMapping(InputSlackUserIdByGitHubUsername)
+	repository, err1 := inputhelpers.GetEnvRequired(EnvGithubRepository)
+	githubToken, err2 := inputhelpers.GetInputRequired(InputGithubToken)
+	slackToken, err3 := inputhelpers.GetInputRequired(InputSlackBotToken)
+	mainListHeading, err4 := inputhelpers.GetInputRequired(InputPRListHeading)
+	oldPRsThresholdHours, err5 := inputhelpers.GetInputInt(InputOldPRThresholdHours)
+	slackUserIdByGitHubUsername, err6 := inputhelpers.GetInputMapping(InputSlackUserIdByGitHubUsername)
 	globalFilters, err7 := GetGlobalFiltersFromInput(InputGlobalFilters)
 	repositoryFilters, err8 := GetRepositoryFiltersFromInput(InputRepositoryFilters)
-	repositoryPrefixes, err9 := utilities.GetInputMapping(InputRepositoryPrefixes)
+	repositoryPrefixes, err9 := inputhelpers.GetInputMapping(InputRepositoryPrefixes)
 
 	if err := selectNonNilError(err1, err2, err3, err4, err5, err6, err7, err8, err9); err != nil {
 		return Config{}, err
 	}
 
-	repositoryPaths := utilities.GetInputList(InputGithubRepositories)
+	repositoryPaths := inputhelpers.GetInputList(InputGithubRepositories)
 	if len(repositoryPaths) == 0 {
 		repositoryPaths = []string{repository}
 	}
@@ -100,11 +102,11 @@ func GetConfig() (Config, error) {
 		Repositories:     repositories,
 		GithubToken:      githubToken,
 		SlackBotToken:    slackToken,
-		SlackChannelName: utilities.GetInput(InputSlackChannelName),
-		SlackChannelID:   utilities.GetInput(InputSlackChannelID),
+		SlackChannelName: inputhelpers.GetInput(InputSlackChannelName),
+		SlackChannelID:   inputhelpers.GetInput(InputSlackChannelID),
 		ContentInputs: ContentInputs{
 			SlackUserIdByGitHubUsername: slackUserIdByGitHubUsername,
-			NoPRsMessage:                utilities.GetInput(InputNoPRsMessage),
+			NoPRsMessage:                inputhelpers.GetInput(InputNoPRsMessage),
 			PRListHeading:               mainListHeading,
 			OldPRThresholdHours:         oldPRsThresholdHours,
 			RepositoryPrefixes:          repositoryPrefixes,
@@ -154,13 +156,29 @@ func (c Config) validateRepositoryNames() error {
 
 	for repoName := range c.RepositoryFilters {
 		if !repositoryNames[repoName] {
-			return fmt.Errorf("repository-filters contains entry for '%s' which is not in github-repositories", repoName)
+			return fmt.Errorf(
+				"repository-filters contains entry for '%s' which is not in github-repositories",
+				repoName,
+			)
 		}
 	}
 
 	for repoName := range c.ContentInputs.RepositoryPrefixes {
 		if !repositoryNames[repoName] {
-			return fmt.Errorf("repository-prefixes contains entry for '%s' which is not in github-repositories", repoName)
+			return fmt.Errorf(
+				"repository-prefixes contains entry for '%s' which is not in github-repositories",
+				repoName,
+			)
+		}
+	}
+
+	// check for ambiguous repository identifiers (same repo name with different owners)
+	if len(c.Repositories) > 1 {
+		if err := checkForAmbiguousRepositoryNames(c.Repositories, c.RepositoryFilters, "repository-filters"); err != nil {
+			return err
+		}
+		if err := checkForAmbiguousRepositoryNames(c.Repositories, c.ContentInputs.RepositoryPrefixes, "repository-prefixes"); err != nil {
+			return err
 		}
 	}
 
@@ -171,6 +189,28 @@ func selectNonNilError(errs ...error) error {
 	for _, err := range errs {
 		if err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// checkForAmbiguousRepositoryNames checks if any repository name appears multiple times
+// across different owners, which would make repository-specific configurations ambiguous.
+func checkForAmbiguousRepositoryNames[V any](repositories []Repository, repoMapping map[string]V, inputName string) error {
+	for repoName := range repoMapping {
+		if len(
+			slices.Collect(
+				utilities.Filter(repositories, func(r Repository) bool {
+					return r.Name == repoName
+				}),
+			),
+		) > 1 {
+			return fmt.Errorf(
+				"%s contains ambiguous entry for '%s' which matches "+
+					"multiple repositories (needs owner/repo format)",
+				inputName,
+				repoName,
+			)
 		}
 	}
 	return nil

@@ -631,7 +631,7 @@ func TestGetConfig_RepositoryValidation(t *testing.T) {
 			expectedErrMsg: "repository-prefixes contains entry for 'repo2' which is not in github-repositories",
 		},
 		{
-			name: "invalid - multiple non-existent repository names",
+			name: "invalid - multiple non-existent repository names in filters & prefixes",
 			setupConfig: func(h *ConfigTestHelpers) {
 				h.setupMinimalValidConfig()
 				h.setInputList(config.InputGithubRepositories, []string{"org/repo1"})
@@ -642,6 +642,28 @@ func TestGetConfig_RepositoryValidation(t *testing.T) {
 			},
 			expectError:    true,
 			expectedErrMsg: "contains entry for", // Map iteration order is not deterministic
+		},
+		{
+			name: "invalid - ambiguous identifier for repository in filters",
+			setupConfig: func(h *ConfigTestHelpers) {
+				h.setupMinimalValidConfig()
+				h.setInputList(config.InputGithubRepositories, []string{"org1/same-repo", "org2/same-repo"})
+				h.setInput(config.InputRepositoryFilters, `same-repo: {"authors": ["alice"]}`)
+			},
+			expectError:    true,
+			expectedErrMsg: "repository-filters contains ambiguous entry for 'same-repo' which matches multiple repositories (needs owner/repo format)",
+		},
+		{
+			name: "invalid - ambiguous identifier for repository in prefixes",
+			setupConfig: func(h *ConfigTestHelpers) {
+				h.setupMinimalValidConfig()
+				h.setInputList(config.InputGithubRepositories, []string{"org1/same-repo", "org2/same-repo"})
+				h.setInputMapping(config.InputRepositoryPrefixes, map[string]string{
+					"same-repo": "🚀",
+				})
+			},
+			expectError:    true,
+			expectedErrMsg: "repository-prefixes contains ambiguous entry for 'same-repo' which matches multiple repositories (needs owner/repo format)",
 		},
 		{
 			name: "invalid - exact duplicate repositories",
@@ -740,5 +762,5 @@ func TestConfigPrint(t *testing.T) {
 		t.Fatalf("Failed to get config: %v", err)
 	}
 
-	cfg.Print()
+	cfg.Print() // should not panic
 }

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/hellej/pr-slack-reminder-action/internal/config/utilities"
+	"github.com/hellej/pr-slack-reminder-action/internal/config/inputhelpers"
 )
 
 type Filters struct {
@@ -17,7 +17,7 @@ type Filters struct {
 }
 
 func GetGlobalFiltersFromInput(input string) (Filters, error) {
-	filters, err := parseFilters(utilities.GetInput(input))
+	filters, err := parseFilters(inputhelpers.GetInput(input))
 	if err != nil {
 		return Filters{}, fmt.Errorf("error reading input %s: %w", input, err)
 	}
@@ -25,7 +25,7 @@ func GetGlobalFiltersFromInput(input string) (Filters, error) {
 }
 
 func GetRepositoryFiltersFromInput(input string) (map[string]Filters, error) {
-	rawFiltersByRepo, err := utilities.GetInputMapping(input)
+	rawFiltersByRepo, err := inputhelpers.GetInputMapping(input)
 	if err != nil {
 		return nil, fmt.Errorf("error reading input %s: %w", input, err)
 	}
