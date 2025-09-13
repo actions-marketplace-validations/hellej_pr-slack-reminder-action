@@ -583,7 +583,10 @@ func TestGetConfig_RepositoryValidation(t *testing.T) {
 			setupConfig: func(h *ConfigTestHelpers) {
 				h.setupMinimalValidConfig()
 				h.setInputList(config.InputGithubRepositories, []string{"org/repo1", "org/repo2"})
-				h.setInput(config.InputRepositoryFilters, `repo1: {"authors": ["alice"]}`)
+				h.setInput(
+					config.InputRepositoryFilters,
+					`repo1: {"authors": ["alice"]}; org/repo2: {"labels": ["bug"]}`,
+				)
 				h.setInputMapping(config.InputRepositoryPrefixes, map[string]string{
 					"repo1": "🚀",
 					"repo2": "📦",
@@ -616,7 +619,7 @@ func TestGetConfig_RepositoryValidation(t *testing.T) {
 				h.setInput(config.InputRepositoryFilters, `repo2: {"authors": ["alice"]}`)
 			},
 			expectError:    true,
-			expectedErrMsg: "repository-filters contains entry for 'repo2' which is not in github-repositories",
+			expectedErrMsg: "repository-filters contains entry for 'repo2' which does not match any repository",
 		},
 		{
 			name: "invalid - prefix for non-existent repository",
@@ -628,7 +631,7 @@ func TestGetConfig_RepositoryValidation(t *testing.T) {
 				})
 			},
 			expectError:    true,
-			expectedErrMsg: "repository-prefixes contains entry for 'repo2' which is not in github-repositories",
+			expectedErrMsg: "repository-prefixes contains entry for 'repo2' which does not match any repository",
 		},
 		{
 			name: "invalid - multiple non-existent repository names in filters & prefixes",

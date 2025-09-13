@@ -125,6 +125,9 @@ func GetConfig() (Config, error) {
 // validate performs post-construction validation of business rules for Config.
 // It validates repository limits, Slack channel requirements, and repository consistency.
 func (c Config) validate() error {
+	if len(c.Repositories) == 0 {
+		return fmt.Errorf("at least one repository must be specified in %s or %s", EnvGithubRepository, InputGithubRepositories)
+	}
 	if c.SlackChannelID == "" && c.SlackChannelName == "" {
 		return fmt.Errorf("either %s or %s must be set", InputSlackChannelID, InputSlackChannelName)
 	}
@@ -148,38 +151,15 @@ func (c Config) validateRepositoryNames() error {
 		repositoryPaths[repo.Path] = true
 	}
 
-	// Check that repository filters and prefixes reference valid repositories
-	repositoryNames := make(map[string]bool, len(c.Repositories))
-	for _, repo := range c.Repositories {
-		repositoryNames[repo.Name] = true
+	if err := validateRepositoryReferences(
+		c.Repositories, c.RepositoryFilters, "repository-filters",
+	); err != nil {
+		return err
 	}
-
-	for repoName := range c.RepositoryFilters {
-		if !repositoryNames[repoName] {
-			return fmt.Errorf(
-				"repository-filters contains entry for '%s' which is not in github-repositories",
-				repoName,
-			)
-		}
-	}
-
-	for repoName := range c.ContentInputs.RepositoryPrefixes {
-		if !repositoryNames[repoName] {
-			return fmt.Errorf(
-				"repository-prefixes contains entry for '%s' which is not in github-repositories",
-				repoName,
-			)
-		}
-	}
-
-	// check for ambiguous repository identifiers (same repo name with different owners)
-	if len(c.Repositories) > 1 {
-		if err := checkForAmbiguousRepositoryNames(c.Repositories, c.RepositoryFilters, "repository-filters"); err != nil {
-			return err
-		}
-		if err := checkForAmbiguousRepositoryNames(c.Repositories, c.ContentInputs.RepositoryPrefixes, "repository-prefixes"); err != nil {
-			return err
-		}
+	if err := validateRepositoryReferences(
+		c.Repositories, c.ContentInputs.RepositoryPrefixes, "repository-prefixes",
+	); err != nil {
+		return err
 	}
 
 	return nil
@@ -194,22 +174,36 @@ func selectNonNilError(errs ...error) error {
 	return nil
 }
 
-// checkForAmbiguousRepositoryNames checks if any repository name appears multiple times
+// validateRepositoryReferences checks if any repository name appears multiple times
 // across different owners, which would make repository-specific configurations ambiguous.
-func checkForAmbiguousRepositoryNames[V any](repositories []Repository, repoMapping map[string]V, inputName string) error {
-	for repoName := range repoMapping {
-		if len(
+func validateRepositoryReferences[V any](
+	repositories []Repository,
+	repoMapping map[string]V,
+	inputName string,
+) error {
+	for repoNameOrPath := range repoMapping {
+		matches := len(
 			slices.Collect(
 				utilities.Filter(repositories, func(r Repository) bool {
-					return r.Name == repoName
+					return r.Path == repoNameOrPath || r.Name == repoNameOrPath
 				}),
 			),
-		) > 1 {
+		)
+		switch matches {
+		case 1:
+			continue
+		case 0:
+			return fmt.Errorf(
+				"%s contains entry for '%s' which does not match any repository",
+				inputName,
+				repoNameOrPath,
+			)
+		default: // matches > 1
 			return fmt.Errorf(
 				"%s contains ambiguous entry for '%s' which matches "+
 					"multiple repositories (needs owner/repo format)",
 				inputName,
-				repoName,
+				repoNameOrPath,
 			)
 		}
 	}
