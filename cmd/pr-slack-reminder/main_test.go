@@ -171,6 +171,7 @@ func TestScenarios(t *testing.T) {
 		expectedPRNumbers   []int
 		expectedPRItemTexts []string
 		expectedSummary     string
+		expectedHeadings    []string // For group-by-repository mode to check repository headings
 	}{
 		{
 			name:   "unset required inputs",
@@ -558,6 +559,7 @@ func TestScenarios(t *testing.T) {
 			},
 			expectedPRNumbers: []int{1, 2},
 			expectedSummary:   "2 open PRs are waiting for attention 👀",
+			expectedHeadings:  []string{"Open PRs in test-org/test-repo:"},
 		},
 		{
 			name:   "group by repository with multiple repos",
@@ -577,6 +579,7 @@ func TestScenarios(t *testing.T) {
 			},
 			expectedPRNumbers: []int{1, 2, 3},
 			expectedSummary:   "3 open PRs are waiting for attention 👀",
+			expectedHeadings:  []string{"Open PRs in org/repo1:", "Open PRs in org/repo2:"},
 		},
 		{
 			name:   "group by repository disabled with main list heading required",
@@ -687,6 +690,19 @@ func TestScenarios(t *testing.T) {
 				t.Errorf(
 					"Expected PR list heading '%s' to be included in the Slack message", expectedHeading,
 				)
+			}
+			// Check for expected repository headings (used in group-by-repository mode)
+			for _, expectedHeading := range tc.expectedHeadings {
+				if !mockSlackAPI.SentMessage.Blocks.ContainsHeading(expectedHeading) {
+					t.Errorf(
+						"Expected repository heading '%s' to be included in the Slack message", expectedHeading,
+					)
+					prLists := mockSlackAPI.SentMessage.Blocks.GetPRLists()
+					t.Logf("Found headings:")
+					for _, prList := range prLists {
+						t.Logf("  - '%s'", prList.Heading)
+					}
+				}
 			}
 		})
 	}
