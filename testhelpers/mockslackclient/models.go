@@ -28,8 +28,14 @@ func (b BlocksWrapper) GetPRLists() []PRList {
 			if err != nil {
 				panic(fmt.Sprintf("Unexpected rich_text section array type: %v", err))
 			}
-			if len(richTextSections) > 0 && len(richTextSections[0].Elements) > 0 {
-				currentHeading = richTextSections[0].Elements[0].Text
+			if len(richTextSections) > 0 {
+				headingText := ""
+				for _, element := range richTextSections[0].Elements {
+					if element.Text != "" {
+						headingText += element.Text
+					}
+				}
+				currentHeading = headingText
 			}
 		}
 		var prList PRList
@@ -112,11 +118,11 @@ type Block struct {
 }
 
 func (b Block) IsHeading() bool {
-	return b.Type == "rich_text" && b.BlockID == "pr_list_heading"
+	return b.Type == "rich_text" && (b.BlockID == "pr_list_heading" || strings.HasPrefix(b.BlockID, "repo_heading_"))
 }
 
 func (b Block) IsPRItem() bool {
-	return b.Type == "rich_text" && b.BlockID != "pr_list_heading" && b.Elements != nil
+	return b.BlockID == "open_prs"
 }
 
 type TextObject struct {

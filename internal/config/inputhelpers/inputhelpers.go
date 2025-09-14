@@ -54,6 +54,21 @@ func GetInputInt(name string) (int, error) {
 	return parsed, nil
 }
 
+// Retrieves the value of the input, attempts to parse it as a boolean,
+// and returns the parsed value.
+// Returns false if the environment variable is not set.
+func GetInputBool(name string) (bool, error) {
+	val := GetInput(name)
+	if val == "" {
+		return false, nil
+	}
+	parsed, err := strconv.ParseBool(val)
+	if err != nil {
+		return false, fmt.Errorf("error parsing input %s as boolean: %v", name, err)
+	}
+	return parsed, nil
+}
+
 func GetInputList(name string) []string {
 	val := GetInput(name)
 	if val == "" {

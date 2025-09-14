@@ -546,6 +546,60 @@ func TestScenarios(t *testing.T) {
 			},
 			expectedSummary: "4 open PRs are waiting for attention 👀",
 		},
+		{
+			name:   "group by repository with single repo",
+			config: testhelpers.GetDefaultConfigMinimal(),
+			configOverrides: &map[string]any{
+				config.InputGroupByRepository: true,
+			},
+			prs: []*github.PullRequest{
+				getTestPR(GetTestPROptions{Number: 1, Title: "PR 1", AuthorLogin: "alice"}),
+				getTestPR(GetTestPROptions{Number: 2, Title: "PR 2", AuthorLogin: "bob"}),
+			},
+			expectedPRNumbers: []int{1, 2},
+			expectedSummary:   "2 open PRs are waiting for attention 👀",
+		},
+		{
+			name:   "group by repository with multiple repos",
+			config: testhelpers.GetDefaultConfigMinimal(),
+			configOverrides: &map[string]any{
+				config.InputGithubRepositories: "org/repo1; org/repo2",
+				config.InputGroupByRepository:  true,
+			},
+			prsByRepo: map[string][]*github.PullRequest{
+				"repo1": {
+					getTestPR(GetTestPROptions{Number: 1, Title: "PR from repo1", AuthorLogin: "alice"}),
+				},
+				"repo2": {
+					getTestPR(GetTestPROptions{Number: 2, Title: "PR from repo2", AuthorLogin: "bob"}),
+					getTestPR(GetTestPROptions{Number: 3, Title: "Another PR from repo2", AuthorLogin: "charlie"}),
+				},
+			},
+			expectedPRNumbers: []int{1, 2, 3},
+			expectedSummary:   "3 open PRs are waiting for attention 👀",
+		},
+		{
+			name:   "group by repository disabled with main list heading required",
+			config: testhelpers.GetDefaultConfigMinimal(),
+			configOverrides: &map[string]any{
+				config.InputGroupByRepository: false,
+				config.InputPRListHeading:     "", // Empty heading when grouping is disabled should cause error
+			},
+			expectedErrorMsg: "configuration error: main-list-heading is required when group-by-repository is false",
+		},
+		{
+			name:   "group by repository enabled ignores main list heading",
+			config: testhelpers.GetDefaultConfigMinimal(),
+			configOverrides: &map[string]any{
+				config.InputGroupByRepository: true,
+				config.InputPRListHeading:     "", // Empty heading should be ignored when grouping is enabled
+			},
+			prs: []*github.PullRequest{
+				getTestPR(GetTestPROptions{Number: 1, Title: "Test PR", AuthorLogin: "alice"}),
+			},
+			expectedPRNumbers: []int{1},
+			expectedSummary:   "1 open PR is waiting for attention 👀",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -614,7 +668,17 @@ func TestScenarios(t *testing.T) {
 				)
 			}
 			expectedHeading := ""
-			if len(expectedPRs) > 0 {
+			// Check if grouping is enabled in overrides
+			groupByRepository := tc.config.ContentInputs.GroupByRepository
+			if tc.configOverrides != nil {
+				if override, exists := (*tc.configOverrides)[config.InputGroupByRepository]; exists {
+					if groupBool, ok := override.(bool); ok {
+						groupByRepository = groupBool
+					}
+				}
+			}
+			// Only expect main list heading when not grouping by repository
+			if len(expectedPRs) > 0 && !groupByRepository {
 				expectedHeading = strings.ReplaceAll(
 					tc.config.ContentInputs.PRListHeading, "<pr_count>", strconv.Itoa(len(expectedPRs)),
 				)

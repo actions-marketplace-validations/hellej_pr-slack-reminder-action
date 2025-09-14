@@ -16,7 +16,11 @@
 
 ### Testing Strategy & Practices
 
-- **Test-Driven Development**: Use TDD approach when adding new features - write tests first, then implement the functionality whenever possible
+- **Test-Driven Development (TDD)**: ALWAYS use TDD approach when adding new features:
+  1. Write failing tests first that describe the expected behavior
+  2. Implement minimal code to make tests pass
+  3. Refactor while keeping tests green
+  4. Only skip TDD for very simple changes (like documentation updates)
 - **Pragmatic Testing**: Balance thoroughness with practicality - focus on critical paths and user-facing behavior
 - **Test Public Interfaces**: Focus tests on client/user-facing features and functionality rather than implementation details to avoid brittle tests that break during refactoring
 - **Readable Tests**: Write tests that are easy to understand with minimal comments - the test structure and assertions should be self-explanatory
@@ -89,12 +93,13 @@ This is a GitHub Action written in Go that fetches PRs from GitHub repositories 
 - Test environment setup in `testhelpers/confighelpers.go` mirrors real config parsing
 - The validation script `.github/scripts/check_inputs.go` ensures `action.yml` and config constants stay in sync
 
-## Adding New Features
+## Adding New Inputs (Features)
 
-(remember to follow TDD if possible)
+**Follow TDD approach:**
 
 1. Add input to `action.yml`
 2. Add constant to `internal/config/config.go`
-3. Update `Config` struct and `GetConfig()` function
-4. Update `testhelpers/confighelpers.go` for test support
-5. Implement feature logic in appropriate pipeline stage
+3. **Write tests first** - create failing tests for the new functionality
+4. Update `Config` struct and `GetConfig()` function to make tests pass
+5. Implement feature logic in appropriate pipeline stage using TDD cycle
+6. Ensure all tests pass and refactor if needed

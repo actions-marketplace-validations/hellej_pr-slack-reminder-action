@@ -17,7 +17,12 @@ func BuildMessage(content messagecontent.Content) (slack.Message, string) {
 		return slack.NewBlockMessage(blocks...), content.SummaryText
 	}
 
-	blocks = addPRListBLock(blocks, content.PRListHeading, content.PRs)
+	if !content.GroupedByRepository {
+		blocks = addPRListBLock(blocks, content.PRListHeading, content.PRs)
+	} else {
+		blocks = addGroupedPRsBlocks(blocks, content.PRsGroupedByRepository)
+	}
+
 	return slack.NewBlockMessage(blocks...), content.SummaryText
 }
 
@@ -40,6 +45,27 @@ func addPRListBLock(blocks []slack.Block, heading string, prs []prparser.PR) []s
 		),
 		makePRListBlock(prs),
 	)
+}
+
+func addGroupedPRsBlocks(
+	blocks []slack.Block,
+	prsGroupedByRepository []messagecontent.PRsOfRepository,
+) []slack.Block {
+	for _, group := range prsGroupedByRepository {
+		blocks = append(blocks,
+			slack.NewRichTextBlock("repo_heading_"+group.RepositoryLinkLabel,
+				slack.NewRichTextSection(
+					slack.NewRichTextSectionTextElement(group.HeadingPrefix, &slack.RichTextSectionTextStyle{Bold: true}),
+					slack.NewRichTextSectionLinkElement(
+						group.RepositoryLink, group.RepositoryLinkLabel, &slack.RichTextSectionTextStyle{Bold: true},
+					),
+					slack.NewRichTextSectionTextElement(":", &slack.RichTextSectionTextStyle{Bold: true}),
+				),
+			),
+		)
+		blocks = append(blocks, makePRListBlock(group.PRs))
+	}
+	return blocks
 }
 
 func makePRListBlock(openPRs []prparser.PR) *slack.RichTextBlock {

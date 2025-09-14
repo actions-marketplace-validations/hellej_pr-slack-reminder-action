@@ -25,6 +25,7 @@ type TestConfig struct {
 	// RepositoryPrefixes as a string mapping
 	// e.g. "test-repo: 🚀; test-repo2: 📦"
 	RepositoryPrefixesRaw string
+	GroupByRepository     bool
 }
 
 func GetDefaultConfigFull() TestConfig {
@@ -83,6 +84,7 @@ func setEnvFromConfig(t *testing.T, c TestConfig, overrides *map[string]any) {
 	setInputEnv(t, overrides, config.InputGlobalFilters, c.GlobalFiltersRaw)
 	setInputEnv(t, overrides, config.InputRepositoryFilters, c.RepositoryFiltersRaw)
 	setInputEnv(t, overrides, config.InputRepositoryPrefixes, c.RepositoryPrefixesRaw)
+	setInputEnv(t, overrides, config.InputGroupByRepository, c.GroupByRepository)
 }
 
 func setInputEnv(t *testing.T, overrides *map[string]interface{}, inputName string, value any) {
@@ -118,6 +120,8 @@ func setInputEnv(t *testing.T, overrides *map[string]interface{}, inputName stri
 			return
 		}
 		strValue = strconv.Itoa(*v)
+	case bool:
+		strValue = strconv.FormatBool(v)
 	default:
 		t.Fatalf("unsupported value type for setInputEnv: %T", value)
 	}

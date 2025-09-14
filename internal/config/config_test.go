@@ -288,7 +288,7 @@ func TestGetConfig_MissingRequiredInputs(t *testing.T) {
 			setupOptions: MinimalConfigOptions{
 				SkipPRListHeading: true,
 			},
-			expectedErrMsg: "required input main-list-heading is not set",
+			expectedErrMsg: "main-list-heading is required when group-by-repository is false",
 		},
 		{
 			name: "missing slack channel",

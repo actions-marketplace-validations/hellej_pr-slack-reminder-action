@@ -28,6 +28,7 @@ const (
 	InputGlobalFilters               string = "filters"
 	InputRepositoryFilters           string = "repository-filters"
 	InputRepositoryPrefixes          string = "repository-prefixes"
+	InputGroupByRepository           string = "group-by-repository"
 
 	MaxRepositories int = 50
 )
@@ -53,6 +54,7 @@ type ContentInputs struct {
 	OldPRThresholdHours         int
 	RepositoryPrefixes          map[string]string
 	SlackUserIdByGitHubUsername map[string]string
+	GroupByRepository           bool
 }
 
 func (c Config) Print() {
@@ -72,12 +74,13 @@ func GetConfig() (Config, error) {
 	repository, err1 := inputhelpers.GetEnvRequired(EnvGithubRepository)
 	githubToken, err2 := inputhelpers.GetInputRequired(InputGithubToken)
 	slackToken, err3 := inputhelpers.GetInputRequired(InputSlackBotToken)
-	mainListHeading, err4 := inputhelpers.GetInputRequired(InputPRListHeading)
-	oldPRsThresholdHours, err5 := inputhelpers.GetInputInt(InputOldPRThresholdHours)
-	slackUserIdByGitHubUsername, err6 := inputhelpers.GetInputMapping(InputSlackUserIdByGitHubUsername)
-	globalFilters, err7 := GetGlobalFiltersFromInput(InputGlobalFilters)
-	repositoryFilters, err8 := GetRepositoryFiltersFromInput(InputRepositoryFilters)
-	repositoryPrefixes, err9 := inputhelpers.GetInputMapping(InputRepositoryPrefixes)
+	mainListHeading := inputhelpers.GetInput(InputPRListHeading)
+	oldPRsThresholdHours, err4 := inputhelpers.GetInputInt(InputOldPRThresholdHours)
+	slackUserIdByGitHubUsername, err5 := inputhelpers.GetInputMapping(InputSlackUserIdByGitHubUsername)
+	globalFilters, err6 := GetGlobalFiltersFromInput(InputGlobalFilters)
+	repositoryFilters, err7 := GetRepositoryFiltersFromInput(InputRepositoryFilters)
+	repositoryPrefixes, err8 := inputhelpers.GetInputMapping(InputRepositoryPrefixes)
+	groupByRepository, err9 := inputhelpers.GetInputBool(InputGroupByRepository)
 
 	if err := selectNonNilError(err1, err2, err3, err4, err5, err6, err7, err8, err9); err != nil {
 		return Config{}, err
@@ -108,6 +111,7 @@ func GetConfig() (Config, error) {
 			PRListHeading:               mainListHeading,
 			OldPRThresholdHours:         oldPRsThresholdHours,
 			RepositoryPrefixes:          repositoryPrefixes,
+			GroupByRepository:           groupByRepository,
 		},
 		GlobalFilters:     globalFilters,
 		RepositoryFilters: repositoryFilters,
@@ -133,7 +137,7 @@ func (c Config) GetFiltersForRepository(repo models.Repository) Filters {
 }
 
 // validate performs post-construction validation of business rules for Config.
-// It validates repository limits, Slack channel requirements, and repository consistency.
+// It validates repository limits, Slack channel requirements and repository names.
 func (c Config) validate() error {
 	if len(c.Repositories) == 0 {
 		return fmt.Errorf("at least one repository must be specified in %s or %s", EnvGithubRepository, InputGithubRepositories)
@@ -145,6 +149,9 @@ func (c Config) validate() error {
 		return fmt.Errorf("too many repositories: maximum of %d repositories allowed, got %d", MaxRepositories, len(c.Repositories))
 	}
 	if err := c.validateRepositoryNames(); err != nil {
+		return err
+	}
+	if err := c.validateHeadingOptions(); err != nil {
 		return err
 	}
 
@@ -208,6 +215,13 @@ func validateRepositoryReferences[V any](
 				repoNameOrPath,
 			)
 		}
+	}
+	return nil
+}
+
+func (c Config) validateHeadingOptions() error {
+	if !c.ContentInputs.GroupByRepository && c.ContentInputs.PRListHeading == "" {
+		return fmt.Errorf("%s is required when group-by-repository is false", InputPRListHeading)
 	}
 	return nil
 }
