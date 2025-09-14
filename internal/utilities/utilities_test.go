@@ -46,7 +46,7 @@ func TestFilter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := slices.Collect(Filter(tt.items, tt.filter))
+			result := Filter(tt.items, tt.filter)
 			if !slices.Equal(result, tt.expected) {
 				t.Errorf("Filter() = %v, expected %v", result, tt.expected)
 			}
@@ -58,7 +58,7 @@ func TestFilterWithStrings(t *testing.T) {
 	items := []string{"apple", "banana", "apricot", "cherry"}
 	filter := func(s string) bool { return len(s) > 5 }
 
-	result := slices.Collect(Filter(items, filter))
+	result := Filter(items, filter)
 	expected := []string{"banana", "apricot", "cherry"}
 
 	if !slices.Equal(result, expected) {

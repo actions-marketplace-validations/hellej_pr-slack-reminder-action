@@ -1,24 +1,16 @@
 package githubclient
 
-import "github.com/hellej/pr-slack-reminder-action/internal/config"
+import (
+	"github.com/hellej/pr-slack-reminder-action/internal/config"
+	"github.com/hellej/pr-slack-reminder-action/internal/models"
+	"github.com/hellej/pr-slack-reminder-action/internal/utilities"
+)
 
 func filterPRs(
 	prs []PR,
-	globalFilters config.Filters,
-	repositoryFilters map[string]config.Filters,
+	getFiltersForRepository func(repo models.Repository) config.Filters,
 ) []PR {
-	filtered := make([]PR, 0, len(prs))
-	for _, pr := range prs {
-		repositoryFilters, ok := repositoryFilters[pr.Repository.Name]
-		if ok {
-			if pr.isMatch(repositoryFilters) {
-				filtered = append(filtered, pr)
-			}
-			continue
-		}
-		if pr.isMatch(globalFilters) {
-			filtered = append(filtered, pr)
-		}
-	}
-	return filtered
+	return utilities.Filter(prs, func(pr PR) bool {
+		return pr.isMatch(getFiltersForRepository(pr.Repository))
+	})
 }

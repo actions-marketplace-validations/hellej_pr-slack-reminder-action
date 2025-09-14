@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"slices"
 
 	"github.com/hellej/pr-slack-reminder-action/internal/config/inputhelpers"
 	"github.com/hellej/pr-slack-reminder-action/internal/models"
@@ -123,6 +122,18 @@ func GetConfig() (Config, error) {
 	return config, nil
 }
 
+func (c Config) GetFiltersForRepository(repo models.Repository) Filters {
+	filters, exists := c.RepositoryFilters[repo.Path]
+	if exists {
+		return filters
+	}
+	filters, exists = c.RepositoryFilters[repo.Name]
+	if exists {
+		return filters
+	}
+	return c.GlobalFilters
+}
+
 // validate performs post-construction validation of business rules for Config.
 // It validates repository limits, Slack channel requirements, and repository consistency.
 func (c Config) validate() error {
@@ -143,15 +154,9 @@ func (c Config) validate() error {
 }
 
 func (c Config) validateRepositoryNames() error {
-	// Check for duplicates
-	repositoryPaths := make(map[string]bool, len(c.Repositories))
-	for _, repo := range c.Repositories {
-		if repositoryPaths[repo.Path] {
-			return fmt.Errorf("duplicate repository '%s' found in github-repositories", repo.Path)
-		}
-		repositoryPaths[repo.Path] = true
+	if err := validateDuplicateRepositories(c.Repositories); err != nil {
+		return err
 	}
-
 	if err := validateRepositoryReferences(
 		c.Repositories, c.RepositoryFilters, "repository-filters",
 	); err != nil {
@@ -162,15 +167,16 @@ func (c Config) validateRepositoryNames() error {
 	); err != nil {
 		return err
 	}
-
 	return nil
 }
 
-func selectNonNilError(errs ...error) error {
-	for _, err := range errs {
-		if err != nil {
-			return err
+func validateDuplicateRepositories(repositories []models.Repository) error {
+	repositoryPaths := make(map[string]bool, len(repositories))
+	for _, repo := range repositories {
+		if repositoryPaths[repo.Path] {
+			return fmt.Errorf("duplicate repository '%s' found in github-repositories", repo.Path)
 		}
+		repositoryPaths[repo.Path] = true
 	}
 	return nil
 }
@@ -184,11 +190,9 @@ func validateRepositoryReferences[V any](
 ) error {
 	for repoNameOrPath := range repoMapping {
 		matches := len(
-			slices.Collect(
-				utilities.Filter(repositories, func(r models.Repository) bool {
-					return r.Path == repoNameOrPath || r.Name == repoNameOrPath
-				}),
-			),
+			utilities.Filter(repositories, func(r models.Repository) bool {
+				return r.Path == repoNameOrPath || r.Name == repoNameOrPath
+			}),
 		)
 		switch matches {
 		case 1:
@@ -206,6 +210,15 @@ func validateRepositoryReferences[V any](
 				inputName,
 				repoNameOrPath,
 			)
+		}
+	}
+	return nil
+}
+
+func selectNonNilError(errs ...error) error {
+	for _, err := range errs {
+		if err != nil {
+			return err
 		}
 	}
 	return nil

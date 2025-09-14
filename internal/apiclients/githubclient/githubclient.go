@@ -12,13 +12,13 @@ import (
 	"github.com/google/go-github/v72/github"
 	"github.com/hellej/pr-slack-reminder-action/internal/config"
 	"github.com/hellej/pr-slack-reminder-action/internal/models"
+	"github.com/hellej/pr-slack-reminder-action/internal/utilities"
 )
 
 type Client interface {
 	FetchOpenPRs(
 		repositories []models.Repository,
-		globalFilters config.Filters,
-		repositoryFilters map[string]config.Filters,
+		getFiltersForRepository func(repo models.Repository) config.Filters,
 	) ([]PR, error)
 }
 
@@ -55,8 +55,7 @@ type client struct {
 // so we can save the refactoring for later...
 func (c *client) FetchOpenPRs(
 	repositories []models.Repository,
-	globalFilters config.Filters,
-	repositoryFilters map[string]config.Filters,
+	getFiltersForRepository func(repo models.Repository) config.Filters,
 ) ([]PR, error) {
 	log.Printf("Fetching open pull requests for repositories: %v", repositories)
 
@@ -93,11 +92,11 @@ func (c *client) FetchOpenPRs(
 		}
 	}
 
-	return filterPRs(
-		c.addReviewerInfoToPRs(successfulResults),
-		globalFilters,
-		repositoryFilters,
-	), nil
+	prs := c.addReviewerInfoToPRs(successfulResults)
+
+	return utilities.Filter(prs, func(pr PR) bool {
+		return pr.isMatch(getFiltersForRepository(pr.Repository))
+	}), nil
 }
 
 func (c *client) fetchOpenPRsForRepository(
