@@ -11,6 +11,7 @@ import (
 
 	"github.com/hellej/pr-slack-reminder-action/internal/apiclients/githubclient"
 	"github.com/hellej/pr-slack-reminder-action/internal/config"
+	"github.com/hellej/pr-slack-reminder-action/internal/utilities"
 )
 
 type PR struct {
@@ -49,11 +50,9 @@ func (pr PR) GetPRAgeText() string {
 }
 
 func ParsePRs(prs []githubclient.PR, config config.ContentInputs) []PR {
-	var parsedPRs []PR
-	for _, pr := range prs {
-		parsedPRs = append(parsedPRs, parsePR(pr, config))
-	}
-	return sortPRsByCreatedAt(parsedPRs)
+	return sortPRsByCreatedAt(utilities.Map(prs, func(pr githubclient.PR) PR {
+		return parsePR(pr, config)
+	}))
 }
 
 func parsePR(pr githubclient.PR, config config.ContentInputs) PR {
@@ -76,11 +75,9 @@ func withSlackUserIds(
 	collaborators []githubclient.Collaborator,
 	slackUserIdByGitHubUsername map[string]string,
 ) []Collaborator {
-	result := make([]Collaborator, len(collaborators))
-	for i, c := range collaborators {
-		result[i] = NewCollaborator(c, slackUserIdByGitHubUsername[c.Login])
-	}
-	return result
+	return utilities.Map(collaborators, func(c githubclient.Collaborator) Collaborator {
+		return NewCollaborator(c, slackUserIdByGitHubUsername[c.Login])
+	})
 }
 
 func sortPRsByCreatedAt(prs []PR) []PR {

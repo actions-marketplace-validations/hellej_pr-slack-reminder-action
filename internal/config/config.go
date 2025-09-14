@@ -88,13 +88,11 @@ func GetConfig() (Config, error) {
 		repositoryPaths = []string{repository}
 	}
 
-	repositories := make([]models.Repository, len(repositoryPaths))
-	for i, repoPath := range repositoryPaths {
-		repo, err := models.ParseRepository(repoPath)
-		if err != nil {
-			return Config{}, fmt.Errorf("invalid repositories input: %v", err)
-		}
-		repositories[i] = repo
+	repositories, err := utilities.MapWithError(repositoryPaths, func(repoPath string) (models.Repository, error) {
+		return models.ParseRepository(repoPath)
+	})
+	if err != nil {
+		return Config{}, fmt.Errorf("invalid repositories input: %v", err)
 	}
 
 	config := Config{
@@ -189,12 +187,11 @@ func validateRepositoryReferences[V any](
 	inputName string,
 ) error {
 	for repoNameOrPath := range repoMapping {
-		matches := len(
-			utilities.Filter(repositories, func(r models.Repository) bool {
-				return r.Path == repoNameOrPath || r.Name == repoNameOrPath
-			}),
-		)
-		switch matches {
+		matches := utilities.Filter(repositories, func(r models.Repository) bool {
+			return r.Path == repoNameOrPath || r.Name == repoNameOrPath
+		})
+
+		switch len(matches) {
 		case 1:
 			continue
 		case 0:
