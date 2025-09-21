@@ -115,8 +115,8 @@ func TestComposeSlackBlocksMessage(t *testing.T) {
 			t.Errorf("Expected summary to be '%s', got '%s'", content.SummaryText, summaryText)
 		}
 
-		if len(message.Blocks.BlockSet) != 4 {
-			t.Errorf("Expected 4 blocks, got %d", len(message.Blocks.BlockSet))
+		if len(message.Blocks.BlockSet) != 5 {
+			t.Errorf("Expected 5 blocks, got %d", len(message.Blocks.BlockSet))
 		}
 
 		firstHeadingBlock := message.Blocks.BlockSet[0].(*slack.RichTextBlock)

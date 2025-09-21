@@ -51,9 +51,9 @@ func addGroupedPRsBlocks(
 	blocks []slack.Block,
 	prsGroupedByRepository []messagecontent.PRsOfRepository,
 ) []slack.Block {
-	for _, group := range prsGroupedByRepository {
+	for idx, group := range prsGroupedByRepository {
 		blocks = append(blocks,
-			slack.NewRichTextBlock("repo_heading_"+group.RepositoryLinkLabel,
+			slack.NewRichTextBlock("pr_list_heading_"+group.RepositoryLinkLabel,
 				slack.NewRichTextSection(
 					slack.NewRichTextSectionTextElement(group.HeadingPrefix, &slack.RichTextSectionTextStyle{Bold: true}),
 					slack.NewRichTextSectionLinkElement(
@@ -64,6 +64,13 @@ func addGroupedPRsBlocks(
 			),
 		)
 		blocks = append(blocks, makePRListBlockWithID(group.PRs, "open_prs_"+group.RepositoryLinkLabel))
+
+		if idx < len(prsGroupedByRepository)-1 {
+			// adding spacing block between repositories
+			blocks = append(blocks,
+				slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", " ", false, false), nil, nil),
+			)
+		}
 	}
 	return blocks
 }

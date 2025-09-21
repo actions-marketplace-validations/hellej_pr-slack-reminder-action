@@ -118,11 +118,11 @@ type Block struct {
 }
 
 func (b Block) IsHeading() bool {
-	return b.Type == "rich_text" && (b.BlockID == "pr_list_heading" || strings.HasPrefix(b.BlockID, "repo_heading_"))
+	return b.Type == "rich_text" && (strings.HasPrefix(b.BlockID, "pr_list_heading"))
 }
 
 func (b Block) IsPRItem() bool {
-	return b.BlockID == "open_prs"
+	return strings.HasPrefix(b.BlockID, "open_prs")
 }
 
 type TextObject struct {
