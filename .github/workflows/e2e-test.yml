@@ -43,7 +43,7 @@ jobs:
           slack-bot-token: ${{ secrets.DEV_SLACK_TOKEN }}
           slack-channel-name: 'pr-reminders-test'
           github-repositories: |
-            hellej/pr-reminders-action
+            hellej/pr-reminder-action
             hellej/pr-slack-reminder-test-repo-1
             hellej/github-notifications-test-repo-2
           github-user-slack-user-id-mapping: |
@@ -66,7 +66,7 @@ jobs:
           slack-bot-token: ${{ secrets.DEV_SLACK_TOKEN }}
           slack-channel-name: 'pr-reminders-test'
           github-repositories: |
-            hellej/pr-reminders-action
+            hellej/pr-reminder-action
             hellej/pr-slack-reminder-test-repo-1
             hellej/pr-slack-reminder-test-repo-2
           old-pr-threshold-hours: 48
