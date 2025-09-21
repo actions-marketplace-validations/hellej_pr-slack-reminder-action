@@ -43,7 +43,7 @@ func addPRListBLock(blocks []slack.Block, heading string, prs []prparser.PR) []s
 				slack.NewRichTextSectionTextElement(heading, &slack.RichTextSectionTextStyle{Bold: true}),
 			),
 		),
-		makePRListBlock(prs),
+		makePRListBlockWithID(prs, "open_prs"),
 	)
 }
 
@@ -63,18 +63,18 @@ func addGroupedPRsBlocks(
 				),
 			),
 		)
-		blocks = append(blocks, makePRListBlock(group.PRs))
+		blocks = append(blocks, makePRListBlockWithID(group.PRs, "open_prs_"+group.RepositoryLinkLabel))
 	}
 	return blocks
 }
 
-func makePRListBlock(openPRs []prparser.PR) *slack.RichTextBlock {
+func makePRListBlockWithID(openPRs []prparser.PR, blockID string) *slack.RichTextBlock {
 	var prBlocks []slack.RichTextElement
 	for _, pr := range openPRs {
 		prBlocks = append(prBlocks, buildPRBulletPointBlock(pr))
 	}
 	return slack.NewRichTextBlock(
-		"open_prs",
+		blockID,
 		slack.NewRichTextList(slack.RichTextListElementType("bullet"), 0,
 			prBlocks...,
 		),

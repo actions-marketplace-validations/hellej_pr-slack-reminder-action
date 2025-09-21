@@ -88,6 +88,57 @@ func TestComposeSlackBlocksMessage(t *testing.T) {
 			t.Errorf("Expected text to be '%s', got '%s'", testPRs.PR1.Author.SlackUserID, prUserElement.UserID)
 		}
 	})
+
+	t.Run("Grouped by repository", func(t *testing.T) {
+		content := messagecontent.Content{
+			SummaryText:         "2 open PRs are waiting for attention 👀",
+			GroupedByRepository: true,
+			PRsGroupedByRepository: []messagecontent.PRsOfRepository{
+				{
+					HeadingPrefix:       "Open PRs in ",
+					RepositoryLinkLabel: "owner/repo-name",
+					RepositoryLink:      "https://github.com/owner/repo-name",
+					PRs:                 getTestPRs().PRs,
+				},
+				{
+					HeadingPrefix:       "Open PRs in ",
+					RepositoryLinkLabel: "another-org/special-chars_repo",
+					RepositoryLink:      "https://github.com/another-org/special-chars_repo",
+					PRs:                 getTestPRs().PRs,
+				},
+			},
+		}
+
+		message, summaryText := messagebuilder.BuildMessage(content)
+
+		if summaryText != content.SummaryText {
+			t.Errorf("Expected summary to be '%s', got '%s'", content.SummaryText, summaryText)
+		}
+
+		if len(message.Blocks.BlockSet) != 4 {
+			t.Errorf("Expected 4 blocks, got %d", len(message.Blocks.BlockSet))
+		}
+
+		firstHeadingBlock := message.Blocks.BlockSet[0].(*slack.RichTextBlock)
+
+		firstSection := firstHeadingBlock.Elements[0].(*slack.RichTextSection)
+		if len(firstSection.Elements) != 3 { // prefix + link + colon
+			t.Errorf("Expected 3 elements in first section, got %d", len(firstSection.Elements))
+		}
+
+		prefixElement := firstSection.Elements[0].(*slack.RichTextSectionTextElement)
+		if prefixElement.Text != "Open PRs in " {
+			t.Errorf("Expected prefix 'Open PRs in ', got '%s'", prefixElement.Text)
+		}
+
+		linkElement := firstSection.Elements[1].(*slack.RichTextSectionLinkElement)
+		if linkElement.Text != "owner/repo-name" {
+			t.Errorf("Expected link text 'owner/repo-name', got '%s'", linkElement.Text)
+		}
+		if linkElement.URL != "https://github.com/owner/repo-name" {
+			t.Errorf("Expected link URL 'https://github.com/owner/repo-name', got '%s'", linkElement.URL)
+		}
+	})
 }
 
 type TestPRs struct {
