@@ -77,7 +77,7 @@ func groupPRsByRepositories(openPRs []prparser.PR) []PRsOfRepository {
 		return PRsOfRepository{
 			HeadingPrefix:       "Open PRs in ",
 			RepositoryLinkLabel: repo.Path,
-			RepositoryLink:      fmt.Sprintf("https://github.com/%s", repo.Path),
+			RepositoryLink:      fmt.Sprintf("https://github.com/%s/pulls", repo.Path),
 			PRs:                 prsByRepo[repoKey],
 		}
 	})
