@@ -7,10 +7,11 @@ on:
     paths:
       - 'dist/**'
       - 'invoke-binary.js'
+      - '.github/workflows/e2e-test.yml'
 
 jobs:  
- test-run:
-    name: Test Run
+  test-run-1:
+    name: Test Run 1
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -26,3 +27,54 @@ jobs:
           github-user-slack-user-id-mapping: |
             hellej: U08SZJTJF0U
             bob: U08EVPGNWER
+
+  test-run-2:
+    name: Test Run 2
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+   
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./        
+        with:
+          github-token: ${{ secrets.TEST_GITHUB_TOKEN }}
+          slack-bot-token: ${{ secrets.DEV_SLACK_TOKEN }}
+          slack-channel-name: 'pr-reminders-test'
+          github-repositories: |
+            hellej/pr-reminders-action
+            hellej/pr-slack-reminder-test-repo-1
+            hellej/github-notifications-test-repo-2
+          github-user-slack-user-id-mapping: |
+            hellej: U08SZJTJF0U
+            bob: U08EVPGNWER
+          old-pr-threshold-hours: 48
+
+  test-run-3:
+    name: Test Run 3
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+   
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./        
+        with:
+          github-token: ${{ secrets.TEST_GITHUB_TOKEN }}
+          slack-bot-token: ${{ secrets.DEV_SLACK_TOKEN }}
+          slack-channel-name: 'pr-reminders-test'
+          github-repositories: |
+            hellej/pr-reminders-action
+            hellej/pr-slack-reminder-test-repo-1
+            hellej/pr-slack-reminder-test-repo-2
+          old-pr-threshold-hours: 48
+          group-by-repository: true
+          filters: |
+            {
+              "labels-ignore": ["ignore-reminder"],
+            }
+          repository-filters: |
+            hellej/pr-slack-reminder-test-repo-1: {"authors-ignore": ["alice"]}
+            hellej/pr-slack-reminder-test-repo-2: {}
