@@ -6,7 +6,6 @@ import (
 	"slices"
 
 	"github.com/google/go-github/v72/github"
-	"github.com/hellej/pr-slack-reminder-action/internal/config"
 	"github.com/hellej/pr-slack-reminder-action/internal/models"
 )
 
@@ -29,34 +28,6 @@ type PR struct {
 	Author           Collaborator
 	CommentedByUsers []Collaborator // reviewers who commented the PR but did not approve it
 	ApprovedByUsers  []Collaborator
-}
-
-func (pr PR) isMatch(filters config.Filters) bool {
-	if len(filters.LabelsIgnore) > 0 {
-		if slices.ContainsFunc(pr.Labels, func(l *github.Label) bool {
-			return slices.Contains(filters.LabelsIgnore, l.GetName())
-		}) {
-			return false
-		}
-	}
-	if len(filters.AuthorsIgnore) > 0 {
-		if slices.Contains(filters.AuthorsIgnore, pr.Author.Login) {
-			return false
-		}
-	}
-	if len(filters.Labels) > 0 {
-		if !slices.ContainsFunc(pr.Labels, func(l *github.Label) bool {
-			return slices.Contains(filters.Labels, l.GetName())
-		}) {
-			return false
-		}
-	}
-	if len(filters.Authors) > 0 {
-		if !slices.Contains(filters.Authors, pr.Author.Login) {
-			return false
-		}
-	}
-	return true
 }
 
 type FetchReviewsResult struct {

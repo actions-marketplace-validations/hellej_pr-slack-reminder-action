@@ -72,8 +72,6 @@ func (c *client) FetchOpenPRs(
 			apiResultChannel <- apiResult
 			if apiResult.err != nil {
 				cancel()
-			} else {
-				logFoundPRs(r.Path, apiResult.prs)
 			}
 		}(repo)
 	}
@@ -92,11 +90,28 @@ func (c *client) FetchOpenPRs(
 		}
 	}
 
-	prs := c.addReviewerInfoToPRs(successfulResults)
+	filteredResults := utilities.Map(successfulResults, func(r PRsOfRepoResult) PRsOfRepoResult {
+		return PRsOfRepoResult{
+			prs: utilities.Filter(
+				r.prs,
+				func(pr *github.PullRequest) bool {
+					return !pr.GetDraft() && includePR(pr, getFiltersForRepository(r.repository))
+				}),
+			repository: r.repository,
+			err:        nil,
+		}
+	})
+	logFoundPRs(filteredResults)
 
-	return utilities.Filter(prs, func(pr PR) bool {
-		return !pr.GetDraft() && pr.isMatch(getFiltersForRepository(pr.Repository))
-	}), nil
+	prs := c.addReviewerInfoToPRs(
+		utilities.Filter(
+			filteredResults,
+			func(r PRsOfRepoResult) bool {
+				return len(r.prs) > 0
+			},
+		),
+	)
+	return prs, nil
 }
 
 func (c *client) fetchOpenPRsForRepository(
@@ -130,10 +145,12 @@ func (c *client) fetchOpenPRsForRepository(
 	}
 }
 
-func logFoundPRs(repository string, prs []*github.PullRequest) {
-	log.Printf("Found %d open pull requests in repository %s:", len(prs), repository)
-	for _, pr := range prs {
-		log.Printf("  #%v: %s \"%s\"", *pr.Number, pr.GetHTMLURL(), pr.GetTitle())
+func logFoundPRs(prResults []PRsOfRepoResult) {
+	for _, result := range prResults {
+		log.Printf("Found %d open pull requests in repository %s:", len(result.prs), result.repository)
+		for _, pr := range result.prs {
+			log.Printf("  #%v: %s \"%s\"", *pr.Number, pr.GetHTMLURL(), pr.GetTitle())
+		}
 	}
 }
 
