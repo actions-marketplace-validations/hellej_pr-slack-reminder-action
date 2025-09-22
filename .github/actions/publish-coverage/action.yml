@@ -1,0 +1,20 @@
+name: 'Publish Coverage'
+description: 'Publish test coverage to Coveralls'
+
+inputs:
+  coveralls-token:
+    description: 'Coveralls token for coverage reporting'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install goveralls
+      shell: bash
+      run: go install github.com/mattn/goveralls@v0.0.12
+    
+    - name: Publish coverage to Coveralls
+      shell: bash
+      env:
+        COVERALLS_TOKEN: ${{ inputs.coveralls-token }}
+      run: make publish-code-coverage

@@ -6,9 +6,6 @@ inputs:
     description: 'Go version to use'
     required: false
     default: '1.25'
-  coveralls-token:
-    description: 'Coveralls token for coverage reporting'
-    required: false
 
 runs:
   using: composite
@@ -25,15 +22,3 @@ runs:
     - name: Run unit tests with coverage
       shell: bash
       run: make test-with-coverage
-
-    - name: Install goveralls
-      if: inputs.coveralls-token != ''
-      shell: bash
-      run: go install github.com/mattn/goveralls@v0.0.12
-    
-    - name: Send coverage
-      if: inputs.coveralls-token != ''
-      shell: bash
-      env:
-        COVERALLS_TOKEN: ${{ inputs.coveralls-token }}
-      run: make publish-code-coverage
