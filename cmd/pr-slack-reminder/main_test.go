@@ -28,6 +28,7 @@ type GetTestPROptions struct {
 	AuthorName  string
 	Labels      []string
 	AgeHours    float32
+	Draft       *bool // nil means unset, github.Ptr(true) means draft, github.Ptr(false) means not draft
 }
 
 var now = time.Now()
@@ -63,6 +64,7 @@ func getTestPR(options GetTestPROptions) *github.PullRequest {
 		},
 		Labels:    githubLabels,
 		CreatedAt: &github.Timestamp{Time: prTime},
+		Draft:     options.Draft,
 	}
 }
 
@@ -340,6 +342,26 @@ func TestScenarios(t *testing.T) {
 			configOverrides: &map[string]any{config.InputGlobalFilters: "{\"authors-ignore\": [\"lilo\"]}"},
 			prs:             getTestPRs(GetTestPRsOptions{AuthorUser: "lilo"}).PRs,
 			expectedSummary: "", // no message should be sent
+		},
+		{
+			name:   "draft PRs are filtered out",
+			config: testhelpers.GetDefaultConfigMinimal(),
+			prs: []*github.PullRequest{
+				getTestPR(GetTestPROptions{Number: 1, Title: "Regular PR", AuthorLogin: "alice", Draft: github.Ptr(false)}),
+				getTestPR(GetTestPROptions{Number: 2, Title: "Draft PR", AuthorLogin: "bob", Draft: github.Ptr(true)}),
+				getTestPR(GetTestPROptions{Number: 3, Title: "Unset draft PR", AuthorLogin: "charlie", Draft: nil}),
+			},
+			expectedPRNumbers: []int{1, 3}, // draft PR should be excluded, nil should be included
+			expectedSummary:   "2 open PRs are waiting for attention 👀",
+		},
+		{
+			name:   "all PRs filtered out when all are drafts",
+			config: testhelpers.GetDefaultConfigMinimal(),
+			prs: []*github.PullRequest{
+				getTestPR(GetTestPROptions{Number: 1, Title: "Draft PR 1", AuthorLogin: "alice", Draft: github.Ptr(true)}),
+				getTestPR(GetTestPROptions{Number: 2, Title: "Draft PR 2", AuthorLogin: "bob", Draft: github.Ptr(true)}),
+			},
+			expectedSummary: "", // no message should be sent since all PRs are drafts
 		},
 		{
 			name:   "PRs by user in one repo filtered",

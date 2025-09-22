@@ -95,7 +95,7 @@ func (c *client) FetchOpenPRs(
 	prs := c.addReviewerInfoToPRs(successfulResults)
 
 	return utilities.Filter(prs, func(pr PR) bool {
-		return pr.isMatch(getFiltersForRepository(pr.Repository))
+		return !pr.GetDraft() && pr.isMatch(getFiltersForRepository(pr.Repository))
 	}), nil
 }
 
