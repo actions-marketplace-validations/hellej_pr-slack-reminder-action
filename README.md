@@ -177,15 +177,48 @@ For monitoring just your current repository, the default `GITHUB_TOKEN` (availab
 github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-### Option 2: GitHub App (Recommended for Organizations)
+### Option 2: GitHub App (Recommended for Multi-Repository Setups)
 
-For better security and granular permissions:
+For better security and granular permissions, especially when monitoring multiple repositories, using a GitHub App is the recommended approach.
 
-1. **Create a GitHub App** in your organization settings
-2. **Install the app** on repositories you want to monitor
-3. **Use a token generation action** like [actions/create-github-app-token](https://github.com/actions/create-github-app-token)
+1.  **Create a GitHub App** in your organization or personal account settings.
+2.  **Give it necessary permissions** (e.g., "read" access to PRs).
+3.  **Install the app** on the repositories you want to monitor. During installation, you can choose to grant access to **all repositories** (of your organization) or only to **specific ones**. For better security, it's recommended to select only the repositories you intend to monitor.
+4.  **Add the App ID and Private Key** as secrets in the repository where your workflow runs.
+5.  **Use a token generation action** (like `actions/create-github-app-token`) in your workflow to generate a temporary token.
 
-### Option 3: Personal Access Token (Multiple Repositories)
+Here is an example of how to implement it in your workflow:
+
+```yaml
+name: PR Reminder
+
+on:
+  schedule:
+    - cron: "0 9 * * MON-FRI"
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate GitHub App Token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Send PR Reminder
+        uses: hellej/pr-slack-reminder-action@v1-beta
+        with:
+          github-token: ${{ steps.generate-token.outputs.token }}
+          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
+          slack-channel-name: "dev-team"
+          github-repositories: |
+            my-org/repo1
+            my-org/repo2
+```
+
+### Option 3: Personal Access Token (Alternative)
 
 To monitor multiple repositories, you'll need a Personal Access Token:
 
