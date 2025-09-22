@@ -9,7 +9,7 @@ const childProcess = require('child_process')
 const os = require('os')
 const process = require('process')
 
-const VERSION = '27ad7c58ab'
+const VERSION = 'ec71b81c74'
 
 function chooseBinary() {
     const platform = os.platform()
