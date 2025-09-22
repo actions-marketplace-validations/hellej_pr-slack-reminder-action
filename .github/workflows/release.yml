@@ -24,12 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-      - name: Bump version & create tagged release
-        run: |
-          echo "SEMVER input: ${{ github.event.inputs.semver }}"
-          make release SEMVER="${{ github.event.inputs.semver }}"
+      - name: Create release tag
+        uses: ./.github/actions/release
+        with:
+          semver: ${{ github.event.inputs.semver }}

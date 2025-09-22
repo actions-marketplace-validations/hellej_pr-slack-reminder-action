@@ -1,0 +1,39 @@
+name: 'Run Unit Tests'
+description: 'Run unit tests with coverage for the Go application'
+
+inputs:
+  go-version:
+    description: 'Go version to use'
+    required: false
+    default: '1.25'
+  coveralls-token:
+    description: 'Coveralls token for coverage reporting'
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ inputs.go-version }}
+
+    - name: Check action inputs
+      shell: bash
+      run: go run .github/scripts/check_inputs.go
+
+    - name: Run unit tests with coverage
+      shell: bash
+      run: make test-with-coverage
+
+    - name: Install goveralls
+      if: inputs.coveralls-token != ''
+      shell: bash
+      run: go install github.com/mattn/goveralls@v0.0.12
+    
+    - name: Send coverage
+      if: inputs.coveralls-token != ''
+      shell: bash
+      env:
+        COVERALLS_TOKEN: ${{ inputs.coveralls-token }}
+      run: make publish-code-coverage

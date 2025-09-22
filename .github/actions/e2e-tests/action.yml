@@ -1,0 +1,62 @@
+name: 'Run E2E Tests'
+description: 'Run end-to-end tests using the built action'
+
+inputs:
+  github-token:
+    description: 'GitHub token for accessing repositories'
+    required: true
+  slack-bot-token:
+    description: 'Slack bot token for sending messages'
+    required: true
+  slack-channel-name:
+    description: 'Slack channel name for test messages'
+    required: false
+    default: 'pr-reminders-test'
+
+runs:
+  using: composite
+  steps:
+    - name: Basic E2E test
+      uses: ./
+      with:
+        github-token: ${{ inputs.github-token }}
+        slack-bot-token: ${{ inputs.slack-bot-token }}
+        slack-channel-name: ${{ inputs.slack-channel-name }}
+        github-user-slack-user-id-mapping: |
+          hellej: U08SZJTJF0U
+          bob: U08EVPGNWER
+
+    - name: Multi-repository E2E test
+      uses: ./
+      with:
+        github-token: ${{ inputs.github-token }}
+        slack-bot-token: ${{ inputs.slack-bot-token }}
+        slack-channel-name: ${{ inputs.slack-channel-name }}
+        github-repositories: |
+          hellej/pr-slack-reminder-action
+          hellej/pr-slack-reminder-test-repo-1
+          hellej/github-notifications-test-repo-2
+        github-user-slack-user-id-mapping: |
+          hellej: U08SZJTJF0U
+          bob: U08EVPGNWER
+        old-pr-threshold-hours: 48
+
+    - name: Advanced E2E test with filters
+      uses: ./
+      with:
+        github-token: ${{ inputs.github-token }}
+        slack-bot-token: ${{ inputs.slack-bot-token }}
+        slack-channel-name: ${{ inputs.slack-channel-name }}
+        github-repositories: |
+          hellej/pr-slack-reminder-action
+          hellej/pr-slack-reminder-test-repo-1
+          hellej/pr-slack-reminder-test-repo-2
+        old-pr-threshold-hours: 48
+        group-by-repository: true
+        filters: |
+          {
+            "labels-ignore": ["ignore-reminder"]
+          }
+        repository-filters: |
+          hellej/pr-slack-reminder-test-repo-1: {"authors-ignore": ["alice"]}
+          hellej/pr-slack-reminder-test-repo-2: {}

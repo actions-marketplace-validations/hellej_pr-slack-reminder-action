@@ -1,0 +1,49 @@
+name: 'Build Application'
+description: 'Build the Go application for all platforms and commit built binary'
+
+inputs:
+  go-version:
+    description: 'Go version to use'
+    required: false
+    default: '1.25'
+  target:
+    description: 'Build target (all, linux-amd64, etc.)'
+    required: false
+    default: 'all'
+  commit-binary:
+    description: 'Whether to commit the built binary to git'
+    required: false
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ inputs.go-version }}
+
+    - name: Build application
+      shell: bash
+      run: |
+        if [ "${{ inputs.target }}" = "all" ]; then
+          make build-all
+        else
+          make build-${{ inputs.target }}
+        fi
+
+    - name: Configure Git
+      if: inputs.commit-binary == 'true'
+      shell: bash
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+    - name: Commit built binary
+      if: inputs.commit-binary == 'true'
+      shell: bash
+      run: |
+        git add invoke-binary.js dist/
+        git status
+        git commit -m "Update action executables" || echo "No changes to commit"
+        git push

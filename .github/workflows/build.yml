@@ -15,28 +15,11 @@ jobs:
         with:
           ssh-key: ${{ secrets.DEPLOY_KEY }}
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.25'
-
-      - name: Build
-        run: make build-all
+      - name: Build application
+        uses: ./.github/actions/build
 
       - name: Smoke/E2E test
-        uses: ./
+        uses: ./.github/actions/e2e-tests
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.TEST_GITHUB_TOKEN }}
           slack-bot-token: ${{ secrets.DEV_SLACK_TOKEN }}
-          slack-channel-name: 'pr-reminders-test'
-
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-      - name: Commit built binary
-        run: |
-          git add invoke-binary.js dist/
-          git status
-          git commit -m "Update action executables" || echo "No changes to commit"
-          git push
