@@ -201,3 +201,112 @@ func TestMapWithErrorToIter(t *testing.T) {
 		t.Error("Second error should not be nil")
 	}
 }
+
+func TestUnique(t *testing.T) {
+	tests := []struct {
+		name     string
+		items    []int
+		expected []int
+	}{
+		{
+			name:     "remove duplicates",
+			items:    []int{1, 2, 2, 3, 1, 4, 3},
+			expected: []int{1, 2, 3, 4},
+		},
+		{
+			name:     "no duplicates",
+			items:    []int{1, 2, 3, 4},
+			expected: []int{1, 2, 3, 4},
+		},
+		{
+			name:     "all same",
+			items:    []int{5, 5, 5, 5},
+			expected: []int{5},
+		},
+		{
+			name:     "empty slice",
+			items:    []int{},
+			expected: nil,
+		},
+		{
+			name:     "single element",
+			items:    []int{42},
+			expected: []int{42},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := Unique(tt.items)
+			if !slices.Equal(result, tt.expected) {
+				t.Errorf("Unique() = %v, expected %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestUniqueFunc(t *testing.T) {
+	type Person struct {
+		Name string
+		Age  int
+	}
+
+	tests := []struct {
+		name     string
+		items    []Person
+		equal    func(Person, Person) bool
+		expected []Person
+	}{
+		{
+			name: "unique by name",
+			items: []Person{
+				{"Alice", 25},
+				{"Bob", 30},
+				{"Alice", 26}, // different age, same name
+				{"Charlie", 35},
+			},
+			equal: func(a, b Person) bool { return a.Name == b.Name },
+			expected: []Person{
+				{"Alice", 25}, // first occurrence kept
+				{"Bob", 30},
+				{"Charlie", 35},
+			},
+		},
+		{
+			name: "unique by age",
+			items: []Person{
+				{"Alice", 25},
+				{"Bob", 30},
+				{"Charlie", 25}, // same age as Alice
+				{"David", 40},
+			},
+			equal: func(a, b Person) bool { return a.Age == b.Age },
+			expected: []Person{
+				{"Alice", 25}, // first occurrence kept
+				{"Bob", 30},
+				{"David", 40},
+			},
+		},
+		{
+			name:     "empty slice",
+			items:    []Person{},
+			equal:    func(a, b Person) bool { return a.Name == b.Name },
+			expected: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := UniqueFunc(tt.items, tt.equal)
+			if len(result) != len(tt.expected) {
+				t.Errorf("UniqueFunc() length = %d, expected %d", len(result), len(tt.expected))
+				return
+			}
+			for i, person := range result {
+				if person != tt.expected[i] {
+					t.Errorf("UniqueFunc() result[%d] = %v, expected %v", i, person, tt.expected[i])
+				}
+			}
+		})
+	}
+}

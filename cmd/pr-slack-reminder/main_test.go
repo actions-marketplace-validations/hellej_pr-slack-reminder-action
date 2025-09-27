@@ -626,7 +626,7 @@ func TestScenarios(t *testing.T) {
 			expectedSummary:   "1 open PR is waiting for attention 👀",
 		},
 		{
-			name:   "bot reviewers are excluded from review status",
+			name:   "reviews by bots and author are excluded from review status",
 			config: testhelpers.GetDefaultConfigMinimal(),
 			prs: []*github.PullRequest{
 				getTestPR(GetTestPROptions{Number: 1, Title: "PR with bot and human reviewers", AuthorLogin: "alice"}),
@@ -641,12 +641,18 @@ func TestScenarios(t *testing.T) {
 					},
 					{
 						ID:    github.Ptr(int64(2)),
+						Body:  github.Ptr("Self review"),
+						User:  &github.User{Login: github.Ptr("alice"), Name: github.Ptr("Alice"), Type: github.Ptr("User")},
+						State: github.Ptr("COMMENTED"),
+					},
+					{
+						ID:    github.Ptr(int64(3)),
 						Body:  github.Ptr("Bot feedback"),
 						User:  &github.User{Login: github.Ptr("dependabot"), Name: github.Ptr("Dependabot"), Type: github.Ptr("Bot")},
 						State: github.Ptr("COMMENTED"),
 					},
 					{
-						ID:    github.Ptr(int64(3)),
+						ID:    github.Ptr(int64(4)),
 						Body:  github.Ptr("Bot approval"),
 						User:  &github.User{Login: github.Ptr("codecov"), Name: github.Ptr("Codecov"), Type: github.Ptr("Bot")},
 						State: github.Ptr("APPROVED"),

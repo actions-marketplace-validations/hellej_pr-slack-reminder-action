@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/go-github/v72/github"
 	"github.com/hellej/pr-slack-reminder-action/internal/models"
+	"github.com/hellej/pr-slack-reminder-action/internal/utilities"
 )
 
 type PRsOfRepoResult struct {
@@ -76,43 +77,17 @@ func (c Collaborator) GetGitHubName() string {
 }
 
 func (r FetchReviewsResult) asPR() PR {
-	approvedByUsers := []Collaborator{}
-	commentedByUsers := []Collaborator{}
+	authorLogin := r.pr.GetUser().GetLogin()
+	reviewsWithValidUser := utilities.Filter(r.reviews, hasValidReviewerUserData)
 
-	for _, review := range r.reviews {
-		user := review.GetUser()
-		if user == nil {
-			continue
-		}
-		login := user.GetLogin()
-		if login == "" || isBot(user) {
-			continue
-		}
-		if review.GetState() == "APPROVED" {
-			if !slices.ContainsFunc(approvedByUsers, func(c Collaborator) bool {
-				return c.Login == login
-			}) {
-				approvedByUsers = append(
-					approvedByUsers, NewCollaboratorFromUser(user),
-				)
-			}
-		} else {
-			// add to commentedByUsers unless...
-			if r.pr.GetUser().GetLogin() == login { // i.e. is the author
-				continue
-			}
-			if slices.ContainsFunc(commentedByUsers, func(c Collaborator) bool {
-				return c.Login == login
-			}) || slices.ContainsFunc(approvedByUsers, func(c Collaborator) bool {
-				return c.Login == login // has already approved
-			}) {
-				continue
-			}
-			commentedByUsers = append(
-				commentedByUsers, NewCollaboratorFromUser(user),
-			)
-		}
-	}
+	approvingReviews := utilities.Filter(reviewsWithValidUser, getIsApprovedFilter(true))
+	approvedByUsers := extractUniqueCollaboratorsFromReviews(approvingReviews)
+
+	commentingReviews := utilities.Filter(reviewsWithValidUser, getIsApprovedFilter(false))
+	commentedByUsers := utilities.Filter(
+		extractUniqueCollaboratorsFromReviews(commentingReviews),
+		getFilterForCommenters(authorLogin, approvedByUsers),
+	)
 
 	return PR{
 		PullRequest:      r.pr,
@@ -123,7 +98,37 @@ func (r FetchReviewsResult) asPR() PR {
 	}
 }
 
-type OwnerAndRepo struct {
-	Owner string
-	Repo  string
+func hasValidReviewerUserData(r *github.PullRequestReview) bool {
+	user := r.GetUser()
+	return user != nil && user.GetLogin() != "" && !isBot(user)
+}
+
+func extractUniqueCollaboratorsFromReviews(reviews []*github.PullRequestReview) []Collaborator {
+	return utilities.UniqueFunc(
+		utilities.Map(reviews, getCollaborator), isUniqueCollaborator,
+	)
+}
+
+func getCollaborator(r *github.PullRequestReview) Collaborator {
+	return NewCollaboratorFromUser(r.GetUser())
+}
+
+func isUniqueCollaborator(a, b Collaborator) bool {
+	return a.Login == b.Login
+}
+
+func getIsApprovedFilter(requiredApprovalStatus bool) func(review *github.PullRequestReview) bool {
+	return func(review *github.PullRequestReview) bool {
+		isApproved := review.GetState() == "APPROVED"
+		return isApproved == requiredApprovalStatus
+	}
+}
+
+func getFilterForCommenters(authorLogin string, approvedByUsers []Collaborator) func(c Collaborator) bool {
+	return func(c Collaborator) bool {
+		return c.Login != authorLogin &&
+			!slices.ContainsFunc(approvedByUsers, func(approver Collaborator) bool {
+				return c.Login == approver.Login
+			})
+	}
 }
