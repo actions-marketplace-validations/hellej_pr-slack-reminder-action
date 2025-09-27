@@ -149,9 +149,9 @@ func getReviewersElements(pr prparser.PR) []slack.RichTextSectionElement {
 		)
 	}
 
-	reviewerTextPrefix := " (commented by "
+	reviewerTextPrefix := " (💬 by "
 	if len(pr.Approvers) > 0 {
-		reviewerTextPrefix = " (approved by "
+		reviewerTextPrefix = " (✅ by "
 	}
 	elements = append(elements, slack.NewRichTextSectionTextElement(
 		reviewerTextPrefix, &slack.RichTextSectionTextStyle{},
@@ -174,9 +174,9 @@ func getReviewersElements(pr prparser.PR) []slack.RichTextSectionElement {
 		))
 	}
 
-	if reviewerTextPrefix == " (approved by " {
+	if reviewerTextPrefix == " (✅ by " {
 		elements = append(elements, slack.NewRichTextSectionTextElement(
-			" - commented by ", &slack.RichTextSectionTextStyle{},
+			" - 💬 by ", &slack.RichTextSectionTextStyle{},
 		))
 	}
 
