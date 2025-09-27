@@ -89,6 +89,9 @@ func (r FetchReviewsResult) asPR() PR {
 			}
 
 		} else {
+			if r.pr.GetUser().GetLogin() == login {
+				continue // Do not add the author to the commenters list
+			}
 			if !slices.ContainsFunc(commentedByUsers, func(c Collaborator) bool {
 				return c.Login == login
 			}) && !slices.ContainsFunc(approvedByUsers, func(c Collaborator) bool {
@@ -106,8 +109,8 @@ func (r FetchReviewsResult) asPR() PR {
 		PullRequest:      r.pr,
 		Repository:       r.repository,
 		Author:           NewCollaboratorFromUser(r.pr.GetUser()),
-		CommentedByUsers: commentedByUsers,
 		ApprovedByUsers:  approvedByUsers,
+		CommentedByUsers: commentedByUsers,
 	}
 }
 
