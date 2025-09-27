@@ -288,7 +288,7 @@ func TestScenarios(t *testing.T) {
 			name:             "unable to fetch Slack channel(s)",
 			config:           testhelpers.GetDefaultConfigMinimal(),
 			findChannelError: errors.New("unable to get channels"),
-			expectedErrorMsg: "error getting channel ID by name: unable to get channels (check channel name, token and permissions or use channel ID input instead)",
+			expectedErrorMsg: "error getting channel ID by name: unable to get channels, unable to get channels (unable to fetch channels, check token and permissions or use channel ID input instead)",
 		},
 		{
 			name:             "unable to send Slack message",
@@ -645,7 +645,7 @@ func TestScenarios(t *testing.T) {
 				t.Errorf("Expected error: %v, got no error", tc.expectedErrorMsg)
 			}
 			if tc.expectedErrorMsg != "" && err != nil && !strings.Contains(err.Error(), tc.expectedErrorMsg) {
-				t.Errorf("Expected error message '%v'", tc.expectedErrorMsg)
+				t.Errorf("Expected error message '%v', got: %v", tc.expectedErrorMsg, err)
 				t.Logf("Got error: %v", err)
 			}
 			if tc.expectedSummary == "" && mockSlackAPI.SentMessage.Text != "" {

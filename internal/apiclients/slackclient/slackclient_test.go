@@ -63,22 +63,34 @@ func TestGetChannelIDByName(t *testing.T) {
 			channelName:     "nonexistent",
 			publicChannels:  []slack.Channel{},
 			privateChannels: []slack.Channel{},
-			expectedError:   "channel not found",
+			expectedError:   "channel not found (check channel name)",
 		},
 		{
-			name:                "fails when no permissions for public channels",
-			channelName:         "any-channel",
-			publicChannelsError: errors.New("missing_scope: channels:read"),
-			expectedError:       "missing_scope: channels:read (check channel name, token and permissions or use channel ID input instead)",
+			name:                 "fails when no permissions for either public or private channels",
+			channelName:          "any-channel",
+			publicChannelsError:  errors.New("missing_scope: channels:read"),
+			privateChannelsError: errors.New("missing_scope: groups:read"),
+			expectedError:        "missing_scope: channels:read, missing_scope: groups:read (unable to fetch channels, check token and permissions or use channel ID input instead)",
 		},
 		{
-			name:        "fails when public succeeds but private fails and channel not found in public",
+			name:                 "succeeds when public fails but private succeeds",
+			channelName:          "private-team",
+			publicChannelsError:  errors.New("missing_scope: channels:read"),
+			privateChannelsError: nil,
+			privateChannels: []slack.Channel{
+				{GroupConversation: slack.GroupConversation{Name: "private-team", Conversation: slack.Conversation{ID: "C67890"}}},
+			},
+			expectedChannelID: "C67890",
+			expectedError:     "",
+		},
+		{
+			name:        "fails when public succeeds but private fails and channel not found",
 			channelName: "private-only",
 			publicChannels: []slack.Channel{
 				{GroupConversation: slack.GroupConversation{Name: "other-channel", Conversation: slack.Conversation{ID: "C11111"}}},
 			},
 			privateChannelsError: errors.New("missing_scope: groups:read"),
-			expectedError:        "missing_scope: groups:read (check channel name, token and permissions or use channel ID input instead)",
+			expectedError:        "missing_scope: groups:read (unable to fetch private channels, channel not found from public channels, check channel name, token and permissions or use channel ID input instead)",
 		},
 	}
 

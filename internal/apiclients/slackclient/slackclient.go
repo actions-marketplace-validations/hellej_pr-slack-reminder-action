@@ -35,13 +35,18 @@ type client struct {
 }
 
 func (c *client) GetChannelIDByName(channelName string) (string, error) {
+	var publicChannelsError error
+	var privateChannelsError error
+
 	for _, channelType := range []string{"public_channel", "private_channel"} {
-		channels, err := c.fetchChannels([]string{channelType})
-		if err != nil {
-			return "", fmt.Errorf(
-				"%v (check channel name, token and permissions or use channel ID input instead)",
-				err,
-			)
+		channels, fetchError := c.fetchChannels([]string{channelType})
+		if fetchError != nil {
+			if channelType == "public_channel" {
+				publicChannelsError = fetchError
+			} else {
+				privateChannelsError = fetchError
+			}
+			continue
 		}
 		channel, found := utilities.Find(channels, func(ch slack.Channel) bool {
 			return ch.Name == channelName
@@ -50,7 +55,30 @@ func (c *client) GetChannelIDByName(channelName string) (string, error) {
 			return channel.ID, nil
 		}
 	}
-	return "", errors.New("channel not found")
+
+	if publicChannelsError == nil && privateChannelsError != nil {
+		return "", fmt.Errorf(
+			"%v (unable to fetch private channels, channel not found from public channels, "+
+				"check channel name, token and permissions or use channel ID input instead)",
+			privateChannelsError,
+		)
+	}
+	if publicChannelsError != nil && privateChannelsError == nil {
+		return "", fmt.Errorf(
+			"%v (unable to fetch public channels, channel not found from private channels, "+
+				"check channel name, token and permissions or use channel ID input instead)",
+			publicChannelsError,
+		)
+	}
+	if publicChannelsError != nil && privateChannelsError != nil {
+		return "", fmt.Errorf(
+			"%v, %v (unable to fetch channels, check token and permissions or use channel ID input instead)",
+			publicChannelsError,
+			privateChannelsError,
+		)
+	}
+
+	return "", errors.New("channel not found (check channel name)")
 }
 
 func (c *client) SendMessage(channelID string, blocks slack.Message, summaryText string) error {
