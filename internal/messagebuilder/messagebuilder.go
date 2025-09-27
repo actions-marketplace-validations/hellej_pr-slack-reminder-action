@@ -142,11 +142,7 @@ func getReviewersElements(pr prparser.PR) []slack.RichTextSectionElement {
 	commenterCount := len(pr.Commenters)
 
 	if approverCount == 0 && commenterCount == 0 {
-		return append(
-			elements, slack.NewRichTextSectionTextElement(
-				" (no reviews)", &slack.RichTextSectionTextStyle{},
-			),
-		)
+		return elements
 	}
 
 	reviewerTextPrefix := " (💬 by "
