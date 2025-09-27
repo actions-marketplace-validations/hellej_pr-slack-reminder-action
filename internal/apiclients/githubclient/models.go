@@ -65,6 +65,11 @@ func NewCollaboratorFromUser(user *github.User) Collaborator {
 	}
 }
 
+func isBot(user *github.User) bool {
+	userType := user.GetType()
+	return userType == "Bot"
+}
+
 // Returns the GitHub name if available, otherwise login.
 func (c Collaborator) GetGitHubName() string {
 	return cmp.Or(c.Name, c.Login)
@@ -75,8 +80,12 @@ func (r FetchReviewsResult) asPR() PR {
 	commentedByUsers := []Collaborator{}
 
 	for _, review := range r.reviews {
-		login := review.GetUser().GetLogin()
-		if login == "" {
+		user := review.GetUser()
+		if user == nil {
+			continue
+		}
+		login := user.GetLogin()
+		if login == "" || isBot(user) {
 			continue
 		}
 		if review.GetState() == "APPROVED" {
@@ -84,7 +93,7 @@ func (r FetchReviewsResult) asPR() PR {
 				return c.Login == login
 			}) {
 				approvedByUsers = append(
-					approvedByUsers, NewCollaboratorFromUser(review.GetUser()),
+					approvedByUsers, NewCollaboratorFromUser(user),
 				)
 			}
 
@@ -99,7 +108,7 @@ func (r FetchReviewsResult) asPR() PR {
 				return c.Login == login
 			}) {
 				commentedByUsers = append(
-					commentedByUsers, NewCollaboratorFromUser(review.GetUser()),
+					commentedByUsers, NewCollaboratorFromUser(user),
 				)
 			}
 		}

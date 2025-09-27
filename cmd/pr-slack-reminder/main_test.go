@@ -625,6 +625,40 @@ func TestScenarios(t *testing.T) {
 			expectedPRNumbers: []int{1},
 			expectedSummary:   "1 open PR is waiting for attention 👀",
 		},
+		{
+			name:   "bot reviewers are excluded from review status",
+			config: testhelpers.GetDefaultConfigMinimal(),
+			prs: []*github.PullRequest{
+				getTestPR(GetTestPROptions{Number: 1, Title: "PR with bot and human reviewers", AuthorLogin: "alice"}),
+			},
+			reviewsByPRNumber: map[int][]*github.PullRequestReview{
+				1: {
+					{
+						ID:    github.Ptr(int64(1)),
+						Body:  github.Ptr("Human feedback"),
+						User:  &github.User{Login: github.Ptr("human-reviewer"), Name: github.Ptr("Human Reviewer"), Type: github.Ptr("User")},
+						State: github.Ptr("COMMENTED"),
+					},
+					{
+						ID:    github.Ptr(int64(2)),
+						Body:  github.Ptr("Bot feedback"),
+						User:  &github.User{Login: github.Ptr("dependabot"), Name: github.Ptr("Dependabot"), Type: github.Ptr("Bot")},
+						State: github.Ptr("COMMENTED"),
+					},
+					{
+						ID:    github.Ptr(int64(3)),
+						Body:  github.Ptr("Bot approval"),
+						User:  &github.User{Login: github.Ptr("codecov"), Name: github.Ptr("Codecov"), Type: github.Ptr("Bot")},
+						State: github.Ptr("APPROVED"),
+					},
+				},
+			},
+			expectedPRNumbers: []int{1},
+			expectedSummary:   "1 open PR is waiting for attention 👀",
+			expectedPRItemTexts: []string{
+				"PR with bot and human reviewers 5 hours ago by Alice (💬 by Human Reviewer)",
+			},
+		},
 	}
 
 	for _, tc := range testCases {
