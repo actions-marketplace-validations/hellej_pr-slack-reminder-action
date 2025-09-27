@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/hellej/pr-slack-reminder-action/internal/utilities"
 	"github.com/slack-go/slack"
 )
 
@@ -34,28 +35,19 @@ type client struct {
 }
 
 func (c *client) GetChannelIDByName(channelName string) (string, error) {
-	channels, cursor := []slack.Channel{}, ""
-
-	for {
-		result, nextCursor, err := c.slackAPI.GetConversations(&slack.GetConversationsParameters{
-			Limit:           200,
-			Cursor:          cursor,
-			Types:           []string{"public_channel", "private_channel"},
-			ExcludeArchived: true,
-		})
+	for _, channelType := range []string{"public_channel", "private_channel"} {
+		channels, err := c.fetchChannels([]string{channelType})
 		if err != nil {
-			return "", fmt.Errorf("%v (check permissions and token)", err)
+			return "", fmt.Errorf(
+				"%v (check channel name, token and permissions or use channel ID input instead)",
+				err,
+			)
 		}
-		channels = append(channels, result...)
-		if nextCursor == "" {
-			break
-		}
-		cursor = nextCursor
-	}
-
-	for _, ch := range channels {
-		if ch.Name == channelName {
-			return ch.ID, nil
+		channel, found := utilities.Find(channels, func(ch slack.Channel) bool {
+			return ch.Name == channelName
+		})
+		if found {
+			return channel.ID, nil
 		}
 	}
 	return "", errors.New("channel not found")
@@ -72,4 +64,27 @@ func (c *client) SendMessage(channelID string, blocks slack.Message, summaryText
 	}
 	log.Printf("Sent message to Slack channel: %s", channelID)
 	return nil
+}
+
+func (c *client) fetchChannels(types []string) ([]slack.Channel, error) {
+	channels, cursor := []slack.Channel{}, ""
+
+	for {
+		result, nextCursor, err := c.slackAPI.GetConversations(&slack.GetConversationsParameters{
+			Limit:           999,
+			Cursor:          cursor,
+			Types:           types,
+			ExcludeArchived: true,
+		})
+		if err != nil {
+			return nil, err
+		}
+		channels = append(channels, result...)
+		if nextCursor == "" {
+			break
+		}
+		cursor = nextCursor
+	}
+
+	return channels, nil
 }

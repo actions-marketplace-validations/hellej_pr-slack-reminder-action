@@ -25,6 +25,15 @@ func FilterToIter[T any](items []T, filter func(e T) bool) iter.Seq[T] {
 	}
 }
 
+func Find[T any](items []T, predicate func(e T) bool) (T, bool) {
+	index := slices.IndexFunc(items, predicate)
+	if index >= 0 {
+		return items[index], true
+	}
+	var zero T
+	return zero, false
+}
+
 func Map[T any, V any](items []T, mapper func(T) V) []V {
 	return slices.Collect(MapToIter(items, mapper))
 }

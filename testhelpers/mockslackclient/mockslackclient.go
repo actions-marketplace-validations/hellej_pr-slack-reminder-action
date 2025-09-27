@@ -66,10 +66,13 @@ func (m *MockSlackAPI) GetConversations(params *slack.GetConversationsParameters
 func (m *MockSlackAPI) PostMessage(
 	channelID string, options ...slack.MsgOption,
 ) (string, string, error) {
-	request, values, _ := slack.UnsafeApplyMsgOptions("", "", "", options...)
+	request, values, err := slack.UnsafeApplyMsgOptions("", "", "", options...)
+
+	if err != nil {
+		panic("Failed to apply message options in mock Slack API: " + err.Error())
+	}
 
 	var sentBlocks BlocksWrapper
-	var err error
 	if blocks, ok := values["blocks"]; ok && len(blocks) > 0 {
 		sentBlocks, err = ParseBlocks([]byte(blocks[0]))
 	}

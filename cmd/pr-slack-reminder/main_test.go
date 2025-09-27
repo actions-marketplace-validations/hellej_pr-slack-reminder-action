@@ -288,7 +288,7 @@ func TestScenarios(t *testing.T) {
 			name:             "unable to fetch Slack channel(s)",
 			config:           testhelpers.GetDefaultConfigMinimal(),
 			findChannelError: errors.New("unable to get channels"),
-			expectedErrorMsg: "error getting channel ID by name: unable to get channels (check permissions and token)",
+			expectedErrorMsg: "error getting channel ID by name: unable to get channels (check channel name, token and permissions or use channel ID input instead)",
 		},
 		{
 			name:             "unable to send Slack message",

@@ -1,7 +1,10 @@
 package slackclient_test
 
 import (
+	"errors"
 	"testing"
+
+	"github.com/slack-go/slack"
 
 	"github.com/hellej/pr-slack-reminder-action/internal/apiclients/slackclient"
 )
@@ -11,4 +14,140 @@ func TestGetAuthenticatedClient(t *testing.T) {
 	if client == nil {
 		t.Fatal("Expected non-nil client, got nil")
 	}
+}
+
+func TestGetChannelIDByName(t *testing.T) {
+	tests := []struct {
+		name                 string
+		channelName          string
+		publicChannels       []slack.Channel
+		privateChannels      []slack.Channel
+		publicChannelsError  error
+		privateChannelsError error
+		expectedChannelID    string
+		expectedError        string
+	}{
+		{
+			name:        "finds channel in public channels",
+			channelName: "general",
+			publicChannels: []slack.Channel{
+				{GroupConversation: slack.GroupConversation{Name: "general", Conversation: slack.Conversation{ID: "C12345"}}},
+			},
+			expectedChannelID: "C12345",
+		},
+		{
+			name:        "finds channel in private channels when public search doesn't find it",
+			channelName: "private-team",
+			publicChannels: []slack.Channel{
+				{GroupConversation: slack.GroupConversation{Name: "other-public", Conversation: slack.Conversation{ID: "C11111"}}},
+			},
+			privateChannels: []slack.Channel{
+				{GroupConversation: slack.GroupConversation{Name: "private-team", Conversation: slack.Conversation{ID: "C67890"}}},
+			},
+			expectedChannelID: "C67890",
+		},
+		{
+			name:        "finds channel in public channels and doesn't need to check private",
+			channelName: "general",
+			publicChannels: []slack.Channel{
+				{GroupConversation: slack.GroupConversation{Name: "general", Conversation: slack.Conversation{ID: "C12345"}}},
+			},
+			privateChannels: []slack.Channel{
+				{GroupConversation: slack.GroupConversation{Name: "private-team", Conversation: slack.Conversation{ID: "C67890"}}},
+			},
+			privateChannelsError: errors.New("should not be raised"),
+			expectedChannelID:    "C12345",
+		},
+		{
+			name:            "channel not found in any accessible channels",
+			channelName:     "nonexistent",
+			publicChannels:  []slack.Channel{},
+			privateChannels: []slack.Channel{},
+			expectedError:   "channel not found",
+		},
+		{
+			name:                "fails when no permissions for public channels",
+			channelName:         "any-channel",
+			publicChannelsError: errors.New("missing_scope: channels:read"),
+			expectedError:       "missing_scope: channels:read (check channel name, token and permissions or use channel ID input instead)",
+		},
+		{
+			name:        "fails when public succeeds but private fails and channel not found in public",
+			channelName: "private-only",
+			publicChannels: []slack.Channel{
+				{GroupConversation: slack.GroupConversation{Name: "other-channel", Conversation: slack.Conversation{ID: "C11111"}}},
+			},
+			privateChannelsError: errors.New("missing_scope: groups:read"),
+			expectedError:        "missing_scope: groups:read (check channel name, token and permissions or use channel ID input instead)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockAPI := &mockSlackAPI{
+				publicChannels:       tt.publicChannels,
+				privateChannels:      tt.privateChannels,
+				publicChannelsError:  tt.publicChannelsError,
+				privateChannelsError: tt.privateChannelsError,
+			}
+			client := slackclient.NewClient(mockAPI)
+
+			channelID, err := client.GetChannelIDByName(tt.channelName)
+
+			if tt.expectedError != "" {
+				if err == nil {
+					t.Errorf("Expected error containing '%s', got no error", tt.expectedError)
+					return
+				}
+				if err.Error() != tt.expectedError {
+					t.Errorf("Expected error '%s', got '%s'", tt.expectedError, err.Error())
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Expected no error, got: %v", err)
+				return
+			}
+
+			if channelID != tt.expectedChannelID {
+				t.Errorf("Expected channel ID '%s', got '%s'", tt.expectedChannelID, channelID)
+			}
+		})
+	}
+}
+
+type mockSlackAPI struct {
+	publicChannels       []slack.Channel
+	privateChannels      []slack.Channel
+	publicChannelsError  error
+	privateChannelsError error
+	callCount            int
+}
+
+func (m *mockSlackAPI) GetConversations(params *slack.GetConversationsParameters) ([]slack.Channel, string, error) {
+	m.callCount++
+
+	// The new implementation calls GetConversations separately for each channel type
+	// Check what type is being requested
+	if len(params.Types) == 1 {
+		switch params.Types[0] {
+		case "public_channel":
+			if m.publicChannelsError != nil {
+				return nil, "", m.publicChannelsError
+			}
+			return m.publicChannels, "", nil
+		case "private_channel":
+			if m.privateChannelsError != nil {
+				return nil, "", m.privateChannelsError
+			}
+			return m.privateChannels, "", nil
+		}
+	}
+
+	return nil, "", errors.New("unexpected channel types requested")
+}
+
+func (m *mockSlackAPI) PostMessage(channelID string, options ...slack.MsgOption) (string, string, error) {
+	return "timestamp", channelID, nil
 }

@@ -67,6 +67,38 @@ func TestFilterWithStrings(t *testing.T) {
 	}
 }
 
+func TestFind(t *testing.T) {
+	items := []string{"apple", "banana", "apricot", "cherry"}
+	predicate := func(s string) bool { return s == "apricot" }
+
+	result, found := Find(items, predicate)
+	expected := "apricot"
+
+	if !found {
+		t.Error("Find() did not find the item, but it should have")
+	}
+
+	if result != expected {
+		t.Errorf("Find() = %v, expected %v", result, expected)
+	}
+}
+
+func TestFindMissing(t *testing.T) {
+	items := []string{"apple", "banana", "cherry"}
+	predicate := func(s string) bool { return s == "apricot" }
+
+	result, found := Find(items, predicate)
+	expected := ""
+
+	if found {
+		t.Error("Find() found the item, but it should not have")
+	}
+
+	if result != expected {
+		t.Errorf("Find() = %v, expected %v", result, expected)
+	}
+}
+
 func TestMap(t *testing.T) {
 	items := []string{"apple", "banana", "apricot", "cherry"}
 	mapper := func(s string) int { return len(s) }
