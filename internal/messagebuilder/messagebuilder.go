@@ -172,7 +172,7 @@ func getReviewersElements(pr prparser.PR) []slack.RichTextSectionElement {
 
 	if reviewerTextPrefix == " (✅ by " {
 		elements = append(elements, slack.NewRichTextSectionTextElement(
-			" - 💬 by ", &slack.RichTextSectionTextStyle{},
+			" / 💬 by ", &slack.RichTextSectionTextStyle{},
 		))
 	}
 

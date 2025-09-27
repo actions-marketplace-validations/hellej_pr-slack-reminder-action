@@ -26,8 +26,8 @@ type PR struct {
 	*github.PullRequest
 	Repository       models.Repository
 	Author           Collaborator
-	CommentedByUsers []Collaborator // reviewers who commented the PR but did not approve it
 	ApprovedByUsers  []Collaborator
+	CommentedByUsers []Collaborator // reviewers who commented the PR but did not approve it
 }
 
 type FetchReviewsResult struct {
@@ -96,21 +96,21 @@ func (r FetchReviewsResult) asPR() PR {
 					approvedByUsers, NewCollaboratorFromUser(user),
 				)
 			}
-
 		} else {
-			if r.pr.GetUser().GetLogin() == login {
-				continue // Do not add the author to the commenters list
+			// add to commentedByUsers unless...
+			if r.pr.GetUser().GetLogin() == login { // i.e. is the author
+				continue
 			}
-			if !slices.ContainsFunc(commentedByUsers, func(c Collaborator) bool {
+			if slices.ContainsFunc(commentedByUsers, func(c Collaborator) bool {
 				return c.Login == login
-			}) && !slices.ContainsFunc(approvedByUsers, func(c Collaborator) bool {
-				// Only add to commentedByUsers if the user has not already approved
-				return c.Login == login
+			}) || slices.ContainsFunc(approvedByUsers, func(c Collaborator) bool {
+				return c.Login == login // has already approved
 			}) {
-				commentedByUsers = append(
-					commentedByUsers, NewCollaboratorFromUser(user),
-				)
+				continue
 			}
+			commentedByUsers = append(
+				commentedByUsers, NewCollaboratorFromUser(user),
+			)
 		}
 	}
 
