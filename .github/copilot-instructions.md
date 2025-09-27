@@ -11,7 +11,10 @@
 ## AI Code Generation
 
 - Ask for more instructions and context if the prompt is unclear or lacks detail
-- Do not add comments explaining code, unless it is complex or non-obvious
+- **No Explanatory Comments**: Do not add comments explaining what code does - use descriptive names instead
+  - ❌ `slicesEqual := func(a, b []string) bool { ... } // Helper function to compare slices (order doesn't matter)`
+  - ✅ `slicesEqualIgnoreOrder := func(a, b []string) bool { ... }`
+  - Exception: Comments for complex algorithms or non-obvious business logic are acceptable
 - Aim for simplicity and clarity in generated code
 
 ### Testing Strategy & Practices
@@ -23,7 +26,7 @@
   4. Only skip TDD for very simple changes (like documentation updates)
 - **Pragmatic Testing**: Balance thoroughness with practicality - focus on critical paths and user-facing behavior
 - **Test Public Interfaces**: Focus tests on client/user-facing features and functionality rather than implementation details to avoid brittle tests that break during refactoring
-- **Readable Tests**: Write tests that are easy to understand with minimal comments - the test structure and assertions should be self-explanatory
+- **Readable Tests**: Write tests that are easy to understand with minimal comments - use descriptive function and variable names instead of explanatory comments. The test structure and assertions should be self-explanatory
 - **Reduce Boilerplate**: Create test helpers for setup and assertions when duplication emerges - check for existing helpers in `testhelpers/` package
 - **Test Coverage**: Maintain high test coverage while avoiding testing internal implementation details that may change during refactoring
 - **Table-Driven Tests**: Use table-driven tests for functions with multiple input scenarios to reduce duplication and improve readability

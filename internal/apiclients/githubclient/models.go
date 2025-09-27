@@ -59,7 +59,7 @@ type Collaborator struct {
 	Name  string // GitHub name if available
 }
 
-func NewCollaboratorFromUser(user *github.User) Collaborator {
+func newCollaboratorFromUser(user *github.User) Collaborator {
 	return Collaborator{
 		Login: user.GetLogin(),
 		Name:  user.GetName(),
@@ -92,7 +92,7 @@ func (r FetchReviewsResult) asPR() PR {
 	return PR{
 		PullRequest:      r.pr,
 		Repository:       r.repository,
-		Author:           NewCollaboratorFromUser(r.pr.GetUser()),
+		Author:           newCollaboratorFromUser(r.pr.GetUser()),
 		ApprovedByUsers:  approvedByUsers,
 		CommentedByUsers: commentedByUsers,
 	}
@@ -110,7 +110,7 @@ func extractUniqueCollaboratorsFromReviews(reviews []*github.PullRequestReview) 
 }
 
 func getCollaborator(r *github.PullRequestReview) Collaborator {
-	return NewCollaboratorFromUser(r.GetUser())
+	return newCollaboratorFromUser(r.GetUser())
 }
 
 func isUniqueCollaborator(a, b Collaborator) bool {
