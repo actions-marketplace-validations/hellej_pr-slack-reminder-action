@@ -17,6 +17,8 @@ jobs:
 
       - name: Build application
         uses: ./.github/actions/build
+        with:
+          commit-binary: true
 
       - name: Smoke/E2E test
         uses: ./.github/actions/e2e-tests

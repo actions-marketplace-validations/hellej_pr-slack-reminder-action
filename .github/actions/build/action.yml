@@ -13,7 +13,7 @@ inputs:
   commit-binary:
     description: 'Whether to commit the built binary to git'
     required: false
-    default: 'true'
+    default: 'false'
 
 runs:
   using: composite
