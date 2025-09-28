@@ -11,7 +11,7 @@ on:
 
 jobs:
   unit-tests:
-    name: lint, unit tests & build
+    name: lint & unit tests
     runs-on: ubuntu-latest
     
     steps:
