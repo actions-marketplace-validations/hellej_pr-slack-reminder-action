@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - name: Run unit tests
         uses: ./.github/actions/unit-tests
@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ssh-key: ${{ secrets.DEPLOY_KEY }}
       
@@ -46,7 +46,7 @@ jobs:
     needs: [unit-tests, build]
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - name: Run E2E tests
         uses: ./.github/actions/e2e-tests
@@ -60,7 +60,7 @@ jobs:
     needs: e2e-tests
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
       
