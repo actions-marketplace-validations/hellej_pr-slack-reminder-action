@@ -95,7 +95,6 @@ func buildPRBulletPointBlock(pr prparser.PR) slack.RichTextElement {
 		ageElements = append(ageElements,
 			slack.NewRichTextSectionTextElement(" 🚨 ", &slack.RichTextSectionTextStyle{}),
 			slack.NewRichTextSectionTextElement(pr.GetPRAgeText(), &slack.RichTextSectionTextStyle{Bold: true}),
-			slack.NewRichTextSectionTextElement(" 🚨", &slack.RichTextSectionTextStyle{}),
 		)
 	} else {
 		ageElements = append(ageElements,
