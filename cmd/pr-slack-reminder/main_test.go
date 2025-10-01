@@ -498,10 +498,10 @@ func TestScenarios(t *testing.T) {
 			},
 			expectedPRNumbers: []int{1, 2, 3, 4},
 			expectedPRItemTexts: []string{
-				"PR 1 5 minutes ago by Stitch (✅ by reviewer1, reviewer2)",
-				"PR 2 3 hours ago by Alice (💬 by reviewer1, reviewer2)",
-				"PR 3 2 days ago by Alice (💬 by reviewer3)",
-				"PR 4 5 hours ago by Jim (✅ by reviewer2 / 💬 by reviewer3)",
+				"PR 1 5 minutes ago by Stitch (✅ reviewer1, reviewer2)",
+				"PR 2 3 hours ago by Alice (💬 reviewer1, reviewer2)",
+				"PR 3 2 days ago by Alice (💬 reviewer3)",
+				"PR 4 5 hours ago by Jim (✅ reviewer2 / 💬 reviewer3)",
 			},
 			reviewsByPRNumber: map[int][]*github.PullRequestReview{
 				*getTestPRs(GetTestPRsOptions{}).PR1.Number: {
@@ -662,7 +662,7 @@ func TestScenarios(t *testing.T) {
 			expectedPRNumbers: []int{1},
 			expectedSummary:   "1 open PR is waiting for attention 👀",
 			expectedPRItemTexts: []string{
-				"PR with bot and human reviewers 5 hours ago by Alice (💬 by Human Reviewer)",
+				"PR with bot and human reviewers 5 hours ago by Alice (💬 Human Reviewer)",
 			},
 		},
 	}
