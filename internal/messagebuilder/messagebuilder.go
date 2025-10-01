@@ -94,11 +94,11 @@ func buildPRBulletPointBlock(pr prparser.PR) slack.RichTextElement {
 	if pr.IsOldPR {
 		ageElements = append(ageElements,
 			slack.NewRichTextSectionTextElement(" 🚨 ", &slack.RichTextSectionTextStyle{}),
-			slack.NewRichTextSectionTextElement(pr.GetPRAgeText(), &slack.RichTextSectionTextStyle{Bold: true}),
+			slack.NewRichTextSectionTextElement(pr.GetPRAgeText()+" old", &slack.RichTextSectionTextStyle{Bold: true, Code: true}),
 		)
 	} else {
 		ageElements = append(ageElements,
-			slack.NewRichTextSectionTextElement(" "+pr.GetPRAgeText(), &slack.RichTextSectionTextStyle{}),
+			slack.NewRichTextSectionTextElement(" "+pr.GetPRAgeText()+" ago", &slack.RichTextSectionTextStyle{Italic: true}),
 		)
 	}
 

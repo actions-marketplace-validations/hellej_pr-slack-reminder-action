@@ -39,13 +39,13 @@ func (pr PR) GetPRAgeText() string {
 	duration := time.Since(pr.CreatedAt.Time)
 	if duration.Hours() >= 24 {
 		days := int(math.Round(duration.Hours())) / 24
-		return fmt.Sprintf("%d days ago", days)
+		return fmt.Sprintf("%d days", days)
 	} else if duration.Hours() >= 1 {
 		hours := int(math.Round(duration.Hours()))
-		return fmt.Sprintf("%d hours ago", hours)
+		return fmt.Sprintf("%d hours", hours)
 	} else {
 		minutes := int(math.Round(duration.Minutes()))
-		return fmt.Sprintf("%d minutes ago", minutes)
+		return fmt.Sprintf("%d minutes", minutes)
 	}
 }
 
