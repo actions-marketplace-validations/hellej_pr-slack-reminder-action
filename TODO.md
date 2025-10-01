@@ -7,5 +7,4 @@
 - [ ] add option/"mode" to update previously sent PR reminder to show latest review/merge status
 - [ ] add "ignored-terms" input for excluding PRs if their titles contain those
 - [ ] add input for minimum PR age (to exclude new PRs)
-- [ ] (?) add limit for Slack message size
-- [ ] (?) add link to Github search for team PRs
+- [ ] (?) add optional/customizable footer element
