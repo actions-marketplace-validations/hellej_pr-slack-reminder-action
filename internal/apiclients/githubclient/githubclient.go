@@ -92,11 +92,7 @@ func (c *client) FetchOpenPRs(
 
 	filteredResults := utilities.Map(successfulResults, func(r PRsOfRepoResult) PRsOfRepoResult {
 		return PRsOfRepoResult{
-			prs: utilities.Filter(
-				r.prs,
-				func(pr *github.PullRequest) bool {
-					return !pr.GetDraft() && includePR(pr, getFiltersForRepository(r.repository))
-				}),
+			prs:        utilities.Filter(r.prs, getPRFilterFunc(getFiltersForRepository(r.repository))),
 			repository: r.repository,
 			err:        nil,
 		}
@@ -112,6 +108,12 @@ func (c *client) FetchOpenPRs(
 		),
 	)
 	return prs, nil
+}
+
+func getPRFilterFunc(filters config.Filters) func(pr *github.PullRequest) bool {
+	return func(pr *github.PullRequest) bool {
+		return !pr.GetDraft() && includePR(pr, filters)
+	}
 }
 
 func (c *client) fetchOpenPRsForRepository(

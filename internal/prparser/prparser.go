@@ -50,9 +50,13 @@ func (pr PR) GetPRAgeText() string {
 }
 
 func ParsePRs(prs []githubclient.PR, config config.ContentInputs) []PR {
-	return sortPRsByCreatedAt(utilities.Map(prs, func(pr githubclient.PR) PR {
+	return sortPRsByCreatedAt(utilities.Map(prs, getPRParser(config)))
+}
+
+func getPRParser(config config.ContentInputs) func(pr githubclient.PR) PR {
+	return func(pr githubclient.PR) PR {
 		return parsePR(pr, config)
-	}))
+	}
 }
 
 func parsePR(pr githubclient.PR, config config.ContentInputs) PR {
