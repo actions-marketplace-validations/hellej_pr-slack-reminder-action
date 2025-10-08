@@ -158,22 +158,22 @@ func filterPRsByNumbers(
 
 func TestScenarios(t *testing.T) {
 	testCases := []struct {
-		name                string
-		config              testhelpers.TestConfig
-		configOverrides     *map[string]any
-		fetchPRsStatus      int
-		fetchPRsError       error
-		prs                 []*github.PullRequest
-		prsByRepo           map[string][]*github.PullRequest
-		reviewsByPRNumber   map[int][]*github.PullRequestReview
-		foundSlackChannels  []*mockslackclient.SlackChannel
-		findChannelError    error
-		sendMessageError    error
-		expectedErrorMsg    string
-		expectedPRNumbers   []int
-		expectedPRItemTexts []string
-		expectedSummary     string
-		expectedHeadings    []string // For group-by-repository mode to check repository headings
+		name                     string
+		config                   testhelpers.TestConfig
+		configOverrides          *map[string]any
+		fetchPRsStatus           int
+		fetchPRsError            error
+		prs                      []*github.PullRequest
+		prsByRepo                map[string][]*github.PullRequest
+		timelineEventsByPRNumber map[int][]*github.Timeline
+		foundSlackChannels       []*mockslackclient.SlackChannel
+		findChannelError         error
+		sendMessageError         error
+		expectedErrorMsg         string
+		expectedPRNumbers        []int
+		expectedPRItemTexts      []string
+		expectedSummary          string
+		expectedHeadings         []string // For group-by-repository mode to check repository headings
 	}{
 		{
 			name:   "unset required inputs",
@@ -503,19 +503,21 @@ func TestScenarios(t *testing.T) {
 				"PR 3 2 days ago by Alice (💬 reviewer3)",
 				"PR 4 5 hours ago by Jim (✅ reviewer2 / 💬 reviewer3)",
 			},
-			reviewsByPRNumber: map[int][]*github.PullRequestReview{
+			timelineEventsByPRNumber: map[int][]*github.Timeline{
 				*getTestPRs(GetTestPRsOptions{}).PR1.Number: {
 					{
 						ID:    github.Ptr(int64(1)),
 						Body:  github.Ptr("LGTM 🙏🏻"),
 						User:  &github.User{Login: github.Ptr("reviewer1")},
-						State: github.Ptr("APPROVED"),
+						State: github.Ptr("approved"),
+						Event: github.Ptr("reviewed"),
 					},
 					{
 						ID:    github.Ptr(int64(2)),
 						Body:  github.Ptr("LGTM 🚀"),
 						User:  &github.User{Login: github.Ptr("reviewer2")},
-						State: github.Ptr("APPROVED"),
+						State: github.Ptr("approved"),
+						Event: github.Ptr("reviewed"),
 					},
 				},
 				*getTestPRs(GetTestPRsOptions{}).PR2.Number: {
@@ -524,12 +526,14 @@ func TestScenarios(t *testing.T) {
 						Body:  github.Ptr("LGTM, just a few comments..."),
 						User:  &github.User{Login: github.Ptr("reviewer1")},
 						State: github.Ptr("COMMENTED"),
+						Event: github.Ptr("reviewed"),
 					},
 					{
 						ID:    github.Ptr(int64(4)),
 						Body:  github.Ptr("Looks good but..."),
 						User:  &github.User{Login: github.Ptr("reviewer2")},
 						State: github.Ptr("COMMENTED"),
+						Event: github.Ptr("reviewed"),
 					},
 				},
 				*getTestPRs(GetTestPRsOptions{}).PR3.Number: {
@@ -538,6 +542,7 @@ func TestScenarios(t *testing.T) {
 						Body:  github.Ptr("Splendid work! Just a few questions..."),
 						User:  &github.User{Login: github.Ptr("reviewer3")},
 						State: github.Ptr("COMMENTED"),
+						Event: github.Ptr("reviewed"),
 					},
 				},
 				*getTestPRs(GetTestPRsOptions{}).PR4.Number: {
@@ -546,24 +551,28 @@ func TestScenarios(t *testing.T) {
 						Body:  github.Ptr("Splendid work! Just a few questions..."),
 						User:  &github.User{Login: github.Ptr("reviewer3")},
 						State: github.Ptr("COMMENTED"),
+						Event: github.Ptr("reviewed"),
 					},
 					{
 						ID:    github.Ptr(int64(7)),
 						Body:  github.Ptr("Splendid work! Just a few questions..."),
 						User:  &github.User{Login: github.Ptr("reviewer3")},
 						State: github.Ptr("COMMENTED"),
+						Event: github.Ptr("reviewed"),
 					}, // duplicate review by reviewer3 should be omitted
 					{
 						ID:    github.Ptr(int64(8)),
 						Body:  github.Ptr("LGTM 🚀"),
 						User:  &github.User{Login: github.Ptr("reviewer2")},
-						State: github.Ptr("APPROVED"),
+						State: github.Ptr("approved"),
+						Event: github.Ptr("reviewed"),
 					},
 					{
 						ID:    github.Ptr(int64(9)),
 						Body:  github.Ptr("LGTM again 🚀"),
 						User:  &github.User{Login: github.Ptr("reviewer2")},
-						State: github.Ptr("APPROVED"),
+						State: github.Ptr("approved"),
+						Event: github.Ptr("reviewed"),
 					}, // duplicate approval by reviewer2 should be omitted
 				},
 			},
@@ -631,31 +640,35 @@ func TestScenarios(t *testing.T) {
 			prs: []*github.PullRequest{
 				getTestPR(GetTestPROptions{Number: 1, Title: "PR with bot and human reviewers", AuthorLogin: "alice"}),
 			},
-			reviewsByPRNumber: map[int][]*github.PullRequestReview{
+			timelineEventsByPRNumber: map[int][]*github.Timeline{
 				1: {
 					{
 						ID:    github.Ptr(int64(1)),
 						Body:  github.Ptr("Human feedback"),
 						User:  &github.User{Login: github.Ptr("human-reviewer"), Name: github.Ptr("Human Reviewer"), Type: github.Ptr("User")},
 						State: github.Ptr("COMMENTED"),
+						Event: github.Ptr("reviewed"),
 					},
 					{
 						ID:    github.Ptr(int64(2)),
 						Body:  github.Ptr("Self review"),
 						User:  &github.User{Login: github.Ptr("alice"), Name: github.Ptr("Alice"), Type: github.Ptr("User")},
 						State: github.Ptr("COMMENTED"),
+						Event: github.Ptr("reviewed"),
 					},
 					{
 						ID:    github.Ptr(int64(3)),
 						Body:  github.Ptr("Bot feedback"),
 						User:  &github.User{Login: github.Ptr("dependabot"), Name: github.Ptr("Dependabot"), Type: github.Ptr("Bot")},
 						State: github.Ptr("COMMENTED"),
+						Event: github.Ptr("reviewed"),
 					},
 					{
 						ID:    github.Ptr(int64(4)),
 						Body:  github.Ptr("Bot approval"),
 						User:  &github.User{Login: github.Ptr("codecov"), Name: github.Ptr("Codecov"), Type: github.Ptr("Bot")},
-						State: github.Ptr("APPROVED"),
+						State: github.Ptr("approved"),
+						Event: github.Ptr("reviewed"),
 					},
 				},
 			},
@@ -672,7 +685,7 @@ func TestScenarios(t *testing.T) {
 			testhelpers.SetTestEnvironment(t, tc.config, tc.configOverrides)
 
 			getGitHubClient := mockgithubclient.MakeMockGitHubClientGetter(
-				tc.prs, tc.prsByRepo, cmp.Or(tc.fetchPRsStatus, 200), tc.fetchPRsError, tc.reviewsByPRNumber,
+				tc.prs, tc.prsByRepo, cmp.Or(tc.fetchPRsStatus, 200), tc.fetchPRsError, tc.timelineEventsByPRNumber,
 			)
 			mockSlackAPI := mockslackclient.GetMockSlackAPI(tc.foundSlackChannels, tc.findChannelError, tc.sendMessageError)
 			getSlackClient := mockslackclient.MakeSlackClientGetter(mockSlackAPI)

@@ -13,10 +13,10 @@ func MakeMockGitHubClientGetter(
 	prsByRepo map[string][]*github.PullRequest,
 	listPRsResponseStatus int,
 	listPRsErr error,
-	reviewsByPRNumber map[int][]*github.PullRequestReview,
+	timelineEventsByPRNumber map[int][]*github.Timeline,
 ) func(token string) githubclient.Client {
 	return func(token string) githubclient.Client {
-		return githubclient.NewClient(&mockPullRequestsService{
+		mockPRService := &mockPullRequestsService{
 			mockPRs:       prs,
 			mockPRsByRepo: prsByRepo,
 			mockResponse: &github.Response{
@@ -24,10 +24,32 @@ func MakeMockGitHubClientGetter(
 					StatusCode: listPRsResponseStatus,
 				},
 			},
-			mockReviewsByPRNumber: reviewsByPRNumber,
-			mockError:             listPRsErr,
-		})
+			mockError: listPRsErr,
+		}
+		mockIssueService := &mockIssueService{
+			mockTimelineEventsByPRNumber: timelineEventsByPRNumber,
+			mockResponse: &github.Response{
+				Response: &http.Response{
+					StatusCode: 200,
+				},
+			},
+			mockError: nil,
+		}
+		return githubclient.NewClient(mockPRService, mockIssueService)
 	}
+}
+
+type mockPullRequestsService struct {
+	mockPRs       []*github.PullRequest
+	mockPRsByRepo map[string][]*github.PullRequest
+	mockResponse  *github.Response
+	mockError     error
+}
+
+type mockIssueService struct {
+	mockTimelineEventsByPRNumber map[int][]*github.Timeline
+	mockResponse                 *github.Response
+	mockError                    error
 }
 
 func (m *mockPullRequestsService) List(
@@ -39,19 +61,9 @@ func (m *mockPullRequestsService) List(
 	return m.mockPRs, m.mockResponse, m.mockError
 }
 
-func (m *mockPullRequestsService) ListReviews(
+func (m *mockIssueService) ListIssueTimeline(
 	ctx context.Context, owner string, repo string, number int, opts *github.ListOptions,
-) ([]*github.PullRequestReview, *github.Response, error) {
-	reviews := m.mockReviewsByPRNumber[number]
-	return reviews, m.mockReviewsResponse, m.mockReviewsError
-}
-
-type mockPullRequestsService struct {
-	mockPRs               []*github.PullRequest
-	mockPRsByRepo         map[string][]*github.PullRequest
-	mockReviewsByPRNumber map[int][]*github.PullRequestReview
-	mockResponse          *github.Response
-	mockError             error
-	mockReviewsResponse   *github.Response
-	mockReviewsError      error
+) ([]*github.Timeline, *github.Response, error) {
+	timeline := m.mockTimelineEventsByPRNumber[number]
+	return timeline, m.mockResponse, m.mockError
 }

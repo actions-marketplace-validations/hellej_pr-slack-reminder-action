@@ -13,10 +13,15 @@ import (
 )
 
 type mockPullRequestsService struct {
-	mockPRs               []*github.PullRequest
-	mockReviewsByPRNumber map[int][]*github.PullRequestReview
-	mockResponse          *github.Response
-	mockError             error
+	mockPRs      []*github.PullRequest
+	mockResponse *github.Response
+	mockError    error
+}
+
+type mockIssueService struct {
+	mockTimelineEventsByPRNumber map[int][]*github.Timeline
+	mockResponse                 *github.Response
+	mockError                    error
 }
 
 func (m *mockPullRequestsService) List(
@@ -25,10 +30,10 @@ func (m *mockPullRequestsService) List(
 	return m.mockPRs, m.mockResponse, m.mockError
 }
 
-func (m *mockPullRequestsService) ListReviews(
+func (m *mockIssueService) ListIssueTimeline(
 	ctx context.Context, owner string, repo string, number int, opts *github.ListOptions,
-) ([]*github.PullRequestReview, *github.Response, error) {
-	reviews := m.mockReviewsByPRNumber[number]
+) ([]*github.Timeline, *github.Response, error) {
+	reviews := m.mockTimelineEventsByPRNumber[number]
 	return reviews, m.mockResponse, m.mockError
 }
 
@@ -43,7 +48,7 @@ func TestFetchOpenPRs(t *testing.T) {
 	tests := []struct {
 		name                    string
 		mockPRs                 []*github.PullRequest
-		mockReviews             map[int][]*github.PullRequestReview
+		mockTimelineEvents      map[int][]*github.Timeline
 		filters                 config.Filters
 		expectedPRCount         int
 		expectedApproverLogins  []string
@@ -63,14 +68,15 @@ func TestFetchOpenPRs(t *testing.T) {
 					},
 				},
 			},
-			mockReviews: map[int][]*github.PullRequestReview{
+			mockTimelineEvents: map[int][]*github.Timeline{
 				123: {
 					{
 						User: &github.User{
 							Login: github.Ptr("approver1"),
 							Name:  github.Ptr("Approver One"),
 						},
-						State: github.Ptr("APPROVED"),
+						State: github.Ptr("approved"),
+						Event: github.Ptr("reviewed"),
 					},
 					{
 						User: &github.User{
@@ -78,13 +84,15 @@ func TestFetchOpenPRs(t *testing.T) {
 							Name:  github.Ptr("Commenter One"),
 						},
 						State: github.Ptr("COMMENTED"),
+						Event: github.Ptr("reviewed"),
 					},
 					{
 						User: &github.User{
 							Login: github.Ptr("dependabot"),
 							Type:  github.Ptr("Bot"),
 						},
-						State: github.Ptr("APPROVED"),
+						State: github.Ptr("approved"),
+						Event: github.Ptr("reviewed"),
 					},
 				},
 			},
@@ -106,7 +114,7 @@ func TestFetchOpenPRs(t *testing.T) {
 					},
 				},
 			},
-			mockReviews:             map[int][]*github.PullRequestReview{},
+			mockTimelineEvents:      map[int][]*github.Timeline{},
 			expectedPRCount:         0,
 			expectedApproverLogins:  []string{},
 			expectedCommenterLogins: []string{},
@@ -125,7 +133,7 @@ func TestFetchOpenPRs(t *testing.T) {
 					},
 				},
 			},
-			mockReviews:             map[int][]*github.PullRequestReview{},
+			mockTimelineEvents:      map[int][]*github.Timeline{},
 			expectedPRCount:         1,
 			expectedApproverLogins:  []string{},
 			expectedCommenterLogins: []string{},
@@ -144,7 +152,7 @@ func TestFetchOpenPRs(t *testing.T) {
 					},
 				},
 			},
-			mockReviews: map[int][]*github.PullRequestReview{
+			mockTimelineEvents: map[int][]*github.Timeline{
 				126: {
 					{
 						User: &github.User{
@@ -152,13 +160,15 @@ func TestFetchOpenPRs(t *testing.T) {
 							Name:  github.Ptr("Reviewer One"),
 						},
 						State: github.Ptr("COMMENTED"),
+						Event: github.Ptr("reviewed"),
 					},
 					{
 						User: &github.User{
 							Login: github.Ptr("reviewer1"),
 							Name:  github.Ptr("Reviewer One"),
 						},
-						State: github.Ptr("APPROVED"),
+						State: github.Ptr("approved"),
+						Event: github.Ptr("reviewed"),
 					},
 				},
 			},
@@ -180,7 +190,7 @@ func TestFetchOpenPRs(t *testing.T) {
 					},
 				},
 			},
-			mockReviews: map[int][]*github.PullRequestReview{
+			mockTimelineEvents: map[int][]*github.Timeline{
 				127: {
 					{
 						User: &github.User{
@@ -188,13 +198,15 @@ func TestFetchOpenPRs(t *testing.T) {
 							Name:  github.Ptr("PR Author"),
 						},
 						State: github.Ptr("COMMENTED"),
+						Event: github.Ptr("reviewed"),
 					},
 					{
 						User: &github.User{
 							Login: github.Ptr("external-reviewer"),
 							Name:  github.Ptr("External Reviewer"),
 						},
-						State: github.Ptr("APPROVED"),
+						State: github.Ptr("approved"),
+						Event: github.Ptr("reviewed"),
 					},
 				},
 			},
@@ -216,14 +228,15 @@ func TestFetchOpenPRs(t *testing.T) {
 					},
 				},
 			},
-			mockReviews: map[int][]*github.PullRequestReview{
+			mockTimelineEvents: map[int][]*github.Timeline{
 				128: {
 					{
 						User: &github.User{
 							Login: github.Ptr("dependabot[bot]"),
 							Type:  github.Ptr("Bot"),
 						},
-						State: github.Ptr("APPROVED"),
+						State: github.Ptr("approved"),
+						Event: github.Ptr("reviewed"),
 					},
 					{
 						User: &github.User{
@@ -231,6 +244,7 @@ func TestFetchOpenPRs(t *testing.T) {
 							Type:  github.Ptr("Bot"),
 						},
 						State: github.Ptr("COMMENTED"),
+						Event: github.Ptr("reviewed"),
 					},
 					{
 						User: &github.User{
@@ -238,6 +252,7 @@ func TestFetchOpenPRs(t *testing.T) {
 							Name:  github.Ptr("Human Reviewer"),
 						},
 						State: github.Ptr("COMMENTED"),
+						Event: github.Ptr("reviewed"),
 					},
 				},
 			},
@@ -259,11 +274,12 @@ func TestFetchOpenPRs(t *testing.T) {
 					},
 				},
 			},
-			mockReviews: map[int][]*github.PullRequestReview{
+			mockTimelineEvents: map[int][]*github.Timeline{
 				129: {
 					{
 						User:  nil,
-						State: github.Ptr("APPROVED"),
+						State: github.Ptr("approved"),
+						Event: github.Ptr("reviewed"),
 					},
 					{
 						User: &github.User{
@@ -271,13 +287,15 @@ func TestFetchOpenPRs(t *testing.T) {
 							Name:  github.Ptr("Empty Login User"),
 						},
 						State: github.Ptr("COMMENTED"),
+						Event: github.Ptr("reviewed"),
 					},
 					{
 						User: &github.User{
 							Login: github.Ptr("valid-reviewer"),
 							Name:  github.Ptr("Valid Reviewer"),
 						},
-						State: github.Ptr("APPROVED"),
+						State: github.Ptr("approved"),
+						Event: github.Ptr("reviewed"),
 					},
 				},
 			},
@@ -289,17 +307,25 @@ func TestFetchOpenPRs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockService := &mockPullRequestsService{
+			mockPRService := &mockPullRequestsService{
 				mockPRs: tt.mockPRs,
 				mockResponse: &github.Response{
 					Response: &http.Response{
 						StatusCode: 200,
 					},
 				},
-				mockReviewsByPRNumber: tt.mockReviews,
-				mockError:             nil,
+				mockError: nil,
 			}
-			client := githubclient.NewClient(mockService)
+			mockIssueService := &mockIssueService{
+				mockTimelineEventsByPRNumber: tt.mockTimelineEvents,
+				mockResponse: &github.Response{
+					Response: &http.Response{
+						StatusCode: 200,
+					},
+				},
+				mockError: nil,
+			}
+			client := githubclient.NewClient(mockPRService, mockIssueService)
 
 			repos := []models.Repository{
 				{Owner: "testowner", Name: "testrepo"},

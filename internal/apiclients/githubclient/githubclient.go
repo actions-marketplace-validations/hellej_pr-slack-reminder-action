@@ -28,24 +28,28 @@ type GithubPullRequestsService interface {
 	) (
 		[]*github.PullRequest, *github.Response, error,
 	)
-	ListReviews(
+}
+
+type GithubIssueService interface {
+	ListIssueTimeline(
 		ctx context.Context, owner string, repo string, number int, opts *github.ListOptions,
 	) (
-		[]*github.PullRequestReview, *github.Response, error,
+		[]*github.Timeline, *github.Response, error,
 	)
 }
 
-func NewClient(prsService GithubPullRequestsService) Client {
-	return &client{prsService: prsService}
+func NewClient(prsService GithubPullRequestsService, issuesService GithubIssueService) Client {
+	return &client{prsService: prsService, issuesService: issuesService}
 }
 
 func GetAuthenticatedClient(token string) Client {
 	ghClient := github.NewClient(nil).WithAuthToken(token)
-	return NewClient(ghClient.PullRequests)
+	return NewClient(ghClient.PullRequests, ghClient.Issues)
 }
 
 type client struct {
-	prsService GithubPullRequestsService
+	prsService    GithubPullRequestsService
+	issuesService GithubIssueService
 }
 
 // Returns an error if fetching PRs from any repository fails (and cancels other requests).
@@ -119,7 +123,9 @@ func getPRFilterFunc(filters config.Filters) func(pr *github.PullRequest) bool {
 func (c *client) fetchOpenPRsForRepository(
 	ctx context.Context, repo models.Repository,
 ) PRsOfRepoResult {
-	prs, response, err := c.prsService.List(ctx, repo.Owner, repo.Name, nil)
+	prs, response, err := c.prsService.List(
+		ctx, repo.Owner, repo.Name, &github.PullRequestListOptions{ListOptions: github.ListOptions{PerPage: 50}},
+	)
 	if err != nil {
 		if response != nil && response.StatusCode == 404 {
 			return PRsOfRepoResult{
@@ -157,14 +163,14 @@ func logFoundPRs(prResults []PRsOfRepoResult) {
 }
 
 func (c *client) addReviewerInfoToPRs(prResults []PRsOfRepoResult) []PR {
-	log.Printf("Fetching pull request reviewers for PRs")
+	log.Printf("Fetching pull request timelines for PRs")
 
 	totalPRCount := 0
 	for _, result := range prResults {
 		totalPRCount += result.GetPRCount()
 	}
 
-	resultChannel := make(chan FetchReviewsResult, totalPRCount)
+	resultChannel := make(chan FetchTimelineResult, totalPRCount)
 	var wg sync.WaitGroup
 
 	for _, result := range prResults {
@@ -172,7 +178,9 @@ func (c *client) addReviewerInfoToPRs(prResults []PRsOfRepoResult) []PR {
 			wg.Add(1)
 			go func(repo models.Repository, pr *github.PullRequest) {
 				defer wg.Done()
-				reviews, response, err := c.prsService.ListReviews(context.Background(), repo.Owner, repo.Name, *pr.Number, nil)
+				timelineEvents, response, err := c.issuesService.ListIssueTimeline(
+					context.Background(), repo.Owner, repo.Name, *pr.Number, &github.ListOptions{PerPage: 100},
+				)
 				if err != nil {
 					err = fmt.Errorf(
 						"error fetching reviews for pull request %s/%s#%d: %v/%v",
@@ -183,13 +191,13 @@ func (c *client) addReviewerInfoToPRs(prResults []PRsOfRepoResult) []PR {
 						err,
 					)
 				}
-				prWithReviews := FetchReviewsResult{
-					pr:         pr,
-					reviews:    reviews,
-					repository: repo,
-					err:        err,
+				prWithTimeline := FetchTimelineResult{
+					pr:             pr,
+					timelineEvents: timelineEvents,
+					repository:     repo,
+					err:            err,
 				}
-				resultChannel <- prWithReviews
+				resultChannel <- prWithTimeline
 
 			}(result.repository, pullRequest)
 		}
