@@ -37,6 +37,22 @@ func (m *mockIssueService) ListIssueTimeline(
 	return reviews, m.mockResponse, m.mockError
 }
 
+func NewReview(login, name, state string, userType ...string) *github.Timeline {
+	var t *string
+	if len(userType) > 0 && userType[0] != "" {
+		t = github.Ptr(userType[0])
+	}
+	return &github.Timeline{
+		User: &github.User{
+			Login: github.Ptr(login),
+			Name:  github.Ptr(name),
+			Type:  t,
+		},
+		State: github.Ptr(state),
+		Event: github.Ptr("reviewed"),
+	}
+}
+
 func TestGetAuthenticatedClient(t *testing.T) {
 	client := githubclient.GetAuthenticatedClient("test-token")
 	if client == nil {
@@ -70,30 +86,9 @@ func TestFetchOpenPRs(t *testing.T) {
 			},
 			mockTimelineEvents: map[int][]*github.Timeline{
 				123: {
-					{
-						User: &github.User{
-							Login: github.Ptr("approver1"),
-							Name:  github.Ptr("Approver One"),
-						},
-						State: github.Ptr("approved"),
-						Event: github.Ptr("reviewed"),
-					},
-					{
-						User: &github.User{
-							Login: github.Ptr("commenter1"),
-							Name:  github.Ptr("Commenter One"),
-						},
-						State: github.Ptr("COMMENTED"),
-						Event: github.Ptr("reviewed"),
-					},
-					{
-						User: &github.User{
-							Login: github.Ptr("dependabot"),
-							Type:  github.Ptr("Bot"),
-						},
-						State: github.Ptr("approved"),
-						Event: github.Ptr("reviewed"),
-					},
+					NewReview("approver1", "Approver One", "approved"),
+					NewReview("commenter1", "Commenter One", "commented"),
+					NewReview("dependabot", "", "approved", "Bot"),
 				},
 			},
 			expectedPRCount:         1,
@@ -154,22 +149,8 @@ func TestFetchOpenPRs(t *testing.T) {
 			},
 			mockTimelineEvents: map[int][]*github.Timeline{
 				126: {
-					{
-						User: &github.User{
-							Login: github.Ptr("reviewer1"),
-							Name:  github.Ptr("Reviewer One"),
-						},
-						State: github.Ptr("COMMENTED"),
-						Event: github.Ptr("reviewed"),
-					},
-					{
-						User: &github.User{
-							Login: github.Ptr("reviewer1"),
-							Name:  github.Ptr("Reviewer One"),
-						},
-						State: github.Ptr("approved"),
-						Event: github.Ptr("reviewed"),
-					},
+					NewReview("reviewer1", "Reviewer One", "commented"),
+					NewReview("reviewer1", "Reviewer One", "approved"),
 				},
 			},
 			expectedPRCount:         1,
@@ -192,22 +173,8 @@ func TestFetchOpenPRs(t *testing.T) {
 			},
 			mockTimelineEvents: map[int][]*github.Timeline{
 				127: {
-					{
-						User: &github.User{
-							Login: github.Ptr("pr-author"),
-							Name:  github.Ptr("PR Author"),
-						},
-						State: github.Ptr("COMMENTED"),
-						Event: github.Ptr("reviewed"),
-					},
-					{
-						User: &github.User{
-							Login: github.Ptr("external-reviewer"),
-							Name:  github.Ptr("External Reviewer"),
-						},
-						State: github.Ptr("approved"),
-						Event: github.Ptr("reviewed"),
-					},
+					NewReview("pr-author", "PR Author", "commented"),
+					NewReview("external-reviewer", "External Reviewer", "approved"),
 				},
 			},
 			expectedPRCount:         1,
@@ -230,30 +197,9 @@ func TestFetchOpenPRs(t *testing.T) {
 			},
 			mockTimelineEvents: map[int][]*github.Timeline{
 				128: {
-					{
-						User: &github.User{
-							Login: github.Ptr("dependabot[bot]"),
-							Type:  github.Ptr("Bot"),
-						},
-						State: github.Ptr("approved"),
-						Event: github.Ptr("reviewed"),
-					},
-					{
-						User: &github.User{
-							Login: github.Ptr("codecov[bot]"),
-							Type:  github.Ptr("Bot"),
-						},
-						State: github.Ptr("COMMENTED"),
-						Event: github.Ptr("reviewed"),
-					},
-					{
-						User: &github.User{
-							Login: github.Ptr("human-reviewer"),
-							Name:  github.Ptr("Human Reviewer"),
-						},
-						State: github.Ptr("COMMENTED"),
-						Event: github.Ptr("reviewed"),
-					},
+					NewReview("dependabot[bot]", "", "approved", "Bot"),
+					NewReview("codecov[bot]", "", "commented", "Bot"),
+					NewReview("human-reviewer", "Human Reviewer", "commented"),
 				},
 			},
 			expectedPRCount:         1,
@@ -276,27 +222,13 @@ func TestFetchOpenPRs(t *testing.T) {
 			},
 			mockTimelineEvents: map[int][]*github.Timeline{
 				129: {
-					{
+					{ // nil user event retained for invalid case
 						User:  nil,
 						State: github.Ptr("approved"),
 						Event: github.Ptr("reviewed"),
 					},
-					{
-						User: &github.User{
-							Login: github.Ptr(""),
-							Name:  github.Ptr("Empty Login User"),
-						},
-						State: github.Ptr("COMMENTED"),
-						Event: github.Ptr("reviewed"),
-					},
-					{
-						User: &github.User{
-							Login: github.Ptr("valid-reviewer"),
-							Name:  github.Ptr("Valid Reviewer"),
-						},
-						State: github.Ptr("approved"),
-						Event: github.Ptr("reviewed"),
-					},
+					NewReview("", "Empty Login User", "commented"),
+					NewReview("valid-reviewer", "Valid Reviewer", "approved"),
 				},
 			},
 			expectedPRCount:         1,

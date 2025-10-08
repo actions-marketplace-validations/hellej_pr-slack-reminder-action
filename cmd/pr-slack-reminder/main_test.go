@@ -505,75 +505,21 @@ func TestScenarios(t *testing.T) {
 			},
 			timelineEventsByPRNumber: map[int][]*github.Timeline{
 				*getTestPRs(GetTestPRsOptions{}).PR1.Number: {
-					{
-						ID:    github.Ptr(int64(1)),
-						Body:  github.Ptr("LGTM 🙏🏻"),
-						User:  &github.User{Login: github.Ptr("reviewer1")},
-						State: github.Ptr("approved"),
-						Event: github.Ptr("reviewed"),
-					},
-					{
-						ID:    github.Ptr(int64(2)),
-						Body:  github.Ptr("LGTM 🚀"),
-						User:  &github.User{Login: github.Ptr("reviewer2")},
-						State: github.Ptr("approved"),
-						Event: github.Ptr("reviewed"),
-					},
+					mockgithubclient.NewReview(1, "approved", "reviewer1", "", "LGTM 🙏🏻"),
+					mockgithubclient.NewReview(2, "approved", "reviewer2", "", "LGTM 🚀"),
 				},
 				*getTestPRs(GetTestPRsOptions{}).PR2.Number: {
-					{
-						ID:    github.Ptr(int64(3)),
-						Body:  github.Ptr("LGTM, just a few comments..."),
-						User:  &github.User{Login: github.Ptr("reviewer1")},
-						State: github.Ptr("COMMENTED"),
-						Event: github.Ptr("reviewed"),
-					},
-					{
-						ID:    github.Ptr(int64(4)),
-						Body:  github.Ptr("Looks good but..."),
-						User:  &github.User{Login: github.Ptr("reviewer2")},
-						State: github.Ptr("COMMENTED"),
-						Event: github.Ptr("reviewed"),
-					},
+					mockgithubclient.NewReview(3, "commented", "reviewer1", "", "LGTM, just a few comments..."),
+					mockgithubclient.NewReview(4, "commented", "reviewer2", "", "Looks good but..."),
 				},
 				*getTestPRs(GetTestPRsOptions{}).PR3.Number: {
-					{
-						ID:    github.Ptr(int64(5)),
-						Body:  github.Ptr("Splendid work! Just a few questions..."),
-						User:  &github.User{Login: github.Ptr("reviewer3")},
-						State: github.Ptr("COMMENTED"),
-						Event: github.Ptr("reviewed"),
-					},
+					mockgithubclient.NewReview(5, "commented", "reviewer3", "", "Splendid work! Just a few questions..."),
 				},
 				*getTestPRs(GetTestPRsOptions{}).PR4.Number: {
-					{
-						ID:    github.Ptr(int64(6)),
-						Body:  github.Ptr("Splendid work! Just a few questions..."),
-						User:  &github.User{Login: github.Ptr("reviewer3")},
-						State: github.Ptr("COMMENTED"),
-						Event: github.Ptr("reviewed"),
-					},
-					{
-						ID:    github.Ptr(int64(7)),
-						Body:  github.Ptr("Splendid work! Just a few questions..."),
-						User:  &github.User{Login: github.Ptr("reviewer3")},
-						State: github.Ptr("COMMENTED"),
-						Event: github.Ptr("reviewed"),
-					}, // duplicate review by reviewer3 should be omitted
-					{
-						ID:    github.Ptr(int64(8)),
-						Body:  github.Ptr("LGTM 🚀"),
-						User:  &github.User{Login: github.Ptr("reviewer2")},
-						State: github.Ptr("approved"),
-						Event: github.Ptr("reviewed"),
-					},
-					{
-						ID:    github.Ptr(int64(9)),
-						Body:  github.Ptr("LGTM again 🚀"),
-						User:  &github.User{Login: github.Ptr("reviewer2")},
-						State: github.Ptr("approved"),
-						Event: github.Ptr("reviewed"),
-					}, // duplicate approval by reviewer2 should be omitted
+					mockgithubclient.NewReview(6, "commented", "reviewer3", "", "Splendid work! Just a few questions..."),
+					mockgithubclient.NewReview(7, "commented", "reviewer3", "", "Splendid work! Just a few questions..."), // duplicate review by reviewer3 should be omitted
+					mockgithubclient.NewReview(8, "approved", "reviewer2", "", "LGTM 🚀"),
+					mockgithubclient.NewReview(9, "approved", "reviewer2", "", "LGTM again 🚀"), // duplicate approval by reviewer2 should be omitted
 				},
 			},
 			expectedSummary: "4 open PRs are waiting for attention 👀",
@@ -642,34 +588,10 @@ func TestScenarios(t *testing.T) {
 			},
 			timelineEventsByPRNumber: map[int][]*github.Timeline{
 				1: {
-					{
-						ID:    github.Ptr(int64(1)),
-						Body:  github.Ptr("Human feedback"),
-						User:  &github.User{Login: github.Ptr("human-reviewer"), Name: github.Ptr("Human Reviewer"), Type: github.Ptr("User")},
-						State: github.Ptr("COMMENTED"),
-						Event: github.Ptr("reviewed"),
-					},
-					{
-						ID:    github.Ptr(int64(2)),
-						Body:  github.Ptr("Self review"),
-						User:  &github.User{Login: github.Ptr("alice"), Name: github.Ptr("Alice"), Type: github.Ptr("User")},
-						State: github.Ptr("COMMENTED"),
-						Event: github.Ptr("reviewed"),
-					},
-					{
-						ID:    github.Ptr(int64(3)),
-						Body:  github.Ptr("Bot feedback"),
-						User:  &github.User{Login: github.Ptr("dependabot"), Name: github.Ptr("Dependabot"), Type: github.Ptr("Bot")},
-						State: github.Ptr("COMMENTED"),
-						Event: github.Ptr("reviewed"),
-					},
-					{
-						ID:    github.Ptr(int64(4)),
-						Body:  github.Ptr("Bot approval"),
-						User:  &github.User{Login: github.Ptr("codecov"), Name: github.Ptr("Codecov"), Type: github.Ptr("Bot")},
-						State: github.Ptr("approved"),
-						Event: github.Ptr("reviewed"),
-					},
+					mockgithubclient.NewReview(1, "commented", "human-reviewer", "Human Reviewer", "Human feedback", "User"),
+					mockgithubclient.NewReview(2, "commented", "alice", "Alice", "Self review", "User"),
+					mockgithubclient.NewReview(3, "commented", "dependabot", "Dependabot", "Bot feedback", "Bot"),
+					mockgithubclient.NewReview(4, "approved", "codecov", "Codecov", "Bot approval", "Bot"),
 				},
 			},
 			expectedPRNumbers: []int{1},

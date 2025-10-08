@@ -39,6 +39,28 @@ func MakeMockGitHubClientGetter(
 	}
 }
 
+func NewReview(id int64, state, login, name, body string, userType ...string) *github.Timeline {
+	var t *string
+	if len(userType) > 0 && userType[0] != "" {
+		t = github.Ptr(userType[0])
+	}
+	var b *string
+	if body != "" {
+		b = github.Ptr(body)
+	}
+	return &github.Timeline{
+		ID:   github.Ptr(id),
+		Body: b,
+		User: &github.User{
+			Login: github.Ptr(login),
+			Name:  github.Ptr(name),
+			Type:  t,
+		},
+		State: github.Ptr(state),
+		Event: github.Ptr("reviewed"),
+	}
+}
+
 type mockPullRequestsService struct {
 	mockPRs       []*github.PullRequest
 	mockPRsByRepo map[string][]*github.PullRequest
