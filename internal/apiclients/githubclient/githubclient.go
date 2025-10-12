@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"log"
 
+	"time"
+
 	"github.com/google/go-github/v72/github"
 	"github.com/hellej/pr-slack-reminder-action/internal/config"
 	"github.com/hellej/pr-slack-reminder-action/internal/models"
@@ -57,6 +59,10 @@ type client struct {
 // creating excessive simultaneous GitHub API calls when many repositories are configured.
 // Exported to allow tests (and potential future configuration) to reference it.
 const DefaultGitHubAPIConcurrencyLimit = 5
+
+// Per-call timeout defaults. Overridable in tests.
+var PullRequestListTimeout = 10 * time.Second
+var TimelineFetchTimeout = 10 * time.Second
 
 // Returns an error if fetching PRs from any repository fails (and cancels the other requests).
 func (c *client) FetchOpenPRs(
@@ -116,8 +122,10 @@ func getPRFilterFunc(filters config.Filters) func(pr *github.PullRequest) bool {
 func (c *client) fetchOpenPRsForRepository(
 	ctx context.Context, repo models.Repository,
 ) (PRsOfRepoResult, error) {
+	callCtx, cancel := context.WithTimeout(ctx, PullRequestListTimeout)
+	defer cancel()
 	prs, response, err := c.prsService.List(
-		ctx, repo.Owner, repo.Name, &github.PullRequestListOptions{ListOptions: github.ListOptions{PerPage: 50}},
+		callCtx, repo.Owner, repo.Name, &github.PullRequestListOptions{ListOptions: github.ListOptions{PerPage: 50}},
 	)
 	if err == nil {
 		return PRsOfRepoResult{
@@ -173,8 +181,10 @@ func (c *client) addReviewerInfoToPRs(ctx context.Context, prResults []PRsOfRepo
 			repo := result.repository
 			pr := pullRequest
 			timelineGroup.Go(func() error {
+				callCtx, cancel := context.WithTimeout(timelineCtx, TimelineFetchTimeout)
+				defer cancel()
 				timelineEvents, response, err := c.issuesService.ListIssueTimeline(
-					timelineCtx, repo.Owner, repo.Name, *pr.Number, &github.ListOptions{PerPage: 100},
+					callCtx, repo.Owner, repo.Name, *pr.Number, &github.ListOptions{PerPage: 100},
 				)
 				fetchTimelineResult := FetchTimelineResult{
 					pr:             pr,
