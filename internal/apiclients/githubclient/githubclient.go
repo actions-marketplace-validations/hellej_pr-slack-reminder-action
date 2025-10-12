@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"sync"
 
 	"github.com/google/go-github/v72/github"
 	"github.com/hellej/pr-slack-reminder-action/internal/config"
@@ -18,6 +17,7 @@ import (
 
 type Client interface {
 	FetchOpenPRs(
+		ctx context.Context,
 		repositories []models.Repository,
 		getFiltersForRepository func(repo models.Repository) config.Filters,
 	) ([]PR, error)
@@ -53,33 +53,34 @@ type client struct {
 	issuesService GithubIssueService
 }
 
-// DefaultRepoFetchConcurrencyLimit caps concurrent repository fetches to avoid
+// DefaultGitHubAPIConcurrencyLimit caps concurrent repository fetches to avoid
 // creating excessive simultaneous GitHub API calls when many repositories are configured.
 // Exported to allow tests (and potential future configuration) to reference it.
-const DefaultRepoFetchConcurrencyLimit = 5
+const DefaultGitHubAPIConcurrencyLimit = 5
 
 // Returns an error if fetching PRs from any repository fails (and cancels the other requests).
 func (c *client) FetchOpenPRs(
+	ctx context.Context,
 	repositories []models.Repository,
 	getFiltersForRepository func(repo models.Repository) config.Filters,
 ) ([]PR, error) {
 	log.Printf("Fetching open pull requests for repositories: %v", repositories)
 
-	eg, ctx := errgroup.WithContext(context.Background())
-	eg.SetLimit(DefaultRepoFetchConcurrencyLimit)
+	listGroup, listCtx := errgroup.WithContext(ctx)
+	listGroup.SetLimit(DefaultGitHubAPIConcurrencyLimit)
 	prResults := make([]PRsOfRepoResult, len(repositories))
 
 	for i, repo := range repositories {
 		i, repo := i, repo // https://golang.org/doc/faq#closures_and_goroutines
-		eg.Go(func() error {
-			res, err := c.fetchOpenPRsForRepository(ctx, repo)
+		listGroup.Go(func() error {
+			res, err := c.fetchOpenPRsForRepository(listCtx, repo)
 			if err == nil {
 				prResults[i] = res
 			}
 			return err
 		})
 	}
-	if err := eg.Wait(); err != nil {
+	if err := listGroup.Wait(); err != nil {
 		return nil, err
 	}
 
@@ -94,7 +95,8 @@ func (c *client) FetchOpenPRs(
 	)
 	logFoundPRs(filteredResults)
 
-	prs := c.addReviewerInfoToPRs(
+	prs, err := c.addReviewerInfoToPRs(
+		ctx,
 		utilities.Filter(
 			filteredResults,
 			func(r PRsOfRepoResult) bool {
@@ -102,7 +104,7 @@ func (c *client) FetchOpenPRs(
 			},
 		),
 	)
-	return prs, nil
+	return prs, err
 }
 
 func getPRFilterFunc(filters config.Filters) func(pr *github.PullRequest) bool {
@@ -139,7 +141,7 @@ func (c *client) fetchOpenPRsForRepository(
 			repository: repo,
 		},
 		fmt.Errorf(
-			"error fetching pull requests from %s/%s: %v", repo.Owner, repo.Name, err,
+			"error fetching pull requests from %s/%s: %w", repo.Owner, repo.Name, err,
 		)
 }
 
@@ -152,7 +154,9 @@ func logFoundPRs(prResults []PRsOfRepoResult) {
 	}
 }
 
-func (c *client) addReviewerInfoToPRs(prResults []PRsOfRepoResult) []PR {
+// Fetches review and comment data for the given PRs and returns enriched PR data.
+// Returns all PRs even if fetching review data for some PRs fails (those will just be missing reviewer info then).
+func (c *client) addReviewerInfoToPRs(ctx context.Context, prResults []PRsOfRepoResult) ([]PR, error) {
 	log.Printf("Fetching pull request timelines for PRs")
 
 	totalPRCount := 0
@@ -160,48 +164,52 @@ func (c *client) addReviewerInfoToPRs(prResults []PRsOfRepoResult) []PR {
 		totalPRCount += result.GetPRCount()
 	}
 
+	timelineGroup, timelineCtx := errgroup.WithContext(ctx)
+	timelineGroup.SetLimit(DefaultGitHubAPIConcurrencyLimit)
 	resultChannel := make(chan FetchTimelineResult, totalPRCount)
-	var wg sync.WaitGroup
 
 	for _, result := range prResults {
 		for _, pullRequest := range result.prs {
-			wg.Add(1)
-			go func(repo models.Repository, pr *github.PullRequest) {
-				defer wg.Done()
+			repo := result.repository
+			pr := pullRequest
+			timelineGroup.Go(func() error {
 				timelineEvents, response, err := c.issuesService.ListIssueTimeline(
-					context.Background(), repo.Owner, repo.Name, *pr.Number, &github.ListOptions{PerPage: 100},
+					timelineCtx, repo.Owner, repo.Name, *pr.Number, &github.ListOptions{PerPage: 100},
 				)
-				if err != nil {
-					err = fmt.Errorf(
-						"error fetching reviews for pull request %s/%s#%d: %v/%v",
-						repo.Owner,
-						repo.Name,
-						*pr.Number,
-						response.Status,
-						err,
-					)
-				}
-				prWithTimeline := FetchTimelineResult{
+				fetchTimelineResult := FetchTimelineResult{
 					pr:             pr,
 					timelineEvents: timelineEvents,
 					repository:     repo,
-					err:            err,
 				}
-				resultChannel <- prWithTimeline
-
-			}(result.repository, pullRequest)
+				if err != nil {
+					statusText := ""
+					if response != nil && response.Status != "" {
+						statusText = " status=" + response.Status
+					}
+					fetchTimelineResult.err = fmt.Errorf(
+						"error fetching reviews for pull request %s/%s/%d%s: %w",
+						repo.Owner,
+						repo.Name,
+						*pr.Number,
+						statusText,
+						err,
+					)
+				}
+				resultChannel <- fetchTimelineResult
+				return nil
+			})
 		}
 	}
 
-	go func() {
-		wg.Wait()
-		close(resultChannel)
-	}()
+	if err := timelineGroup.Wait(); err != nil {
+		return nil, err
+	}
+	close(resultChannel)
 
 	allPRs := []PR{}
 	for result := range resultChannel {
 		result.printResult()
 		allPRs = append(allPRs, result.asPR())
 	}
-	return allPRs
+	return allPRs, nil
 }

@@ -282,7 +282,7 @@ func TestFetchOpenPRs(t *testing.T) {
 				return config.Filters{} // empty filters = allow all
 			}
 
-			result, err := client.FetchOpenPRs(repos, getFilters)
+			result, err := client.FetchOpenPRs(context.Background(), repos, getFilters)
 
 			if err != nil {
 				t.Fatalf("FetchOpenPRs() returned error: %v", err)
@@ -339,7 +339,7 @@ func TestFetchOpenPRs_MultipleRepositories(t *testing.T) {
 
 	client := githubclient.NewClient(&multiRepoPRService{services: map[string]*mockPullRequestsService{"repo1": mockPRService1, "repo2": mockPRService2}}, mockIssueService)
 	repos := []models.Repository{{Owner: "o", Name: "repo1"}, {Owner: "o", Name: "repo2"}}
-	result, err := client.FetchOpenPRs(repos, func(models.Repository) config.Filters { return config.Filters{} })
+	result, err := client.FetchOpenPRs(context.Background(), repos, func(models.Repository) config.Filters { return config.Filters{} })
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -359,29 +359,104 @@ func TestFetchOpenPRs_ErrorShortCircuits(t *testing.T) {
 
 	client := githubclient.NewClient(&multiRepoPRService{services: map[string]*mockPullRequestsService{"bad": mockPRService404, "good": mockPRServiceOK}}, mockIssueService)
 	repos := []models.Repository{{Owner: "o", Name: "bad"}, {Owner: "o", Name: "good"}}
-	_, err := client.FetchOpenPRs(repos, func(models.Repository) config.Filters { return config.Filters{} })
+	_, err := client.FetchOpenPRs(context.Background(), repos, func(models.Repository) config.Filters { return config.Filters{} })
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
 }
 
 func TestFetchOpenPRs_ConcurrencyLimit(t *testing.T) {
-	repoCount := githubclient.DefaultRepoFetchConcurrencyLimit + 3
+	repoCount := githubclient.DefaultGitHubAPIConcurrencyLimit + 3
 	services := make(map[string]*mockPullRequestsService)
 	repos := make([]models.Repository, 0, repoCount)
 	for i := 0; i < repoCount; i++ {
 		name := fmt.Sprintf("repo-%d", i)
-		services[name] = &mockPullRequestsService{mockPRs: []*github.PullRequest{{Number: github.Ptr(i + 100), Title: github.Ptr(name + " PR"), Draft: github.Ptr(false), HTMLURL: github.Ptr("https://example.com/" + name), User: &github.User{Login: github.Ptr("author")}}}, mockResponse: &github.Response{Response: &http.Response{StatusCode: 200}}, mockError: nil}
+		services[name] = &mockPullRequestsService{
+			mockPRs: []*github.PullRequest{
+				{Number: github.Ptr(i + 100), Title: github.Ptr(name + " PR"), Draft: github.Ptr(false), HTMLURL: github.Ptr("https://example.com/" + name), User: &github.User{Login: github.Ptr("author")}},
+			},
+			mockResponse: &github.Response{Response: &http.Response{StatusCode: 200}},
+			mockError:    nil,
+		}
 		repos = append(repos, models.Repository{Owner: "o", Name: name})
 	}
 	mockIssueService := &mockIssueService{mockTimelineEventsByPRNumber: map[int][]*github.Timeline{}, mockResponse: &github.Response{Response: &http.Response{StatusCode: 200}}, mockError: nil}
 	client := githubclient.NewClient(&multiRepoPRService{services: services}, mockIssueService)
-	prs, err := client.FetchOpenPRs(repos, func(models.Repository) config.Filters { return config.Filters{} })
+	prs, err := client.FetchOpenPRs(context.Background(), repos, func(models.Repository) config.Filters { return config.Filters{} })
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(prs) != repoCount {
 		t.Fatalf("expected %d PRs, got %d", repoCount, len(prs))
+	}
+}
+
+// selectiveIssueService allows per-PR errors to test best-effort timeline enrichment.
+type selectiveIssueService struct {
+	eventsByPRNumber map[int][]*github.Timeline
+	errByPRNumber    map[int]error
+	response         *github.Response
+}
+
+func (s *selectiveIssueService) ListIssueTimeline(
+	ctx context.Context, owner string, repo string, number int, opts *github.ListOptions,
+) ([]*github.Timeline, *github.Response, error) {
+	events := s.eventsByPRNumber[number]
+	err := s.errByPRNumber[number]
+	return events, s.response, err
+}
+
+func TestFetchOpenPRs_TimelinePartialErrors(t *testing.T) {
+	// Two PRs: first timeline fetch fails, second succeeds.
+	mockPRService := &mockPullRequestsService{mockPRs: []*github.PullRequest{
+		{Number: github.Ptr(101), Title: github.Ptr("PR One"), Draft: github.Ptr(false), HTMLURL: github.Ptr("https://example.com/repo/101"), User: &github.User{Login: github.Ptr("author1")}},
+		{Number: github.Ptr(102), Title: github.Ptr("PR Two"), Draft: github.Ptr(false), HTMLURL: github.Ptr("https://example.com/repo/102"), User: &github.User{Login: github.Ptr("author2")}},
+	}, mockResponse: &github.Response{Response: &http.Response{StatusCode: 200}}, mockError: nil}
+
+	issueService := &selectiveIssueService{
+		eventsByPRNumber: map[int][]*github.Timeline{
+			102: { // success case only
+				NewReview("approver2", "Approver Two", "approved"),
+				NewReview("commenter2", "Commenter Two", "commented"),
+			},
+		},
+		errByPRNumber: map[int]error{
+			101: fmt.Errorf("network timeout"), // failure for first PR
+		},
+		response: &github.Response{Response: &http.Response{StatusCode: 200}},
+	}
+
+	client := githubclient.NewClient(mockPRService, issueService)
+	repos := []models.Repository{{Owner: "o", Name: "repo"}}
+	prs, err := client.FetchOpenPRs(context.Background(), repos, func(models.Repository) config.Filters { return config.Filters{} })
+	if err != nil {
+		t.Fatalf("did not expect error, got %v", err)
+	}
+	if len(prs) != 2 {
+		t.Fatalf("expected 2 PRs, got %d", len(prs))
+	}
+	var pr1, pr2 *githubclient.PR
+	for i := range prs {
+		switch prs[i].GetNumber() {
+		case 101:
+			pr1 = &prs[i]
+		case 102:
+			pr2 = &prs[i]
+		}
+	}
+	if pr1 == nil || pr2 == nil {
+		t.Fatalf("missing expected PR numbers; got: %v,%v", pr1, pr2)
+	}
+	// PR1 had timeline error, should have no reviewers/commenters
+	if len(pr1.ApprovedByUsers) != 0 || len(pr1.CommentedByUsers) != 0 {
+		t.Errorf("expected PR1 to have no reviewer info due to error, got approvers=%d commenters=%d", len(pr1.ApprovedByUsers), len(pr1.CommentedByUsers))
+	}
+	// PR2 had events -> one approver and one commenter
+	if len(pr2.ApprovedByUsers) != 1 || pr2.ApprovedByUsers[0].Login != "approver2" {
+		t.Errorf("expected PR2 approver 'approver2', got %+v", pr2.ApprovedByUsers)
+	}
+	if len(pr2.CommentedByUsers) != 1 || pr2.CommentedByUsers[0].Login != "commenter2" {
+		t.Errorf("expected PR2 commenter 'commenter2', got %+v", pr2.CommentedByUsers)
 	}
 }
 

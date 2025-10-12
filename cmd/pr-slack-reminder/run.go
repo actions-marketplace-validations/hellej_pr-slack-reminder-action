@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/hellej/pr-slack-reminder-action/internal/apiclients/githubclient"
 	"github.com/hellej/pr-slack-reminder-action/internal/apiclients/slackclient"
@@ -33,7 +35,10 @@ func Run(
 		config.SlackChannelID = channelID
 	}
 
-	prs, err := githubClient.FetchOpenPRs(config.Repositories, config.GetFiltersForRepository)
+	const prFetchTimeout = 60 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), prFetchTimeout)
+	defer cancel()
+	prs, err := githubClient.FetchOpenPRs(ctx, config.Repositories, config.GetFiltersForRepository)
 	if err != nil {
 		return err
 	}
