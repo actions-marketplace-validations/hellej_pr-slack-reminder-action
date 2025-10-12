@@ -13,7 +13,6 @@ import (
 type PRsOfRepoResult struct {
 	prs        []*github.PullRequest
 	repository models.Repository
-	err        error
 }
 
 func (r PRsOfRepoResult) GetPRCount() int {

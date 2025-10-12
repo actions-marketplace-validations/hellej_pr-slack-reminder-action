@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/google/go-github/v72/github"
@@ -51,6 +52,20 @@ func NewReview(login, name, state string, userType ...string) *github.Timeline {
 		State: github.Ptr(state),
 		Event: github.Ptr("reviewed"),
 	}
+}
+
+// multiRepoPRService routes List calls to different mock services based on repo name
+type multiRepoPRService struct {
+	services map[string]*mockPullRequestsService
+}
+
+func (m *multiRepoPRService) List(
+	ctx context.Context, owner string, repo string, opts *github.PullRequestListOptions,
+) ([]*github.PullRequest, *github.Response, error) {
+	if svc, ok := m.services[repo]; ok {
+		return svc.mockPRs, svc.mockResponse, svc.mockError
+	}
+	return nil, &github.Response{Response: &http.Response{StatusCode: 404}}, fmt.Errorf("unknown repo")
 }
 
 func TestGetAuthenticatedClient(t *testing.T) {
@@ -314,6 +329,59 @@ func TestFetchOpenPRs(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestFetchOpenPRs_MultipleRepositories(t *testing.T) {
+	mockPRService1 := &mockPullRequestsService{mockPRs: []*github.PullRequest{{Number: github.Ptr(1), Title: github.Ptr("Repo1 PR"), Draft: github.Ptr(false), HTMLURL: github.Ptr("https://example.com/r1/1"), User: &github.User{Login: github.Ptr("author1")}}}, mockResponse: &github.Response{Response: &http.Response{StatusCode: 200}}, mockError: nil}
+	mockPRService2 := &mockPullRequestsService{mockPRs: []*github.PullRequest{{Number: github.Ptr(2), Title: github.Ptr("Repo2 PR"), Draft: github.Ptr(false), HTMLURL: github.Ptr("https://example.com/r2/2"), User: &github.User{Login: github.Ptr("author2")}}}, mockResponse: &github.Response{Response: &http.Response{StatusCode: 200}}, mockError: nil}
+	mockIssueService := &mockIssueService{mockTimelineEventsByPRNumber: map[int][]*github.Timeline{}, mockResponse: &github.Response{Response: &http.Response{StatusCode: 200}}, mockError: nil}
+
+	client := githubclient.NewClient(&multiRepoPRService{services: map[string]*mockPullRequestsService{"repo1": mockPRService1, "repo2": mockPRService2}}, mockIssueService)
+	repos := []models.Repository{{Owner: "o", Name: "repo1"}, {Owner: "o", Name: "repo2"}}
+	result, err := client.FetchOpenPRs(repos, func(models.Repository) config.Filters { return config.Filters{} })
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result) != 2 {
+		t.Fatalf("expected 2 PRs, got %d", len(result))
+	}
+	numbers := []int{result[0].GetNumber(), result[1].GetNumber()}
+	if !((numbers[0] == 1 && numbers[1] == 2) || (numbers[0] == 2 && numbers[1] == 1)) {
+		t.Errorf("expected PR numbers 1 and 2, got %v", numbers)
+	}
+}
+
+func TestFetchOpenPRs_ErrorShortCircuits(t *testing.T) {
+	mockPRService404 := &mockPullRequestsService{mockPRs: nil, mockResponse: &github.Response{Response: &http.Response{StatusCode: 404}}, mockError: fmt.Errorf("not found")}
+	mockPRServiceOK := &mockPullRequestsService{mockPRs: []*github.PullRequest{{Number: github.Ptr(3), Title: github.Ptr("Ok PR"), Draft: github.Ptr(false), HTMLURL: github.Ptr("https://example.com/r/3"), User: &github.User{Login: github.Ptr("author")}}}, mockResponse: &github.Response{Response: &http.Response{StatusCode: 200}}, mockError: nil}
+	mockIssueService := &mockIssueService{mockTimelineEventsByPRNumber: map[int][]*github.Timeline{}, mockResponse: &github.Response{Response: &http.Response{StatusCode: 200}}, mockError: nil}
+
+	client := githubclient.NewClient(&multiRepoPRService{services: map[string]*mockPullRequestsService{"bad": mockPRService404, "good": mockPRServiceOK}}, mockIssueService)
+	repos := []models.Repository{{Owner: "o", Name: "bad"}, {Owner: "o", Name: "good"}}
+	_, err := client.FetchOpenPRs(repos, func(models.Repository) config.Filters { return config.Filters{} })
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+}
+
+func TestFetchOpenPRs_ConcurrencyLimit(t *testing.T) {
+	repoCount := githubclient.DefaultRepoFetchConcurrencyLimit + 3
+	services := make(map[string]*mockPullRequestsService)
+	repos := make([]models.Repository, 0, repoCount)
+	for i := 0; i < repoCount; i++ {
+		name := fmt.Sprintf("repo-%d", i)
+		services[name] = &mockPullRequestsService{mockPRs: []*github.PullRequest{{Number: github.Ptr(i + 100), Title: github.Ptr(name + " PR"), Draft: github.Ptr(false), HTMLURL: github.Ptr("https://example.com/" + name), User: &github.User{Login: github.Ptr("author")}}}, mockResponse: &github.Response{Response: &http.Response{StatusCode: 200}}, mockError: nil}
+		repos = append(repos, models.Repository{Owner: "o", Name: name})
+	}
+	mockIssueService := &mockIssueService{mockTimelineEventsByPRNumber: map[int][]*github.Timeline{}, mockResponse: &github.Response{Response: &http.Response{StatusCode: 200}}, mockError: nil}
+	client := githubclient.NewClient(&multiRepoPRService{services: services}, mockIssueService)
+	prs, err := client.FetchOpenPRs(repos, func(models.Repository) config.Filters { return config.Filters{} })
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(prs) != repoCount {
+		t.Fatalf("expected %d PRs, got %d", repoCount, len(prs))
 	}
 }
 

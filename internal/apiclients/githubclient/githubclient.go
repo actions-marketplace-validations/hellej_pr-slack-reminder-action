@@ -13,6 +13,7 @@ import (
 	"github.com/hellej/pr-slack-reminder-action/internal/config"
 	"github.com/hellej/pr-slack-reminder-action/internal/models"
 	"github.com/hellej/pr-slack-reminder-action/internal/utilities"
+	"golang.org/x/sync/errgroup"
 )
 
 type Client interface {
@@ -52,62 +53,52 @@ type client struct {
 	issuesService GithubIssueService
 }
 
-// Returns an error if fetching PRs from any repository fails (and cancels other requests).
-//
-// The wait group & cancellation logic could be refactored to use errgroup package for more
-// concise implementation. However, the current implementation also serves as learning material
-// so we can save the refactoring for later...
+// DefaultRepoFetchConcurrencyLimit caps concurrent repository fetches to avoid
+// creating excessive simultaneous GitHub API calls when many repositories are configured.
+// Exported to allow tests (and potential future configuration) to reference it.
+const DefaultRepoFetchConcurrencyLimit = 5
+
+// Returns an error if fetching PRs from any repository fails (and cancels the other requests).
 func (c *client) FetchOpenPRs(
 	repositories []models.Repository,
 	getFiltersForRepository func(repo models.Repository) config.Filters,
 ) ([]PR, error) {
 	log.Printf("Fetching open pull requests for repositories: %v", repositories)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	var wg sync.WaitGroup
-	apiResultChannel := make(chan PRsOfRepoResult, len(repositories))
+	eg, ctx := errgroup.WithContext(context.Background())
+	eg.SetLimit(DefaultRepoFetchConcurrencyLimit)
+	prResults := make([]PRsOfRepoResult, len(repositories))
 
-	for _, repo := range repositories {
-		wg.Add(1)
-		go func(r models.Repository) {
-			defer wg.Done()
-			apiResult := c.fetchOpenPRsForRepository(ctx, r)
-			apiResultChannel <- apiResult
-			if apiResult.err != nil {
-				cancel()
+	for i, repo := range repositories {
+		i, repo := i, repo // https://golang.org/doc/faq#closures_and_goroutines
+		eg.Go(func() error {
+			res, err := c.fetchOpenPRsForRepository(ctx, repo)
+			if err == nil {
+				prResults[i] = res
 			}
-		}(repo)
+			return err
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
 	}
 
-	go func() {
-		wg.Wait()
-		close(apiResultChannel)
-	}()
-
-	successfulResults := []PRsOfRepoResult{}
-	for result := range apiResultChannel {
-		if result.err != nil {
-			return nil, result.err
-		} else {
-			successfulResults = append(successfulResults, result)
-		}
-	}
-
-	filteredResults := utilities.Map(successfulResults, func(r PRsOfRepoResult) PRsOfRepoResult {
-		return PRsOfRepoResult{
-			prs:        utilities.Filter(r.prs, getPRFilterFunc(getFiltersForRepository(r.repository))),
-			repository: r.repository,
-			err:        nil,
-		}
-	})
+	filteredResults := utilities.Map(
+		prResults,
+		func(r PRsOfRepoResult) PRsOfRepoResult {
+			return PRsOfRepoResult{
+				prs:        utilities.Filter(r.prs, getPRFilterFunc(getFiltersForRepository(r.repository))),
+				repository: r.repository,
+			}
+		},
+	)
 	logFoundPRs(filteredResults)
 
 	prs := c.addReviewerInfoToPRs(
 		utilities.Filter(
 			filteredResults,
 			func(r PRsOfRepoResult) bool {
-				return len(r.prs) > 0
+				return r.GetPRCount() > 0
 			},
 		),
 	)
@@ -122,35 +113,34 @@ func getPRFilterFunc(filters config.Filters) func(pr *github.PullRequest) bool {
 
 func (c *client) fetchOpenPRsForRepository(
 	ctx context.Context, repo models.Repository,
-) PRsOfRepoResult {
+) (PRsOfRepoResult, error) {
 	prs, response, err := c.prsService.List(
 		ctx, repo.Owner, repo.Name, &github.PullRequestListOptions{ListOptions: github.ListOptions{PerPage: 50}},
 	)
-	if err != nil {
-		if response != nil && response.StatusCode == 404 {
-			return PRsOfRepoResult{
+	if err == nil {
+		return PRsOfRepoResult{
+			prs:        prs,
+			repository: repo,
+		}, nil
+	}
+	if response != nil && response.StatusCode == 404 {
+		return PRsOfRepoResult{
 				prs:        nil,
 				repository: repo,
-				err: fmt.Errorf(
-					"repository %s/%s not found - check the repository name and permissions",
-					repo.Owner,
-					repo.Name,
-				)}
-		} else {
-			return PRsOfRepoResult{
-				prs:        nil,
-				repository: repo,
-				err: fmt.Errorf(
-					"error fetching pull requests from %s/%s: %v", repo.Owner, repo.Name, err,
-				),
-			}
-		}
+			},
+			fmt.Errorf(
+				"repository %s/%s not found - check the repository name and permissions",
+				repo.Owner,
+				repo.Name,
+			)
 	}
 	return PRsOfRepoResult{
-		prs:        prs,
-		repository: repo,
-		err:        nil,
-	}
+			prs:        nil,
+			repository: repo,
+		},
+		fmt.Errorf(
+			"error fetching pull requests from %s/%s: %v", repo.Owner, repo.Name, err,
+		)
 }
 
 func logFoundPRs(prResults []PRsOfRepoResult) {
