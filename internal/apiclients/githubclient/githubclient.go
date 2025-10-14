@@ -183,8 +183,8 @@ func (c *client) addReviewerInfoToPRs(ctx context.Context, prResults []PRsOfRepo
 			timelineGroup.Go(func() error {
 				callCtx, cancel := context.WithTimeout(timelineCtx, TimelineFetchTimeout)
 				defer cancel()
-				timelineEvents, response, err := c.issuesService.ListIssueTimeline(
-					callCtx, repo.Owner, repo.Name, *pr.Number, &github.ListOptions{PerPage: 100},
+				timelineEvents, err := fetchPRTimeline(
+					callCtx, c.issuesService, repo.Owner, repo.Name, *pr.Number,
 				)
 				fetchTimelineResult := FetchTimelineResult{
 					pr:             pr,
@@ -192,18 +192,7 @@ func (c *client) addReviewerInfoToPRs(ctx context.Context, prResults []PRsOfRepo
 					repository:     repo,
 				}
 				if err != nil {
-					statusText := ""
-					if response != nil && response.Status != "" {
-						statusText = " status=" + response.Status
-					}
-					fetchTimelineResult.err = fmt.Errorf(
-						"error fetching reviews for pull request %s/%s/%d%s: %w",
-						repo.Owner,
-						repo.Name,
-						*pr.Number,
-						statusText,
-						err,
-					)
+					fetchTimelineResult.err = err
 				}
 				resultChannel <- fetchTimelineResult
 				return nil
@@ -222,4 +211,45 @@ func (c *client) addReviewerInfoToPRs(ctx context.Context, prResults []PRsOfRepo
 		allPRs = append(allPRs, result.asPR())
 	}
 	return allPRs, nil
+}
+
+const timelineMaximumPages = 4
+
+func fetchPRTimeline(
+	ctx context.Context,
+	issuesService GithubIssueService,
+	owner, repo string,
+	number int,
+) ([]*github.Timeline, error) {
+	events := []*github.Timeline{}
+	opts := &github.ListOptions{PerPage: 100}
+	pagesFetched := 0
+
+	for {
+		timelineEvents, response, err := issuesService.ListIssueTimeline(ctx, owner, repo, number, opts)
+
+		if err != nil {
+			statusText := ""
+			if response != nil && response.Status != "" {
+				statusText = " status=" + response.Status
+			}
+			return nil, fmt.Errorf(
+				"error fetching reviews for pull request %s/%s/%d%s: %w",
+				owner,
+				repo,
+				number,
+				statusText,
+				err,
+			)
+		}
+
+		events = append(events, timelineEvents...)
+		pagesFetched++
+
+		if response == nil || response.NextPage == 0 || pagesFetched >= timelineMaximumPages {
+			break
+		}
+		opts.Page = response.NextPage
+	}
+	return events, nil
 }
