@@ -125,7 +125,7 @@ func (c *client) fetchOpenPRsForRepository(
 	callCtx, cancel := context.WithTimeout(ctx, PullRequestListTimeout)
 	defer cancel()
 	prs, response, err := c.prsService.List(
-		callCtx, repo.Owner, repo.Name, &github.PullRequestListOptions{ListOptions: github.ListOptions{PerPage: 50}},
+		callCtx, repo.Owner, repo.Name, &github.PullRequestListOptions{ListOptions: github.ListOptions{PerPage: 100}},
 	)
 	if err == nil {
 		return PRsOfRepoResult{
