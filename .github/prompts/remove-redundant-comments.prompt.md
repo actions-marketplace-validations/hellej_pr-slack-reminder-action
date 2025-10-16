@@ -1,3 +1,7 @@
+---
+mode: agent
+---
+
 # Remove Redundant Comments
 
 Remove redundant comments from Go code by applying these principles:
@@ -53,6 +57,5 @@ func Save(path string, state State) error {
 Apply this refactoring to:
 - New code before committing
 - Existing code during reviews
-- When onboarding shows too many obvious comments
 
 The goal: Code that reads like well-written prose, not a step-by-step manual.
