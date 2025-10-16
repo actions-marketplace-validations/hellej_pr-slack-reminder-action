@@ -88,3 +88,27 @@ func TestReadInputMappingInvalid2(t *testing.T) {
 		t.Errorf("Expected error for invalid mapping input, got nil")
 	}
 }
+
+func TestGetInputOr_NotSetUsesDefault(t *testing.T) {
+	value := inputhelpers.GetInputOr("missing", "default-val")
+	if value != "default-val" {
+		t.Errorf("Expected default value 'default-val', got '%s'", value)
+	}
+}
+
+func TestGetInputOr_SetUsesValue(t *testing.T) {
+	t.Setenv("INPUT_CUSTOM", "present")
+	value := inputhelpers.GetInputOr("custom", "default")
+	if value != "present" {
+		t.Errorf("Expected 'present', got '%s'", value)
+	}
+}
+
+func TestGetInputOr_ExplicitEmptyOverridesDefault(t *testing.T) {
+	// When the env var exists but is empty, should return empty string, not default
+	t.Setenv("INPUT_EMPTY", "")
+	value := inputhelpers.GetInputOr("empty", "default")
+	if value != "" {
+		t.Errorf("Expected empty string, got '%s'", value)
+	}
+}

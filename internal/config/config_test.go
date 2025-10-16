@@ -768,3 +768,90 @@ func TestConfigPrint(t *testing.T) {
 
 	cfg.Print() // should not panic
 }
+
+func TestGetConfig_RunMode_DefaultsToPost(t *testing.T) {
+	h := newConfigTestHelpers(t)
+	h.setupMinimalValidConfig()
+
+	cfg, err := config.GetConfig()
+	if err != nil {
+		// Use Fatalf to ensure immediate test failure with context
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+	if cfg.RunMode != "post" {
+		// Validate default when input absent
+		t.Errorf("Expected RunMode 'post' by default, got '%s'", cfg.RunMode)
+	}
+}
+
+func TestGetConfig_RunMode_ParsedCorrectly(t *testing.T) {
+	testCases := []struct {
+		name     string
+		inputVal string
+	}{
+		{name: "post", inputVal: "post"},
+		{name: "update", inputVal: "update"},
+	}
+
+	for _, tc := range testCases {
+		// Table-driven scenarios for valid run modes
+		t.Run(tc.name, func(t *testing.T) {
+			h := newConfigTestHelpers(t)
+			h.setupMinimalValidConfig()
+			h.setInput(config.InputRunMode, tc.inputVal)
+
+			cfg, err := config.GetConfig()
+			if err != nil {
+				// Fail if parsing fails for valid modes
+				t.Fatalf("Expected no error, got: %v", err)
+			}
+			if string(cfg.RunMode) != tc.inputVal {
+				t.Errorf("Expected RunMode '%s', got '%s'", tc.inputVal, cfg.RunMode)
+			}
+		})
+	}
+}
+
+func TestGetConfig_RunMode_Invalid(t *testing.T) {
+	h := newConfigTestHelpers(t)
+	h.setupMinimalValidConfig()
+	h.setInput(config.InputRunMode, "invalid-mode")
+
+	_, err := config.GetConfig()
+	if err == nil {
+		// Expect failure for unsupported mode values
+		t.Fatalf("Expected error for invalid run mode, got nil")
+	}
+	if !strings.Contains(err.Error(), "invalid run mode") {
+		// Confirm error message includes context
+		t.Errorf("Expected error to mention 'invalid run mode', got '%s'", err.Error())
+	}
+}
+
+func TestGetConfig_StateFilePath_Default(t *testing.T) {
+	h := newConfigTestHelpers(t)
+	h.setupMinimalValidConfig()
+
+	cfg, err := config.GetConfig()
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+	if cfg.StateFilePath != ".pr-slack-reminder/state.json" {
+		t.Errorf("Expected default StateFilePath '.pr-slack-reminder/state.json', got '%s'", cfg.StateFilePath)
+	}
+}
+
+func TestGetConfig_StateFilePath_Custom(t *testing.T) {
+	h := newConfigTestHelpers(t)
+	h.setupMinimalValidConfig()
+	custom := "custom/path/state.json"
+	h.setInput(config.InputStateFilePath, custom)
+
+	cfg, err := config.GetConfig()
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+	if cfg.StateFilePath != custom {
+		t.Errorf("Expected custom StateFilePath '%s', got '%s'", custom, cfg.StateFilePath)
+	}
+}

@@ -61,4 +61,14 @@ inputs: {
     required: false,
     default: 'false',
   },
+  mode: {
+    description: 'Run mode: post (default) posts a new reminder; update refreshes an existing reminder',
+    required: false,
+    default: 'post',
+  },
+  state-file-path: {
+    description: 'Path to state file used to persist and later update posted reminders',
+    required: false,
+    default: '.pr-slack-reminder/state.json',
+  },
 }

@@ -9,6 +9,7 @@ import (
 	"log"
 
 	"github.com/hellej/pr-slack-reminder-action/internal/config/inputhelpers"
+
 	"github.com/hellej/pr-slack-reminder-action/internal/models"
 	"github.com/hellej/pr-slack-reminder-action/internal/utilities"
 )
@@ -17,6 +18,8 @@ const (
 	EnvGithubRepository string = "GITHUB_REPOSITORY"
 
 	InputGithubRepositories          string = "github-repositories"
+	InputRunMode                     string = "mode"
+	InputStateFilePath               string = "state-file-path"
 	InputGithubToken                 string = "github-token"
 	InputSlackBotToken               string = "slack-bot-token"
 	InputSlackChannelName            string = "slack-channel-name"
@@ -31,11 +34,37 @@ const (
 	InputGroupByRepository           string = "group-by-repository"
 
 	MaxRepositories int = 50
+
+	DefaultRunMode       = RunModePost
+	DefaultStateFilePath = ".pr-slack-reminder/state.json"
 )
+
+type RunMode string
+
+const (
+	RunModePost   RunMode = "post"
+	RunModeUpdate RunMode = "update"
+)
+
+// ParseRunMode validates a raw string as a RunMode.
+// It returns an error for unsupported values; defaulting is handled by callers.
+func ParseRunMode(raw string) (RunMode, error) {
+	switch raw {
+	case string(RunModePost):
+		return RunModePost, nil
+	case string(RunModeUpdate):
+		return RunModeUpdate, nil
+	default:
+		return "", fmt.Errorf("invalid run mode: %s (expected '%s' or '%s')", raw, RunModePost, RunModeUpdate)
+	}
+}
 
 type Config struct {
 	GithubToken   string
 	SlackBotToken string
+
+	RunMode       RunMode
+	StateFilePath string
 
 	repository   string
 	Repositories []models.Repository
@@ -81,8 +110,10 @@ func GetConfig() (Config, error) {
 	repositoryFilters, err7 := GetRepositoryFiltersFromInput(InputRepositoryFilters)
 	repositoryPrefixes, err8 := inputhelpers.GetInputMapping(InputRepositoryPrefixes)
 	groupByRepository, err9 := inputhelpers.GetInputBool(InputGroupByRepository)
+	runMode, err10 := ParseRunMode(inputhelpers.GetInputOr(InputRunMode, string(DefaultRunMode)))
+	stateFilePath := inputhelpers.GetInputOr(InputStateFilePath, DefaultStateFilePath)
 
-	if err := selectNonNilError(err1, err2, err3, err4, err5, err6, err7, err8, err9); err != nil {
+	if err := selectNonNilError(err1, err2, err3, err4, err5, err6, err7, err8, err9, err10); err != nil {
 		return Config{}, err
 	}
 
@@ -99,6 +130,8 @@ func GetConfig() (Config, error) {
 	}
 
 	config := Config{
+		RunMode:          runMode,
+		StateFilePath:    stateFilePath,
 		repository:       repository,
 		Repositories:     repositories,
 		GithubToken:      githubToken,
@@ -139,6 +172,9 @@ func (c Config) GetFiltersForRepository(repo models.Repository) Filters {
 // validate performs post-construction validation of business rules for Config.
 // It validates repository limits, Slack channel requirements and repository names.
 func (c Config) validate() error {
+	if c.RunMode != RunModePost && c.RunMode != RunModeUpdate {
+		return fmt.Errorf("invalid run mode: %s (expected '%s' or '%s')", c.RunMode, RunModePost, RunModeUpdate)
+	}
 	if len(c.Repositories) == 0 {
 		return fmt.Errorf("at least one repository must be specified in %s or %s", EnvGithubRepository, InputGithubRepositories)
 	}

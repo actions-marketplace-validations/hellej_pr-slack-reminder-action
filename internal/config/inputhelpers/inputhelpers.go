@@ -35,6 +35,21 @@ func GetInput(name string) string {
 	return strings.TrimSpace(GetEnv((inputNameAsEnv(name))))
 }
 
+// GetInputOr returns the input value if set, otherwise returns the provided default.
+// An explicitly set empty string overrides the default (returns empty).
+func GetInputOr(name string, defaultValue string) string {
+	val := GetInput(name)
+	if val == "" {
+		// Distinguish between unset and intentionally empty:
+		// If the variable name exists in the environment but is empty, empty it is.
+		if _, exists := os.LookupEnv(inputNameAsEnv(name)); exists {
+			return ""
+		}
+		return defaultValue
+	}
+	return val
+}
+
 func GetInputRequired(name string) (string, error) {
 	return withErrorIfEmpty(GetInput(name), name)
 }
