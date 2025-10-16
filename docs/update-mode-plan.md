@@ -29,7 +29,7 @@ Only post writes state. update is read-only regarding state (idempotent; does no
 - List of PR references (owner, repo, number)
 - Version + created_at for evolution and staleness checks
 
-### State JSON (MVP schema)
+### State JSON example (MVP)
 ```json
 {
   "schemaVersion": 1,
@@ -39,10 +39,39 @@ Only post writes state. update is read-only regarding state (idempotent; does no
     "messageTs": "1728392.000200"
   },
   "pullRequests": [
-    { "id": "owner1/repo1/1", "owner": "owner1", "repo": "repo1", "number": 1 },
-    { "id": "owner1/repo1/2", "owner": "owner1", "repo": "repo1", "number": 2 }
+    { "owner": "owner1", "repo": "repo1", "number": 1 },
+    { "owner": "owner1", "repo": "repo1", "number": 2 }
   ]
 }
+```
+
+### State as Go types (structs)
+
+```go
+// Decide on schema version form: keep int (simple comparisons) OR switch to semantic string.
+// Current JSON example uses an integer (schemaVersion: 1). We'll keep int.
+const CurrentSchemaVersion = 1
+
+type SlackRef struct {
+  ChannelID string `json:"channelId"`
+  MessageTS string `json:"messageTs"`
+}
+
+type PullRequestRef struct {
+  Owner  string `json:"owner"`
+  Repo   string `json:"repo"`
+  Number int    `json:"number"`
+}
+
+type State struct {
+  SchemaVersion int              `json:"schemaVersion"`
+  CreatedAt     time.Time        `json:"createdAt"`
+  Slack         SlackRef         `json:"slack"`
+  PullRequests  []PullRequestRef `json:"pullRequests"`
+}
+
+// Validation sketch:
+// func (s *State) Validate() error { ... }
 ```
 
 Notes:
@@ -102,58 +131,91 @@ Potential future inputs (defer unless needed):
 - Re-running update with unchanged PR states yields identical message payload.
 
 ## Testing Strategy (TDD)
-Add failing tests before implementation:
-1. Config parsing: default mode=post; invalid mode errors.
-2. State save/load round trip (1 PR, multiple PRs).
-3. Update: merged PR gains 🔀;
-4. Missing state fails; optional no-op when flag false (when implemented).
-5. Slack update error bubbled.
-6. Version mismatch fails.
 
-Integration test path (extend `cmd/pr-slack-reminder/main_test.go`):
-- Simulate post → capture state file → mutate mock GitHub client to mark one PR merged → run update → assert mock Slack client received Update with expected blocks.
+The implementation will strictly follow a Test-Driven Development approach. For each step, failing tests will be written first to define the required functionality, followed by the minimal implementation to make them pass.
 
-Mock enhancements:
-- Extend mock Slack client with `UpdateMessage(channelID, ts, blocks)` recording.
+### 1. Config & Input Handling (`config_test.go`)
+- Test that `mode` defaults to `post` when the input is not provided.
+- Test that `mode` is correctly parsed as `post` or `update`.
+- Test that an invalid `mode` value results in a validation error.
+- Test that `state-file-path` is parsed correctly.
+- Test that `state-file-path` falls back to the documented default (`.pr-slack-reminder/state.json`).
 
-## Implementation Steps (Recommended Order)
-1. Add new input constant(s) + tests (mode parsing) → make pass.
-2. Introduce `internal/state/` package (`State`, `PullRequestRef`, `Save`, `Load`, `Validate`).
-3. Wire post path: after successful send, construct and save state.
-4. Wire update path: load state, fetch targeted PRs, enrich, build message, call chat.update.
-5. Add merged marker & footer injection (either via model enrichment or post-build pass).
-6. Write/update tests for each step until green.
-7. Refactor duplication (if any) after tests pass.
+### 2. State Persistence (`internal/state/state_test.go`)
+- Test successful `Save` and `Load` round-trip for a `State` object.
+- Test that `Load` returns a `FileNotFound` error (or similar) when the state file does not exist.
+- Test that `Load` returns an `InvalidJSON` error (or similar) for a malformed file.
+- Test that `Validate()` method on `State` returns an error if `SchemaVersion` does not match `CurrentSchemaVersion`.
 
-## Minimal Types (Draft)
-State version constant: 
+### 3. End-to-End Integration (`cmd/pr-slack-reminder/main_test.go`)
+- **Post Mode**:
+    1. Simulate a `post` run.
+    2. Assert that the Slack client's `PostMessage` method was called.
+    3. Assert that a state file is created at the expected path.
+    4. Assert that the contents of the saved state file match the PRs and Slack message details from the run.
+- **Update Mode (Happy Path)**:
+    1. Seed a valid state file from a previous "post" run.
+    2. Mutate the mock GitHub client to mark one PR as merged.
+    3. Simulate an `update` run.
+    4. Assert that the GitHub client was called only for the PRs listed in the state file.
+    5. Assert that the Slack client's `UpdateMessage` method was called with the correct channel ID and timestamp.
+    6. Assert that the generated message blocks contain the `🔀` marker for the merged PR and the "updated at" footer.
+- **Update Mode (Edge Cases)**:
+    1. Test that an `update` run fails clearly when the state file is missing.
+    2. Test that an `update` run fails if the state file has a schema version mismatch.
+    3. Test that the action correctly bubbles up an error if the mock Slack client's `UpdateMessage` call fails.
 
-```go
-// Decide on schema version form: keep int (simple comparisons) OR switch to semantic string.
-// Current JSON example uses an integer (schemaVersion: 1). We'll keep int.
-const CurrentSchemaVersion = 1
+## Implementation Steps (Checklist)
 
-type SlackRef struct {
-  ChannelID string `json:"channelId"`
-  MessageTS string `json:"messageTs"`
-}
+Follow these steps in order, ensuring tests are written before implementation at each stage.
 
-type PullRequestRef struct {
-  Owner  string `json:"owner"`
-  Repo   string `json:"repo"`
-  Number int    `json:"number"`
-}
+### 1. Configure Inputs
+- **`internal/config/config.go`**:
+    - Add `InputRunMode` and `InputStateFilePath` constants.
+    - Add `RunMode` and `StateFilePath` fields to the `Config` struct.
+    - In `GetConfig()`, parse these new inputs, setting a default for `RunMode` to `post`.
+- **`internal/config/config_test.go`**:
+    - Implement the tests outlined in "Testing Strategy" for config handling.
 
-type State struct {
-  SchemaVersion int              `json:"schemaVersion"`
-  CreatedAt     time.Time        `json:"createdAt"`
-  Slack         SlackRef         `json:"slack"`
-  PullRequests  []PullRequestRef `json:"pullRequests"`
-}
+### 2. Create State Package
+- **`internal/state/state.go`**:
+    - Create the new package and file.
+    - Define the `State`, `SlackRef`, `PullRequestRef` structs and the `CurrentSchemaVersion` constant.
+    - Implement `Save(path string, state State) error` and `Load(path string) (*State, error)`.
+    - Implement a `Validate() error` method on the `State` struct.
+- **`internal/state/state_test.go`**:
+    - Implement the tests for state persistence and validation.
 
-// Validation sketch:
-// func (s *State) Validate() error { ... }
-```
+### 3. Extend Slack Client Mock
+- **`testhelpers/mockslackclient/mockslackclient.go`**:
+    - Add an `UpdateMessage` method to the mock client.
+    - Record the `channelID`, `timestamp`, and message `blocks` it was called with.
+    - Add a corresponding `GetLastUpdateMessage()` helper to retrieve the recorded data for assertions.
+
+### 4. Implement "Post" Mode Logic
+- **`cmd/pr-slack-reminder/run.go`**:
+    - In the `run` function, add a condition: `if cfg.RunMode == "post"`.
+    - Inside this block, after a successful `slackClient.PostMessage` call:
+        1. Construct the `state.State` object using the PRs from the pipeline and the response from `PostMessage`.
+        2. Call `state.Save()` to write the state file to `cfg.StateFilePath`.
+- **`cmd/pr-slack-reminder/main_test.go`**:
+    - Implement the integration test for "Post Mode" to verify the state file is created correctly.
+
+### 5. Implement "Update" Mode Logic
+- **`cmd/pr-slack-reminder/run.go`**:
+    - Add the main `else if cfg.RunMode == "update"` block.
+    - Inside this block:
+        1. Call `state.Load()` and `state.Validate()`. Handle errors according to the plan (fail fast).
+        2. Instead of discovering PRs, use the `PullRequestRef` list from the loaded state to fetch PR data directly. This will require a new or modified function in `githubclient`.
+        3. Pass the fetched PRs through the existing `prparser` and `messagecontent` pipeline.
+        4. In `messagebuilder`, add logic to append the `🔀` marker to merged PRs and include the "updated at" footer.
+        5. Call the new `slackClient.UpdateMessage` method with the message details from the state and the newly generated blocks.
+- **`cmd/pr-slack-reminder/main_test.go`**:
+    - Implement the integration tests for "Update Mode" (happy path and edge cases).
+
+### 6. Refactor and Finalize
+- Review the changes for any code duplication or areas that could be simplified.
+- Ensure all tests are passing and logging provides clear insights into `post` and `update` operations.
 
 ## Logging Guidelines
 - post: `saved state path=... prs=N`
