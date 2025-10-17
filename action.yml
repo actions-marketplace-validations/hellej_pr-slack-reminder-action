@@ -34,7 +34,15 @@ inputs: {
     required: false,
   },
   github-repositories: {
-    description: 'Line break separated list of GitHub repositories to check for open PRs (maximum 50 repositories) - if not provided, the the repository of the current workflow run will be used',
+    description: 'Line break separated list of GitHub repositories (max 50) to check for open PRs. If not provided, the repository of the current workflow run will be used.',
+    required: false,
+  },
+  filters: {
+    description: 'Global filters (e.g. {"authors": ["alice", "bob"], "labels": ["bug", "enhancement"], "labels-ignore": ["wip"]})',
+    required: false,
+  },
+  repository-filters: {
+    description: 'Repository-specific filters (e.g., "repo1: {"authors-ignore": ["alice"]}; repo2: {"labels": ["bug"]})',
     required: false,
   },
   github-user-slack-user-id-mapping: {
@@ -42,16 +50,16 @@ inputs: {
     required: false,
   },
   main-list-heading: {
-    description: 'Main heading of the message to send',
+    description: 'Main heading of the message to send (`<pr_count>` gets replaced)',
     required: false,
     default: 'There are <pr_count> open PRs 🚀',
   },
-  old-pr-threshold-hours: {
-    description: 'Threshold in hours to consider a PR as old (old PRs will be highlighted with alarm emojis and bold age text)',
-    required: false,
-  },
   no-prs-message: {
     description: 'Message to send when there are no open PRs',
+    required: false,
+  },
+  old-pr-threshold-hours: {
+    description: 'PR age in hours after which a PR is highlighted as old (with alarm emoji and bold age text)',
     required: false,
   },
   group-by-repository: {
@@ -61,14 +69,6 @@ inputs: {
   },
   repository-prefixes: {
     description: 'Repository-specific prefixes to display before PR titles (e.g., "repo1: 🚀; repo2: 📦")',
-    required: false,
-  },
-  filters: {
-    description: 'e.g. {"authors": ["alice", "bob"], "labels": ["bug", "enhancement"], "labels-ignore": ["wip"]}',
-    required: false,
-  },
-  repository-filters: {
-    description: 'Repository-specific filters (e.g., "repo1: {\"authors-ignore\": [\"alice\"]}; repo2: {\"labels\": [\"bug\"]}")',
     required: false,
   },
 }
