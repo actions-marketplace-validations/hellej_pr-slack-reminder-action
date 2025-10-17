@@ -14,6 +14,7 @@ import (
 type Client interface {
 	GetChannelIDByName(channelName string) (string, error)
 	SendMessage(channelID string, blocks slack.Message, summaryText string) error
+	UpdateMessage(channelID string, messageTS string, blocks slack.Message, summaryText string) error
 }
 
 func GetAuthenticatedClient(token string) Client {
@@ -28,6 +29,7 @@ func NewClient(slackAPI SlackAPI) Client {
 type SlackAPI interface {
 	GetConversations(params *slack.GetConversationsParameters) ([]slack.Channel, string, error)
 	PostMessage(channelID string, options ...slack.MsgOption) (string, string, error)
+	UpdateMessage(channelID string, timestamp string, options ...slack.MsgOption) (string, string, string, error)
 }
 
 type client struct {
@@ -92,6 +94,21 @@ func (c *client) SendMessage(channelID string, blocks slack.Message, summaryText
 		return fmt.Errorf("failed to send Slack message: %v", err)
 	}
 	log.Printf("Sent message to Slack channel: %s", channelID)
+	return nil
+}
+
+func (c *client) UpdateMessage(channelID string, messageTS string, blocks slack.Message, summaryText string) error {
+	log.Printf("Updating message with timestamp %s and summary: %s", messageTS, summaryText)
+	_, _, _, err := c.slackAPI.UpdateMessage(
+		channelID,
+		messageTS,
+		slack.MsgOptionBlocks(blocks.Blocks.BlockSet...),
+		slack.MsgOptionText(summaryText, false),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update Slack message: %v", err)
+	}
+	log.Printf("Updated message in Slack channel: %s", channelID)
 	return nil
 }
 
