@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"errors"
 	"math"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/google/go-github/v72/github"
 	main "github.com/hellej/pr-slack-reminder-action/cmd/pr-slack-reminder"
 	"github.com/hellej/pr-slack-reminder-action/internal/config"
+	"github.com/hellej/pr-slack-reminder-action/internal/state"
 	"github.com/hellej/pr-slack-reminder-action/testhelpers"
 	"github.com/hellej/pr-slack-reminder-action/testhelpers/mockgithubclient"
 	"github.com/hellej/pr-slack-reminder-action/testhelpers/mockslackclient"
@@ -703,4 +705,64 @@ func TestScenarios(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPostModeStateSaving(t *testing.T) {
+	testStateFilePath := "/tmp/test-state.json"
+
+	postModeConfig := testhelpers.GetDefaultConfigFull()
+	configOverrides := map[string]any{
+		config.InputRunMode:       config.RunModePost,
+		config.InputStateFilePath: testStateFilePath,
+	}
+	testhelpers.SetTestEnvironment(t, postModeConfig, &configOverrides)
+
+	testPRs := getTestPRs(GetTestPRsOptions{})
+
+	mockGitHubClientGetter := mockgithubclient.MakeMockGitHubClientGetter(
+		testPRs.PRs, nil, 200, nil, nil,
+	)
+	mockSlackAPI := mockslackclient.GetMockSlackAPI(nil, nil, nil)
+
+	err := main.Run(
+		mockGitHubClientGetter,
+		mockslackclient.MakeSlackClientGetter(mockSlackAPI),
+	)
+
+	if err != nil {
+		t.Fatalf("Expected Run to succeed, but got error: %v", err)
+	}
+
+	if _, err := os.Stat(testStateFilePath); os.IsNotExist(err) {
+		t.Errorf("Expected state file to be created at %s, but it doesn't exist", testStateFilePath)
+		return
+	}
+
+	loadedState, err := state.Load(testStateFilePath)
+	if err != nil {
+		t.Fatalf("Failed to load state file: %v", err)
+	}
+
+	if err := loadedState.Validate(); err != nil {
+		t.Errorf("State validation failed: %v", err)
+	}
+
+	expectedChannelID := "C12345678" // From mock
+	if loadedState.Slack.ChannelID != expectedChannelID {
+		t.Errorf("Expected channel ID %s, got %s", expectedChannelID, loadedState.Slack.ChannelID)
+	}
+
+	if loadedState.Slack.MessageTS == "" {
+		t.Error("Expected message timestamp to be set in state")
+	}
+
+	if len(loadedState.PullRequests) != len(testPRs.PRs) {
+		t.Errorf("Expected %d PRs in state, got %d", len(testPRs.PRs), len(loadedState.PullRequests))
+	}
+
+	defer func() {
+		if err := os.Remove(testStateFilePath); err != nil {
+			t.Logf("Failed to clean up test state file: %v", err)
+		}
+	}()
 }

@@ -104,7 +104,7 @@ func (m *MockSlackAPI) PostMessage(
 		m.SentMessage.Text = values["text"][0]
 		m.SentMessage.Blocks = sentBlocks
 	}
-	return "", "", m.postMessageResponse.Err
+	return m.postMessageResponse.Channel, m.postMessageResponse.Timestamp, m.postMessageResponse.Err
 }
 
 func (m *MockSlackAPI) UpdateMessage(

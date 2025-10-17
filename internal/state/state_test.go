@@ -28,7 +28,7 @@ func TestStateSaveAndLoadRoundTrip(t *testing.T) {
 		},
 	}
 
-	err := Save(statePath, originalState)
+	err := save(statePath, originalState)
 	if err != nil {
 		t.Fatalf("Save failed: %v", err)
 	}
