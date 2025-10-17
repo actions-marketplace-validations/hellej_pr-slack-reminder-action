@@ -39,26 +39,6 @@ const (
 	DefaultStateFilePath = ".pr-slack-reminder/state.json"
 )
 
-type RunMode string
-
-const (
-	RunModePost   RunMode = "post"
-	RunModeUpdate RunMode = "update"
-)
-
-// ParseRunMode validates a raw string as a RunMode.
-// It returns an error for unsupported values; defaulting is handled by callers.
-func ParseRunMode(raw string) (RunMode, error) {
-	switch raw {
-	case string(RunModePost):
-		return RunModePost, nil
-	case string(RunModeUpdate):
-		return RunModeUpdate, nil
-	default:
-		return "", fmt.Errorf("invalid run mode: %s (expected '%s' or '%s')", raw, RunModePost, RunModeUpdate)
-	}
-}
-
 type Config struct {
 	GithubToken   string
 	SlackBotToken string
@@ -100,17 +80,17 @@ func (c Config) Print() {
 }
 
 func GetConfig() (Config, error) {
-	repository, err1 := inputhelpers.GetEnvRequired(EnvGithubRepository)
-	githubToken, err2 := inputhelpers.GetInputRequired(InputGithubToken)
-	slackToken, err3 := inputhelpers.GetInputRequired(InputSlackBotToken)
+	runMode, err2 := getRunMode(InputRunMode)
+	repository, err3 := inputhelpers.GetEnvRequired(EnvGithubRepository)
+	githubToken, err4 := inputhelpers.GetInputRequired(InputGithubToken)
+	slackToken, err5 := inputhelpers.GetInputRequired(InputSlackBotToken)
 	mainListHeading := inputhelpers.GetInput(InputPRListHeading)
-	oldPRsThresholdHours, err4 := inputhelpers.GetInputInt(InputOldPRThresholdHours)
-	slackUserIdByGitHubUsername, err5 := inputhelpers.GetInputMapping(InputSlackUserIdByGitHubUsername)
-	globalFilters, err6 := GetGlobalFiltersFromInput(InputGlobalFilters)
-	repositoryFilters, err7 := GetRepositoryFiltersFromInput(InputRepositoryFilters)
-	repositoryPrefixes, err8 := inputhelpers.GetInputMapping(InputRepositoryPrefixes)
-	groupByRepository, err9 := inputhelpers.GetInputBool(InputGroupByRepository)
-	runMode, err10 := ParseRunMode(inputhelpers.GetInputOr(InputRunMode, string(DefaultRunMode)))
+	oldPRsThresholdHours, err6 := inputhelpers.GetInputInt(InputOldPRThresholdHours)
+	slackUserIdByGitHubUsername, err7 := inputhelpers.GetInputMapping(InputSlackUserIdByGitHubUsername)
+	globalFilters, err8 := GetGlobalFiltersFromInput(InputGlobalFilters)
+	repositoryFilters, err9 := GetRepositoryFiltersFromInput(InputRepositoryFilters)
+	repositoryPrefixes, err10 := inputhelpers.GetInputMapping(InputRepositoryPrefixes)
+	groupByRepository, err1 := inputhelpers.GetInputBool(InputGroupByRepository)
 	stateFilePath := inputhelpers.GetInputOr(InputStateFilePath, DefaultStateFilePath)
 
 	if err := selectNonNilError(err1, err2, err3, err4, err5, err6, err7, err8, err9, err10); err != nil {

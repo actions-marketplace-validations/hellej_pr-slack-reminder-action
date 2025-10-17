@@ -15,6 +15,16 @@ inputs: {
     description: 'Slack bot token to send the message via (the bot must be a member of the channel)',
     required: true,
   },
+  mode: {
+    description: 'Run mode: post (default) posts a new reminder; update refreshes an existing reminder',
+    required: false,
+    default: 'post',
+  },
+  state-file-path: {
+    description: 'Path to state file used to persist message ID in order to later update it',
+    required: false,
+    default: '.pr-slack-reminder/state.json',
+  },
   slack-channel-name: {
     description: 'Slack channel name to send the message to',
     required: false,
@@ -44,6 +54,11 @@ inputs: {
     description: 'Message to send when there are no open PRs',
     required: false,
   },
+  group-by-repository: {
+    description: 'Group PRs by repository with repository headings. When enabled, main-list-heading is ignored.',
+    required: false,
+    default: 'false',
+  },
   repository-prefixes: {
     description: 'Repository-specific prefixes to display before PR titles (e.g., "repo1: 🚀; repo2: 📦")',
     required: false,
@@ -55,20 +70,5 @@ inputs: {
   repository-filters: {
     description: 'Repository-specific filters (e.g., "repo1: {\"authors-ignore\": [\"alice\"]}; repo2: {\"labels\": [\"bug\"]}")',
     required: false,
-  },
-  group-by-repository: {
-    description: 'Group PRs by repository with repository headings. When enabled, main-list-heading is ignored.',
-    required: false,
-    default: 'false',
-  },
-  mode: {
-    description: 'Run mode: post (default) posts a new reminder; update refreshes an existing reminder',
-    required: false,
-    default: 'post',
-  },
-  state-file-path: {
-    description: 'Path to state file used to persist and later update posted reminders',
-    required: false,
-    default: '.pr-slack-reminder/state.json',
   },
 }

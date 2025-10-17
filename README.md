@@ -145,6 +145,7 @@ jobs:
 | ----------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------- |
 | `github-token`                      | ✅       | GitHub token for repository access<br>Example: `${{ secrets.GITHUB_TOKEN }}`                                    |
 | `slack-bot-token`                   | ✅       | Slack bot token for sending messages<br>Example: `${{ secrets.SLACK_BOT_TOKEN }}`                               |
+| `mode`                              | ❌       | Run mode: `post` (default) posts a new reminder; `update` refreshes an existing reminder                                      |
 | `slack-channel-name`                | ❌       | Slack channel name (use this OR `slack-channel-id`)<br>Example: `dev-team`                                      |
 | `slack-channel-id`                  | ❌       | Slack channel ID (use this OR `slack-channel-name`)<br>Example: `C1234567890`                                   |
 | `github-repositories`               | ❌       | Repositories to monitor (defaults to current repo)<br>Example:<br>`owner/repo1`<br>`owner/repo2`                |
