@@ -17,21 +17,21 @@ import (
 const (
 	EnvGithubRepository string = "GITHUB_REPOSITORY"
 
-	InputGithubRepositories          string = "github-repositories"
-	InputRunMode                     string = "mode"
-	InputStateFilePath               string = "state-file-path"
 	InputGithubToken                 string = "github-token"
 	InputSlackBotToken               string = "slack-bot-token"
+	InputRunMode                     string = "mode"
+	InputStateFilePath               string = "state-file-path"
 	InputSlackChannelName            string = "slack-channel-name"
 	InputSlackChannelID              string = "slack-channel-id"
-	InputSlackUserIdByGitHubUsername string = "github-user-slack-user-id-mapping"
-	InputNoPRsMessage                string = "no-prs-message"
-	InputPRListHeading               string = "main-list-heading"
-	InputOldPRThresholdHours         string = "old-pr-threshold-hours"
+	InputGithubRepositories          string = "github-repositories"
 	InputGlobalFilters               string = "filters"
 	InputRepositoryFilters           string = "repository-filters"
-	InputRepositoryPrefixes          string = "repository-prefixes"
+	InputSlackUserIdByGitHubUsername string = "github-user-slack-user-id-mapping"
+	InputPRListHeading               string = "main-list-heading"
+	InputNoPRsMessage                string = "no-prs-message"
+	InputOldPRThresholdHours         string = "old-pr-threshold-hours"
 	InputGroupByRepository           string = "group-by-repository"
+	InputRepositoryPrefixes          string = "repository-prefixes"
 
 	MaxRepositories int = 50
 
@@ -46,11 +46,11 @@ type Config struct {
 	RunMode       RunMode
 	StateFilePath string
 
-	repository   string
-	Repositories []models.Repository
-
 	SlackChannelName string
 	SlackChannelID   string
+
+	repository   string
+	Repositories []models.Repository
 
 	GlobalFilters     Filters
 	RepositoryFilters map[string]Filters
@@ -58,12 +58,12 @@ type Config struct {
 }
 
 type ContentInputs struct {
-	NoPRsMessage                string
-	PRListHeading               string
-	OldPRThresholdHours         int
-	RepositoryPrefixes          map[string]string
 	SlackUserIdByGitHubUsername map[string]string
+	PRListHeading               string
+	NoPRsMessage                string
+	OldPRThresholdHours         int
 	GroupByRepository           bool
+	RepositoryPrefixes          map[string]string
 }
 
 func (c Config) Print() {
@@ -80,24 +80,27 @@ func (c Config) Print() {
 }
 
 func GetConfig() (Config, error) {
-	runMode, err2 := getRunMode(InputRunMode)
-	repository, err3 := inputhelpers.GetEnvRequired(EnvGithubRepository)
-	githubToken, err4 := inputhelpers.GetInputRequired(InputGithubToken)
-	slackToken, err5 := inputhelpers.GetInputRequired(InputSlackBotToken)
-	mainListHeading := inputhelpers.GetInput(InputPRListHeading)
-	oldPRsThresholdHours, err6 := inputhelpers.GetInputInt(InputOldPRThresholdHours)
-	slackUserIdByGitHubUsername, err7 := inputhelpers.GetInputMapping(InputSlackUserIdByGitHubUsername)
-	globalFilters, err8 := GetGlobalFiltersFromInput(InputGlobalFilters)
-	repositoryFilters, err9 := GetRepositoryFiltersFromInput(InputRepositoryFilters)
-	repositoryPrefixes, err10 := inputhelpers.GetInputMapping(InputRepositoryPrefixes)
-	groupByRepository, err1 := inputhelpers.GetInputBool(InputGroupByRepository)
+	githubToken, err1 := inputhelpers.GetInputRequired(InputGithubToken)
+	slackToken, err2 := inputhelpers.GetInputRequired(InputSlackBotToken)
+	runMode, err3 := getRunMode(InputRunMode)
 	stateFilePath := inputhelpers.GetInputOr(InputStateFilePath, DefaultStateFilePath)
+	slackChannelName := inputhelpers.GetInput(InputSlackChannelName)
+	slackChannelID := inputhelpers.GetInput(InputSlackChannelID)
+	repository, err4 := inputhelpers.GetEnvRequired(EnvGithubRepository)
+	repositoryPaths := inputhelpers.GetInputList(InputGithubRepositories)
+	globalFilters, err5 := GetGlobalFiltersFromInput(InputGlobalFilters)
+	repositoryFilters, err6 := GetRepositoryFiltersFromInput(InputRepositoryFilters)
+	slackUserIdByGitHubUsername, err7 := inputhelpers.GetInputMapping(InputSlackUserIdByGitHubUsername)
+	mainListHeading := inputhelpers.GetInput(InputPRListHeading)
+	noPRsMessage := inputhelpers.GetInput(InputNoPRsMessage)
+	oldPRsThresholdHours, err8 := inputhelpers.GetInputInt(InputOldPRThresholdHours)
+	groupByRepository, err9 := inputhelpers.GetInputBool(InputGroupByRepository)
+	repositoryPrefixes, err10 := inputhelpers.GetInputMapping(InputRepositoryPrefixes)
 
 	if err := selectNonNilError(err1, err2, err3, err4, err5, err6, err7, err8, err9, err10); err != nil {
 		return Config{}, err
 	}
 
-	repositoryPaths := inputhelpers.GetInputList(InputGithubRepositories)
 	if len(repositoryPaths) == 0 {
 		repositoryPaths = []string{repository}
 	}
@@ -110,24 +113,24 @@ func GetConfig() (Config, error) {
 	}
 
 	config := Config{
-		RunMode:          runMode,
-		StateFilePath:    stateFilePath,
-		repository:       repository,
-		Repositories:     repositories,
-		GithubToken:      githubToken,
-		SlackBotToken:    slackToken,
-		SlackChannelName: inputhelpers.GetInput(InputSlackChannelName),
-		SlackChannelID:   inputhelpers.GetInput(InputSlackChannelID),
-		ContentInputs: ContentInputs{
-			SlackUserIdByGitHubUsername: slackUserIdByGitHubUsername,
-			NoPRsMessage:                inputhelpers.GetInput(InputNoPRsMessage),
-			PRListHeading:               mainListHeading,
-			OldPRThresholdHours:         oldPRsThresholdHours,
-			RepositoryPrefixes:          repositoryPrefixes,
-			GroupByRepository:           groupByRepository,
-		},
+		GithubToken:       githubToken,
+		SlackBotToken:     slackToken,
+		RunMode:           runMode,
+		StateFilePath:     stateFilePath,
+		SlackChannelName:  slackChannelName,
+		SlackChannelID:    slackChannelID,
+		repository:        repository,
+		Repositories:      repositories,
 		GlobalFilters:     globalFilters,
 		RepositoryFilters: repositoryFilters,
+		ContentInputs: ContentInputs{
+			SlackUserIdByGitHubUsername: slackUserIdByGitHubUsername,
+			PRListHeading:               mainListHeading,
+			NoPRsMessage:                noPRsMessage,
+			OldPRThresholdHours:         oldPRsThresholdHours,
+			GroupByRepository:           groupByRepository,
+			RepositoryPrefixes:          repositoryPrefixes,
+		},
 	}
 
 	if err := config.validate(); err != nil {
