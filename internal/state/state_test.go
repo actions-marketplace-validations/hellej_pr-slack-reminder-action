@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/hellej/pr-slack-reminder-action/internal/models"
 )
 
 func TestStateSaveAndLoadRoundTrip(t *testing.T) {
@@ -22,9 +24,9 @@ func TestStateSaveAndLoadRoundTrip(t *testing.T) {
 			MessageTS: "1729123456.123456",
 		},
 		PullRequests: []PullRequestRef{
-			{Owner: "owner1", Repo: "repo1", Number: 1},
-			{Owner: "owner1", Repo: "repo1", Number: 2},
-			{Owner: "owner2", Repo: "repo2", Number: 5},
+			{Repository: models.NewRepository("owner1", "repo1"), Number: 1},
+			{Repository: models.NewRepository("owner1", "repo1"), Number: 2},
+			{Repository: models.NewRepository("owner2", "repo2"), Number: 5},
 		},
 	}
 
@@ -60,7 +62,7 @@ func TestStateSaveAndLoadRoundTrip(t *testing.T) {
 
 	for i, pr := range loadedState.PullRequests {
 		original := originalState.PullRequests[i]
-		if pr.Owner != original.Owner || pr.Repo != original.Repo || pr.Number != original.Number {
+		if pr.Repository.Owner != original.Repository.Owner || pr.Repository.Name != original.Repository.Name || pr.Number != original.Number {
 			t.Errorf("PullRequest[%d] mismatch: got %+v, want %+v", i, pr, original)
 		}
 	}
@@ -108,7 +110,7 @@ func TestStateValidateSchemaVersionMismatch(t *testing.T) {
 			MessageTS: "1729123456.123456",
 		},
 		PullRequests: []PullRequestRef{
-			{Owner: "owner1", Repo: "repo1", Number: 1},
+			{Repository: models.NewRepository("owner1", "repo1"), Number: 1},
 		},
 	}
 
@@ -132,7 +134,7 @@ func TestStateValidateValidState(t *testing.T) {
 			MessageTS: "1729123456.123456",
 		},
 		PullRequests: []PullRequestRef{
-			{Owner: "owner1", Repo: "repo1", Number: 1},
+			{Repository: models.NewRepository("owner1", "repo1"), Number: 1},
 		},
 	}
 

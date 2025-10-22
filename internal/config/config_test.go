@@ -76,7 +76,6 @@ func (h *ConfigTestHelpers) createRepository(repoPath string) models.Repository 
 		h.t.Fatalf("Owner and repository name cannot be empty in: %s", repoPath)
 	}
 	return models.Repository{
-		Path:  repoPath,
 		Owner: parts[0],
 		Name:  parts[1],
 	}
@@ -165,8 +164,8 @@ func TestGetConfig_MinimalValid(t *testing.T) {
 	if len(cfg.Repositories) != 1 {
 		t.Fatalf("Expected 1 repository, got %d", len(cfg.Repositories))
 	}
-	if cfg.Repositories[0].Path != "test-org/test-repo" {
-		t.Errorf("Expected repository path 'test-org/test-repo', got '%s'", cfg.Repositories[0].Path)
+	if cfg.Repositories[0].GetPath() != "test-org/test-repo" {
+		t.Errorf("Expected repository path 'test-org/test-repo', got '%s'", cfg.Repositories[0].GetPath())
 	}
 	if cfg.Repositories[0].Owner != "test-org" {
 		t.Errorf("Expected repository owner 'test-org', got '%s'", cfg.Repositories[0].Owner)
@@ -220,8 +219,8 @@ func TestGetConfig_FullValid(t *testing.T) {
 	}
 	expectedRepos := []string{"test-org/repo1", "test-org/repo2"}
 	for i, expectedRepo := range expectedRepos {
-		if cfg.Repositories[i].Path != expectedRepo {
-			t.Errorf("Expected repository %d path '%s', got '%s'", i, expectedRepo, cfg.Repositories[i].Path)
+		if cfg.Repositories[i].GetPath() != expectedRepo {
+			t.Errorf("Expected repository %d path '%s', got '%s'", i, expectedRepo, cfg.Repositories[i].GetPath())
 		}
 	}
 
@@ -335,8 +334,8 @@ func TestMultipleRepositories(t *testing.T) {
 
 	for i, expectedRepo := range expectedRepos {
 		repo := cfg.Repositories[i]
-		if repo.Path != expectedRepo.Path {
-			t.Errorf("Repository %d: expected path '%s', got '%s'", i, expectedRepo.Path, repo.Path)
+		if repo.GetPath() != expectedRepo.GetPath() {
+			t.Errorf("Repository %d: expected path '%s', got '%s'", i, expectedRepo.GetPath(), repo.GetPath())
 		}
 		if repo.Owner != expectedRepo.Owner {
 			t.Errorf("Repository %d: expected owner '%s', got '%s'", i, expectedRepo.Owner, repo.Owner)
@@ -382,8 +381,8 @@ func TestRepositoriesFallbackToDefault(t *testing.T) {
 	}
 
 	repo := cfg.Repositories[0]
-	if repo.Path != "fallback-org/fallback-repo" {
-		t.Errorf("Expected repository path 'fallback-org/fallback-repo', got '%s'", repo.Path)
+	if repo.GetPath() != "fallback-org/fallback-repo" {
+		t.Errorf("Expected repository path 'fallback-org/fallback-repo', got '%s'", repo.GetPath())
 	}
 	if repo.Owner != "fallback-org" {
 		t.Errorf("Expected repository owner 'fallback-org', got '%s'", repo.Owner)

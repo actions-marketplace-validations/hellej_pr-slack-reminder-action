@@ -141,7 +141,7 @@ func GetConfig() (Config, error) {
 }
 
 func (c Config) GetFiltersForRepository(repo models.Repository) Filters {
-	filters, exists := c.RepositoryFilters[repo.Path]
+	filters, exists := c.RepositoryFilters[repo.GetPath()]
 	if exists {
 		return filters
 	}
@@ -197,10 +197,10 @@ func (c Config) validateRepositoryNames() error {
 func validateDuplicateRepositories(repositories []models.Repository) error {
 	repositoryPaths := make(map[string]bool, len(repositories))
 	for _, repo := range repositories {
-		if repositoryPaths[repo.Path] {
-			return fmt.Errorf("duplicate repository '%s' found in github-repositories", repo.Path)
+		if repositoryPaths[repo.GetPath()] {
+			return fmt.Errorf("duplicate repository '%s' found in github-repositories", repo.GetPath())
 		}
-		repositoryPaths[repo.Path] = true
+		repositoryPaths[repo.GetPath()] = true
 	}
 	return nil
 }
@@ -214,7 +214,7 @@ func validateRepositoryReferences[V any](
 ) error {
 	for repoNameOrPath := range repoMapping {
 		matches := utilities.Filter(repositories, func(r models.Repository) bool {
-			return r.Path == repoNameOrPath || r.Name == repoNameOrPath
+			return r.GetPath() == repoNameOrPath || r.Name == repoNameOrPath
 		})
 
 		switch len(matches) {

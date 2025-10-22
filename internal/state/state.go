@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/hellej/pr-slack-reminder-action/internal/apiclients/slackclient"
+	"github.com/hellej/pr-slack-reminder-action/internal/models"
 	"github.com/hellej/pr-slack-reminder-action/internal/prparser"
 	"github.com/hellej/pr-slack-reminder-action/internal/utilities"
 )
@@ -28,16 +29,14 @@ type SlackRef struct {
 }
 
 type PullRequestRef struct {
-	Owner  string `json:"owner"`
-	Repo   string `json:"repo"`
-	Number int    `json:"number"`
+	Repository models.Repository `json:"repository"`
+	Number     int               `json:"number"`
 }
 
 func PRToPullRequestRef(pr prparser.PR) PullRequestRef {
 	return PullRequestRef{
-		Owner:  pr.Repository.Owner,
-		Repo:   pr.Repository.Name,
-		Number: *pr.Number,
+		Repository: pr.Repository,
+		Number:     *pr.Number,
 	}
 }
 
