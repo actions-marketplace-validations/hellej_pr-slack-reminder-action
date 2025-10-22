@@ -19,7 +19,7 @@ func TestStateSaveAndLoadRoundTrip(t *testing.T) {
 	originalState := State{
 		SchemaVersion: CurrentSchemaVersion,
 		CreatedAt:     time.Now().UTC(),
-		Slack: SlackRef{
+		SlackMessage: SlackRef{
 			ChannelID: "C123456789",
 			MessageTS: "1729123456.123456",
 		},
@@ -48,12 +48,12 @@ func TestStateSaveAndLoadRoundTrip(t *testing.T) {
 		t.Errorf("CreatedAt mismatch: got %v, want %v", loadedState.CreatedAt, originalState.CreatedAt)
 	}
 
-	if loadedState.Slack.ChannelID != originalState.Slack.ChannelID {
-		t.Errorf("Slack.ChannelID mismatch: got %s, want %s", loadedState.Slack.ChannelID, originalState.Slack.ChannelID)
+	if loadedState.SlackMessage.ChannelID != originalState.SlackMessage.ChannelID {
+		t.Errorf("SlackMessage.ChannelID mismatch: got %s, want %s", loadedState.SlackMessage.ChannelID, originalState.SlackMessage.ChannelID)
 	}
 
-	if loadedState.Slack.MessageTS != originalState.Slack.MessageTS {
-		t.Errorf("Slack.MessageTS mismatch: got %s, want %s", loadedState.Slack.MessageTS, originalState.Slack.MessageTS)
+	if loadedState.SlackMessage.MessageTS != originalState.SlackMessage.MessageTS {
+		t.Errorf("SlackMessage.MessageTS mismatch: got %s, want %s", loadedState.SlackMessage.MessageTS, originalState.SlackMessage.MessageTS)
 	}
 
 	if len(loadedState.PullRequests) != len(originalState.PullRequests) {
@@ -105,7 +105,7 @@ func TestStateValidateSchemaVersionMismatch(t *testing.T) {
 	state := State{
 		SchemaVersion: CurrentSchemaVersion + 1, // Wrong version
 		CreatedAt:     time.Now().UTC(),
-		Slack: SlackRef{
+		SlackMessage: SlackRef{
 			ChannelID: "C123456789",
 			MessageTS: "1729123456.123456",
 		},
@@ -129,7 +129,7 @@ func TestStateValidateValidState(t *testing.T) {
 	state := State{
 		SchemaVersion: CurrentSchemaVersion,
 		CreatedAt:     time.Now().UTC(),
-		Slack: SlackRef{
+		SlackMessage: SlackRef{
 			ChannelID: "C123456789",
 			MessageTS: "1729123456.123456",
 		},

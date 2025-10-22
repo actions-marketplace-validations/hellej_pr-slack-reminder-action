@@ -19,7 +19,7 @@ const CurrentSchemaVersion = 1
 type State struct {
 	SchemaVersion int              `json:"schemaVersion"`
 	CreatedAt     time.Time        `json:"createdAt"`
-	Slack         SlackRef         `json:"slack"`
+	SlackMessage  SlackRef         `json:"slackMessage"`
 	PullRequests  []PullRequestRef `json:"pullRequests"`
 }
 
@@ -79,7 +79,7 @@ func savePostState(filePath string, pullRequestRefs []PullRequestRef, slackRef S
 	stateToSave := State{
 		SchemaVersion: CurrentSchemaVersion,
 		CreatedAt:     time.Now(),
-		Slack:         slackRef,
+		SlackMessage:  slackRef,
 		PullRequests:  pullRequestRefs,
 	}
 

@@ -748,11 +748,11 @@ func TestPostModeStateSaving(t *testing.T) {
 	}
 
 	expectedChannelID := "C12345678" // From mock
-	if loadedState.Slack.ChannelID != expectedChannelID {
-		t.Errorf("Expected channel ID %s, got %s", expectedChannelID, loadedState.Slack.ChannelID)
+	if loadedState.SlackMessage.ChannelID != expectedChannelID {
+		t.Errorf("Expected channel ID %s, got %s", expectedChannelID, loadedState.SlackMessage.ChannelID)
 	}
 
-	if loadedState.Slack.MessageTS == "" {
+	if loadedState.SlackMessage.MessageTS == "" {
 		t.Error("Expected message timestamp to be set in state")
 	}
 
