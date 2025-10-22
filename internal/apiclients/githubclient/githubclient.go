@@ -74,14 +74,14 @@ func (c *client) FetchOpenPRs(
 
 	listGroup, listCtx := errgroup.WithContext(ctx)
 	listGroup.SetLimit(DefaultGitHubAPIConcurrencyLimit)
-	prResults := make([]PRsOfRepoResult, len(repositories))
+	prResultSlices := make([][]PRResult, len(repositories))
 
 	for i, repo := range repositories {
 		i, repo := i, repo // https://golang.org/doc/faq#closures_and_goroutines
 		listGroup.Go(func() error {
 			res, err := c.fetchOpenPRsForRepository(listCtx, repo)
 			if err == nil {
-				prResults[i] = res
+				prResultSlices[i] = res
 			}
 			return err
 		})
@@ -90,114 +90,91 @@ func (c *client) FetchOpenPRs(
 		return nil, err
 	}
 
-	filteredResults := utilities.Map(
-		prResults,
-		func(r PRsOfRepoResult) PRsOfRepoResult {
-			return PRsOfRepoResult{
-				prs:        utilities.Filter(r.prs, getPRFilterFunc(getFiltersForRepository(r.repository))),
-				repository: r.repository,
-			}
-		},
+	prResults := utilities.Filter(
+		utilities.FlatMap(prResultSlices),
+		getPRFilterFunc(getFiltersForRepository),
 	)
-	logFoundPRs(filteredResults)
+	logFoundPRs(prResults)
 
-	prs, err := c.addReviewerInfoToPRs(
-		ctx,
-		utilities.Filter(
-			filteredResults,
-			func(r PRsOfRepoResult) bool {
-				return r.GetPRCount() > 0
-			},
-		),
-	)
-	return prs, err
+	return c.addReviewerInfoToPRs(ctx, prResults)
 }
 
-func getPRFilterFunc(filters config.Filters) func(pr *github.PullRequest) bool {
-	return func(pr *github.PullRequest) bool {
-		return !pr.GetDraft() && includePR(pr, filters)
+func getPRFilterFunc(
+	getFiltersForRepository func(repo models.Repository) config.Filters,
+) func(result PRResult) bool {
+	return func(result PRResult) bool {
+		return !result.pr.GetDraft() && includePR(result.pr, getFiltersForRepository(result.repository))
 	}
 }
 
 func (c *client) fetchOpenPRsForRepository(
 	ctx context.Context, repo models.Repository,
-) (PRsOfRepoResult, error) {
+) ([]PRResult, error) {
 	callCtx, cancel := context.WithTimeout(ctx, PullRequestListTimeout)
 	defer cancel()
 	prs, response, err := c.prsService.List(
 		callCtx, repo.Owner, repo.Name, &github.PullRequestListOptions{ListOptions: github.ListOptions{PerPage: 100}},
 	)
 	if err == nil {
-		return PRsOfRepoResult{
-			prs:        prs,
-			repository: repo,
-		}, nil
+		return utilities.Map(prs, getPRResultMapper(repo)), nil
 	}
 	if response != nil && response.StatusCode == 404 {
-		return PRsOfRepoResult{
-				prs:        nil,
-				repository: repo,
-			},
-			fmt.Errorf(
-				"repository %s/%s not found - check the repository name and permissions",
-				repo.Owner,
-				repo.Name,
-			)
-	}
-	return PRsOfRepoResult{
-			prs:        nil,
-			repository: repo,
-		},
-		fmt.Errorf(
-			"error fetching pull requests from %s/%s: %w", repo.Owner, repo.Name, err,
+		return nil, fmt.Errorf(
+			"repository %s/%s not found - check the repository name and permissions",
+			repo.Owner,
+			repo.Name,
 		)
+	}
+	return nil, fmt.Errorf(
+		"error fetching pull requests from %s/%s: %w", repo.Owner, repo.Name, err,
+	)
 }
 
-func logFoundPRs(prResults []PRsOfRepoResult) {
-	for _, result := range prResults {
-		log.Printf("Found %d open pull requests in repository %s:", len(result.prs), result.repository)
-		for _, pr := range result.prs {
-			log.Printf("  #%v: %s \"%s\"", *pr.Number, pr.GetHTMLURL(), pr.GetTitle())
+func getPRResultMapper(repo models.Repository) func(pr *github.PullRequest) PRResult {
+	return func(pr *github.PullRequest) PRResult {
+		return PRResult{
+			pr:         pr,
+			repository: repo,
 		}
+	}
+}
+
+func logFoundPRs(prResults []PRResult) {
+	log.Printf("Found %d open pull requests:", len(prResults))
+	for _, result := range prResults {
+		log.Printf("%s/%v", result.repository.GetPath(), *result.pr.Number)
 	}
 }
 
 // Fetches review and comment data for the given PRs and returns enriched PR data.
 // Returns all PRs even if fetching review data for some PRs fails (those will just be missing reviewer info then).
-func (c *client) addReviewerInfoToPRs(ctx context.Context, prResults []PRsOfRepoResult) ([]PR, error) {
-	log.Printf("Fetching pull request timelines for PRs")
-
-	totalPRCount := 0
-	for _, result := range prResults {
-		totalPRCount += result.GetPRCount()
-	}
+func (c *client) addReviewerInfoToPRs(ctx context.Context, prResults []PRResult) ([]PR, error) {
+	log.Printf("\nFetching pull request timelines for PRs")
 
 	timelineGroup, timelineCtx := errgroup.WithContext(ctx)
 	timelineGroup.SetLimit(DefaultGitHubAPIConcurrencyLimit)
-	resultChannel := make(chan FetchTimelineResult, totalPRCount)
+	resultChannel := make(chan FetchTimelineResult, len(prResults))
 
 	for _, result := range prResults {
-		for _, pullRequest := range result.prs {
-			repo := result.repository
-			pr := pullRequest
-			timelineGroup.Go(func() error {
-				callCtx, cancel := context.WithTimeout(timelineCtx, TimelineFetchTimeout)
-				defer cancel()
-				timelineEvents, err := fetchPRTimeline(
-					callCtx, c.issuesService, repo.Owner, repo.Name, *pr.Number,
-				)
-				fetchTimelineResult := FetchTimelineResult{
-					pr:             pr,
-					timelineEvents: timelineEvents,
-					repository:     repo,
-				}
-				if err != nil {
-					fetchTimelineResult.err = err
-				}
-				resultChannel <- fetchTimelineResult
-				return nil
-			})
-		}
+		repo := result.repository
+		pr := result.pr
+		timelineGroup.Go(func() error {
+			callCtx, cancel := context.WithTimeout(timelineCtx, TimelineFetchTimeout)
+			defer cancel()
+			timelineEvents, err := fetchPRTimeline(
+				callCtx, c.issuesService, repo.Owner, repo.Name, *pr.Number,
+			)
+			fetchTimelineResult := FetchTimelineResult{
+				pr:             pr,
+				timelineEvents: timelineEvents,
+				repository:     repo,
+			}
+			if err != nil {
+				fetchTimelineResult.err = err
+			}
+			resultChannel <- fetchTimelineResult
+			return nil
+		})
 	}
 
 	if err := timelineGroup.Wait(); err != nil {

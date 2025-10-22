@@ -10,24 +10,17 @@ import (
 	"github.com/hellej/pr-slack-reminder-action/internal/utilities"
 )
 
-type PRsOfRepoResult struct {
-	prs        []*github.PullRequest
-	repository models.Repository
-}
-
-func (r PRsOfRepoResult) GetPRCount() int {
-	if r.prs != nil {
-		return len(r.prs)
-	}
-	return 0
-}
-
 type PR struct {
 	*github.PullRequest
 	Repository       models.Repository
 	Author           Collaborator
 	ApprovedByUsers  []Collaborator
 	CommentedByUsers []Collaborator // reviewers who commented the PR but did not approve it
+}
+
+type PRResult struct {
+	pr         *github.PullRequest
+	repository models.Repository
 }
 
 type FetchTimelineResult struct {
@@ -42,15 +35,6 @@ func (r FetchTimelineResult) printResult() {
 		log.Printf("Unable to fetch timeline events for PR #%d: %v", r.pr.GetNumber(), r.err)
 	} else {
 		log.Printf("Found %d timeline events for PR %v/%d", len(r.timelineEvents), r.repository, r.pr.GetNumber())
-	}
-	for _, event := range r.timelineEvents {
-		log.Printf(
-			"Event: %s, from: %s, state: %s, reviewer: %s",
-			event.GetEvent(),
-			event.GetUser().GetLogin(),
-			event.GetState(),
-			event.GetReviewer().GetLogin(),
-		)
 	}
 }
 

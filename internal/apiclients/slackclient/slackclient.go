@@ -89,7 +89,7 @@ func (c *client) GetChannelIDByName(channelName string) (string, error) {
 }
 
 func (c *client) SendMessage(channelID string, blocks slack.Message, summaryText string) (*MessageResponse, error) {
-	log.Printf("Sending message with summary: %s", summaryText)
+	log.Printf("\nSending message with summary: %s", summaryText)
 	responseChannelID, timestamp, err := c.slackAPI.PostMessage(
 		channelID,
 		slack.MsgOptionBlocks(blocks.Blocks.BlockSet...),
