@@ -157,7 +157,7 @@ jobs:
 | `no-prs-message`                    | ❌       | Message when no PRs are found (if not set, no empty message gets sent)<br>Example: `All caught up! 🎉`          |
 | `old-pr-threshold-hours`            | ❌       | PR age in hours after which a PR is highlighted as old (with alarm emoji and bold age text)<br>Example: `48`    |
 | `group-by-repository`               | ❌       | Group PRs by repository with repository headings. When enabled (`true`), main-list-heading is ignored.          |
-| `pr-link-repo-prefixes`               | ❌       | Repository aliases to display as prefixes in PR link texts (e.g., "repo1: 'R1 / '; repo2: 'R2 / '"). Useful if group-by-repository is `false`.<br>Example:<br>`repo1: 🚀`<br>`repo2: 📦`               |
+| `pr-link-repo-prefixes`             | ❌       | Repository aliases to display as prefixes in PR link texts. Useful if group-by-repository is `false`.<br>Example:<br>`repo1: 'R1 / '`<br>`repo2: 'R2 / '`<br>(without quotes the trailing whitespace is omitted) |
 
 ### Filter Options
 
