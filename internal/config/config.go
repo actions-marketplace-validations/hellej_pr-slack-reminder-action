@@ -66,6 +66,18 @@ type ContentInputs struct {
 	PRLinkRepoPrefixes          map[string]string
 }
 
+func (contentInputs ContentInputs) GetPRLinkRepoPrefix(repo models.Repository) string {
+	prefix, exists := contentInputs.PRLinkRepoPrefixes[repo.GetPath()]
+	if exists {
+		return prefix
+	}
+	prefix, exists = contentInputs.PRLinkRepoPrefixes[repo.Name]
+	if exists {
+		return prefix
+	}
+	return ""
+}
+
 func (c Config) Print() {
 	copy := c
 	if copy.GithubToken != "" {

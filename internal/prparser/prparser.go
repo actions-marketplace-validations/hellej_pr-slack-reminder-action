@@ -60,18 +60,13 @@ func getPRParser(config config.ContentInputs) func(pr githubclient.PR) PR {
 }
 
 func parsePR(pr githubclient.PR, config config.ContentInputs) PR {
-	prefix := ""
-	if config.PRLinkRepoPrefixes != nil {
-		prefix = config.PRLinkRepoPrefixes[pr.Repository.Name]
-	}
-
 	return PR{
 		PR:         &pr,
 		Author:     NewCollaborator(pr.Author, config.SlackUserIdByGitHubUsername[pr.Author.Login]),
 		Approvers:  withSlackUserIds(pr.ApprovedByUsers, config.SlackUserIdByGitHubUsername),
 		Commenters: withSlackUserIds(pr.CommentedByUsers, config.SlackUserIdByGitHubUsername),
 		IsOldPR:    isOlderThan(pr, config.OldPRThresholdHours),
-		Prefix:     prefix,
+		Prefix:     config.GetPRLinkRepoPrefix(pr.Repository),
 	}
 }
 
