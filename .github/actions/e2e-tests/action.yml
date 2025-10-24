@@ -1,4 +1,4 @@
-name: 'Run E2E Tests'
+Ename: 'Run E2E Tests'
 description: 'Run end-to-end tests using the built action'
 
 inputs:
@@ -41,7 +41,7 @@ runs:
           bob: U08EVPGNWER
         old-pr-threshold-hours: 48
 
-    - name: Advanced E2E test with filters
+    - name: Advanced E2E test with filters and repo prefixes
       uses: ./
       with:
         github-token: ${{ inputs.github-token }}
@@ -60,3 +60,6 @@ runs:
         repository-filters: |
           hellej/pr-slack-reminder-test-repo-1: {"authors-ignore": ["alice"]}
           hellej/pr-slack-reminder-test-repo-2: {}
+        pr-link-repo-prefixes: |
+          hellej/pr-slack-reminder-test-repo-1: 'TR1 / '
+          hellej/pr-slack-reminder-test-repo-2: 'TR2 / '

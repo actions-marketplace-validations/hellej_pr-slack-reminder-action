@@ -132,3 +132,21 @@ func GetInputMapping(inputName string) (map[string]string, error) {
 
 	return mapping, nil
 }
+
+func removeLeadingAndTrailingQuotes(s string) string {
+	if len(s) >= 2 {
+		if (s[0] == '"' && s[len(s)-1] == '"') || (s[0] == '\'' && s[len(s)-1] == '\'') {
+			return s[1 : len(s)-1]
+		}
+	}
+	return s
+}
+
+// removes leading and trailing quotes from all values in the provided map.
+func UnquoteValues(m map[string]string) map[string]string {
+	result := make(map[string]string, len(m))
+	for key, value := range m {
+		result[key] = removeLeadingAndTrailingQuotes(value)
+	}
+	return result
+}

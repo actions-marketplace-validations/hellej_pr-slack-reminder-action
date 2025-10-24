@@ -112,3 +112,85 @@ func TestGetInputOr_ExplicitEmptyOverridesDefault(t *testing.T) {
 		t.Errorf("Expected empty string, got '%s'", value)
 	}
 }
+
+func TestUnquoteValues(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    map[string]string
+		expected map[string]string
+	}{
+		{
+			name:     "empty map",
+			input:    map[string]string{},
+			expected: map[string]string{},
+		},
+		{
+			name: "no quotes",
+			input: map[string]string{
+				"key1": "value1",
+				"key2": "value2",
+			},
+			expected: map[string]string{
+				"key1": "value1",
+				"key2": "value2",
+			},
+		},
+		{
+			name: "mixed quotes",
+			input: map[string]string{
+				"repo1": `"prefix1"`,
+				"repo2": `'prefix2'`,
+				"repo3": "no-quotes",
+				"repo4": `"with spaces"`,
+			},
+			expected: map[string]string{
+				"repo1": "prefix1",
+				"repo2": "prefix2",
+				"repo3": "no-quotes",
+				"repo4": "with spaces",
+			},
+		},
+		{
+			name: "partial quotes only",
+			input: map[string]string{
+				"repo1": `"partial`,
+				"repo2": `partial"`,
+				"repo3": `'partial`,
+			},
+			expected: map[string]string{
+				"repo1": `"partial`,
+				"repo2": `partial"`,
+				"repo3": `'partial`,
+			},
+		},
+		{
+			name: "empty quoted values",
+			input: map[string]string{
+				"repo1": `""`,
+				"repo2": `''`,
+			},
+			expected: map[string]string{
+				"repo1": "",
+				"repo2": "",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := inputhelpers.UnquoteValues(tt.input)
+
+			for key, expectedValue := range tt.expected {
+				if actualValue, exists := result[key]; !exists {
+					t.Errorf("Expected key %q to exist in result", key)
+				} else if actualValue != expectedValue {
+					t.Errorf("UnquoteValues()[%q] = %q, expected %q", key, actualValue, expectedValue)
+				}
+			}
+
+			if len(result) != len(tt.expected) {
+				t.Errorf("Expected result to have %d keys, got %d", len(tt.expected), len(result))
+			}
+		})
+	}
+}

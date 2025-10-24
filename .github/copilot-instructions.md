@@ -75,7 +75,7 @@ This is a GitHub Action written in Go that fetches PRs from GitHub repositories 
 
 - Multiple repositories supported via `config.Repositories` slice of `Repository` structs (`config.InputGithubRepositories`)
 - If `config.InputGithubRepositories` is set, `config.EnvGithubRepository` is ignored
-- Repository filters and aliases are mapped by repository name (not full path)
+- Repository filters and prefixes are mapped by repository name (not full path)
 - Each PR maintains its `Repository` field for context throughout the pipeline
 
 ### Error Handling
@@ -87,7 +87,7 @@ This is a GitHub Action written in Go that fetches PRs from GitHub repositories 
 ### Slack Message Construction
 
 - Uses Slack Block Kit with `RichTextBlock` and `RichTextSection` elements
-- PR titles are clickable links, repo aliases are an optional prefix for the link text
+- PR titles are clickable links, repo prefixes are an optional prefix for the link text
 - Age indicators use emoji and bold styling for old PRs (`IsOldPR` field)
 
 ## File Relationships

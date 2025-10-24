@@ -103,7 +103,7 @@ Potential future inputs (defer unless needed):
 
 ## Message Update Behavior
 - Recompute ages relative to current time
-- Preserve original formatting (aliases, sections)
+- Preserve original formatting (prefixes, sections)
 - Add 🔀 indicator for merged PRs (suffix after reviewer info)
 - Reviewer/commenter lists refreshed
 - Footer replaced/added: `review info updated at HH:MM UTC`

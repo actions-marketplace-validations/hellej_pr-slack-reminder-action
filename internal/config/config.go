@@ -31,7 +31,7 @@ const (
 	InputNoPRsMessage                string = "no-prs-message"
 	InputOldPRThresholdHours         string = "old-pr-threshold-hours"
 	InputGroupByRepository           string = "group-by-repository"
-	InputRepositoryAliases           string = "repository-aliases"
+	InputPRLinkRepoPrefixes          string = "pr-link-repo-prefixes"
 
 	MaxRepositories int = 30
 
@@ -63,7 +63,7 @@ type ContentInputs struct {
 	NoPRsMessage                string
 	OldPRThresholdHours         int
 	GroupByRepository           bool
-	RepositoryAliases           map[string]string
+	PRLinkRepoPrefixes          map[string]string
 }
 
 func (c Config) Print() {
@@ -95,7 +95,7 @@ func GetConfig() (Config, error) {
 	noPRsMessage := inputhelpers.GetInput(InputNoPRsMessage)
 	oldPRsThresholdHours, err8 := inputhelpers.GetInputInt(InputOldPRThresholdHours)
 	groupByRepository, err9 := inputhelpers.GetInputBool(InputGroupByRepository)
-	repositoryAliases, err10 := inputhelpers.GetInputMapping(InputRepositoryAliases)
+	prLinkRepoPrefixes, err10 := inputhelpers.GetInputMapping(InputPRLinkRepoPrefixes)
 
 	if err := selectNonNilError(err1, err2, err3, err4, err5, err6, err7, err8, err9, err10); err != nil {
 		return Config{}, err
@@ -129,7 +129,7 @@ func GetConfig() (Config, error) {
 			NoPRsMessage:                noPRsMessage,
 			OldPRThresholdHours:         oldPRsThresholdHours,
 			GroupByRepository:           groupByRepository,
-			RepositoryAliases:           repositoryAliases,
+			PRLinkRepoPrefixes:          inputhelpers.UnquoteValues(prLinkRepoPrefixes),
 		},
 	}
 
@@ -187,7 +187,7 @@ func (c Config) validateRepositoryNames() error {
 		return err
 	}
 	if err := validateRepositoryReferences(
-		c.Repositories, c.ContentInputs.RepositoryAliases, "repository-aliases",
+		c.Repositories, c.ContentInputs.PRLinkRepoPrefixes, "pr-link-repo-prefixes",
 	); err != nil {
 		return err
 	}

@@ -133,9 +133,9 @@ func (h *ConfigTestHelpers) setupFullValidConfig() {
 	})
 	h.setInput(config.InputGlobalFilters, `{"authors": ["alice"], "labels": ["feature"]}`)
 	h.setInput(config.InputRepositoryFilters, `repo1: {"labels-ignore": ["wip"]}`)
-	h.setInputMapping(config.InputRepositoryAliases, map[string]string{
-		"repo1": "🚀",
-		"repo2": "📦",
+	h.setInputMapping(config.InputPRLinkRepoPrefixes, map[string]string{
+		"repo1": "R1",
+		"repo2": "R2",
 	})
 }
 
@@ -224,15 +224,15 @@ func TestGetConfig_FullValid(t *testing.T) {
 		}
 	}
 
-	expectedAliases := map[string]string{
-		"repo1": "🚀",
-		"repo2": "📦",
+	expectedPrefixes := map[string]string{
+		"repo1": "R1",
+		"repo2": "R2",
 	}
-	for repo, expectedAlias := range expectedAliases {
-		if alias, exists := cfg.ContentInputs.RepositoryAliases[repo]; !exists {
-			t.Errorf("Expected repository alias for '%s' to exist", repo)
-		} else if alias != expectedAlias {
-			t.Errorf("Expected alias '%s' for repo '%s', got '%s'", expectedAlias, repo, alias)
+	for repo, expectedPrefix := range expectedPrefixes {
+		if prefix, exists := cfg.ContentInputs.PRLinkRepoPrefixes[repo]; !exists {
+			t.Errorf("Expected repository prefix for '%s' to exist", repo)
+		} else if prefix != expectedPrefix {
+			t.Errorf("Expected prefix '%s' for repo '%s', got '%s'", expectedPrefix, repo, prefix)
 		}
 	}
 
@@ -579,7 +579,7 @@ func TestGetConfig_RepositoryValidation(t *testing.T) {
 		expectedErrMsg string
 	}{
 		{
-			name: "valid - repository filters and aliases match existing repositories",
+			name: "valid - repository filters and prefixes match existing repositories",
 			setupConfig: func(h *ConfigTestHelpers) {
 				h.setupMinimalValidConfig()
 				h.setInputList(config.InputGithubRepositories, []string{"org/repo1", "org/repo2"})
@@ -587,7 +587,7 @@ func TestGetConfig_RepositoryValidation(t *testing.T) {
 					config.InputRepositoryFilters,
 					`repo1: {"authors": ["alice"]}; org/repo2: {"labels": ["bug"]}`,
 				)
-				h.setInputMapping(config.InputRepositoryAliases, map[string]string{
+				h.setInputMapping(config.InputPRLinkRepoPrefixes, map[string]string{
 					"repo1": "🚀",
 					"repo2": "📦",
 				})
@@ -595,7 +595,7 @@ func TestGetConfig_RepositoryValidation(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "valid - empty filters and aliases",
+			name: "valid - empty filters and prefixes",
 			setupConfig: func(h *ConfigTestHelpers) {
 				h.setupMinimalValidConfig()
 			},
@@ -626,20 +626,20 @@ func TestGetConfig_RepositoryValidation(t *testing.T) {
 			setupConfig: func(h *ConfigTestHelpers) {
 				h.setupMinimalValidConfig()
 				h.setInputList(config.InputGithubRepositories, []string{"org/repo1"})
-				h.setInputMapping(config.InputRepositoryAliases, map[string]string{
+				h.setInputMapping(config.InputPRLinkRepoPrefixes, map[string]string{
 					"repo2": "📦",
 				})
 			},
 			expectError:    true,
-			expectedErrMsg: "repository-aliases contains entry for 'repo2' which does not match any repository",
+			expectedErrMsg: "pr-link-repo-prefixes contains entry for 'repo2' which does not match any repository",
 		},
 		{
-			name: "invalid - multiple non-existent repository names in filters & aliases",
+			name: "invalid - multiple non-existent repository names in filters & prefixes",
 			setupConfig: func(h *ConfigTestHelpers) {
 				h.setupMinimalValidConfig()
 				h.setInputList(config.InputGithubRepositories, []string{"org/repo1"})
 				h.setInput(config.InputRepositoryFilters, `repo2: {"authors": ["alice"]}; repo3: {"labels": ["bug"]}`)
-				h.setInputMapping(config.InputRepositoryAliases, map[string]string{
+				h.setInputMapping(config.InputPRLinkRepoPrefixes, map[string]string{
 					"repo4": "🔧",
 				})
 			},
@@ -657,16 +657,16 @@ func TestGetConfig_RepositoryValidation(t *testing.T) {
 			expectedErrMsg: "repository-filters contains ambiguous entry for 'same-repo' which matches multiple repositories (needs owner/repo format)",
 		},
 		{
-			name: "invalid - ambiguous identifier for repository in aliases",
+			name: "invalid - ambiguous identifier for repository in prefixes",
 			setupConfig: func(h *ConfigTestHelpers) {
 				h.setupMinimalValidConfig()
 				h.setInputList(config.InputGithubRepositories, []string{"org1/same-repo", "org2/same-repo"})
-				h.setInputMapping(config.InputRepositoryAliases, map[string]string{
+				h.setInputMapping(config.InputPRLinkRepoPrefixes, map[string]string{
 					"same-repo": "🚀",
 				})
 			},
 			expectError:    true,
-			expectedErrMsg: "repository-aliases contains ambiguous entry for 'same-repo' which matches multiple repositories (needs owner/repo format)",
+			expectedErrMsg: "pr-link-repo-prefixes contains ambiguous entry for 'same-repo' which matches multiple repositories (needs owner/repo format)",
 		},
 		{
 			name: "invalid - exact duplicate repositories",
