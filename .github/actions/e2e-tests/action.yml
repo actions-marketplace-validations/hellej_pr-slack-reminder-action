@@ -44,7 +44,6 @@ runs:
           hellej/pr-slack-reminder-test-repo-1: 'TR1 / '
           hellej/pr-slack-reminder-test-repo-2: test-repo-2/
 
-
     - name: Advanced E2E test with filters and repo prefixes
       uses: ./
       with:
