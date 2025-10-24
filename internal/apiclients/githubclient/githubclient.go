@@ -31,28 +31,24 @@ type GithubPullRequestsService interface {
 	) (
 		[]*github.PullRequest, *github.Response, error,
 	)
-}
-
-type GithubIssueService interface {
-	ListIssueTimeline(
+	ListReviews(
 		ctx context.Context, owner string, repo string, number int, opts *github.ListOptions,
 	) (
-		[]*github.Timeline, *github.Response, error,
+		[]*github.PullRequestReview, *github.Response, error,
 	)
 }
 
-func NewClient(prsService GithubPullRequestsService, issuesService GithubIssueService) Client {
-	return &client{prsService: prsService, issuesService: issuesService}
+func NewClient(prsService GithubPullRequestsService) Client {
+	return &client{prsService: prsService}
 }
 
 func GetAuthenticatedClient(token string) Client {
 	ghClient := github.NewClient(nil).WithAuthToken(token)
-	return NewClient(ghClient.PullRequests, ghClient.Issues)
+	return NewClient(ghClient.PullRequests)
 }
 
 type client struct {
-	prsService    GithubPullRequestsService
-	issuesService GithubIssueService
+	prsService GithubPullRequestsService
 }
 
 // DefaultGitHubAPIConcurrencyLimit caps concurrent repository fetches to avoid
@@ -62,7 +58,7 @@ const DefaultGitHubAPIConcurrencyLimit = 5
 
 // Per-call timeout defaults. Overridable in tests.
 var PullRequestListTimeout = 10 * time.Second
-var TimelineFetchTimeout = 10 * time.Second
+var ReviewsFetchTimeout = 10 * time.Second
 
 // Returns an error if fetching PRs from any repository fails (and cancels the other requests).
 func (c *client) FetchOpenPRs(
@@ -149,35 +145,35 @@ func logFoundPRs(prResults []PRResult) {
 // Fetches review and comment data for the given PRs and returns enriched PR data.
 // Returns all PRs even if fetching review data for some PRs fails (those will just be missing reviewer info then).
 func (c *client) addReviewerInfoToPRs(ctx context.Context, prResults []PRResult) ([]PR, error) {
-	log.Printf("\nFetching pull request timelines for PRs")
+	log.Printf("\nFetching pull request reviews for PRs")
 
-	timelineGroup, timelineCtx := errgroup.WithContext(ctx)
-	timelineGroup.SetLimit(DefaultGitHubAPIConcurrencyLimit)
-	resultChannel := make(chan FetchTimelineResult, len(prResults))
+	reviewsGroup, reviewsCtx := errgroup.WithContext(ctx)
+	reviewsGroup.SetLimit(DefaultGitHubAPIConcurrencyLimit)
+	resultChannel := make(chan FetchReviewsResult, len(prResults))
 
 	for _, result := range prResults {
 		repo := result.repository
 		pr := result.pr
-		timelineGroup.Go(func() error {
-			callCtx, cancel := context.WithTimeout(timelineCtx, TimelineFetchTimeout)
+		reviewsGroup.Go(func() error {
+			callCtx, cancel := context.WithTimeout(reviewsCtx, ReviewsFetchTimeout)
 			defer cancel()
-			timelineEvents, err := fetchPRTimeline(
-				callCtx, c.issuesService, repo.Owner, repo.Name, *pr.Number,
+			reviews, err := fetchPRReviews(
+				callCtx, c.prsService, repo.Owner, repo.Name, *pr.Number,
 			)
-			fetchTimelineResult := FetchTimelineResult{
-				pr:             pr,
-				timelineEvents: timelineEvents,
-				repository:     repo,
+			fetchReviewsResult := FetchReviewsResult{
+				pr:         pr,
+				reviews:    reviews,
+				repository: repo,
 			}
 			if err != nil {
-				fetchTimelineResult.err = err
+				fetchReviewsResult.err = err
 			}
-			resultChannel <- fetchTimelineResult
+			resultChannel <- fetchReviewsResult
 			return nil
 		})
 	}
 
-	if err := timelineGroup.Wait(); err != nil {
+	if err := reviewsGroup.Wait(); err != nil {
 		return nil, err
 	}
 	close(resultChannel)
@@ -190,20 +186,20 @@ func (c *client) addReviewerInfoToPRs(ctx context.Context, prResults []PRResult)
 	return allPRs, nil
 }
 
-const timelineMaximumPages = 4
+const reviewsMaximumPages = 4
 
-func fetchPRTimeline(
+func fetchPRReviews(
 	ctx context.Context,
-	issuesService GithubIssueService,
+	prsService GithubPullRequestsService,
 	owner, repo string,
 	number int,
-) ([]*github.Timeline, error) {
-	events := []*github.Timeline{}
+) ([]*github.PullRequestReview, error) {
+	reviews := []*github.PullRequestReview{}
 	opts := &github.ListOptions{PerPage: 100}
 	pagesFetched := 0
 
 	for {
-		timelineEvents, response, err := issuesService.ListIssueTimeline(ctx, owner, repo, number, opts)
+		reviewsPage, response, err := prsService.ListReviews(ctx, owner, repo, number, opts)
 
 		if err != nil {
 			statusText := ""
@@ -220,13 +216,13 @@ func fetchPRTimeline(
 			)
 		}
 
-		events = append(events, timelineEvents...)
+		reviews = append(reviews, reviewsPage...)
 		pagesFetched++
 
-		if response == nil || response.NextPage == 0 || pagesFetched >= timelineMaximumPages {
+		if response == nil || response.NextPage == 0 || pagesFetched >= reviewsMaximumPages {
 			break
 		}
 		opts.Page = response.NextPage
 	}
-	return events, nil
+	return reviews, nil
 }

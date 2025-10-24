@@ -23,18 +23,18 @@ type PRResult struct {
 	repository models.Repository
 }
 
-type FetchTimelineResult struct {
-	pr             *github.PullRequest
-	timelineEvents []*github.Timeline
-	repository     models.Repository
-	err            error
+type FetchReviewsResult struct {
+	pr         *github.PullRequest
+	reviews    []*github.PullRequestReview
+	repository models.Repository
+	err        error
 }
 
-func (r FetchTimelineResult) printResult() {
+func (r FetchReviewsResult) printResult() {
 	if r.err != nil {
-		log.Printf("Unable to fetch timeline events for PR #%d: %v", r.pr.GetNumber(), r.err)
+		log.Printf("Unable to fetch reviews for PR #%d: %v", r.pr.GetNumber(), r.err)
 	} else {
-		log.Printf("Found %d timeline events for PR %v/%d", len(r.timelineEvents), r.repository, r.pr.GetNumber())
+		log.Printf("Found %d reviews for PR %v/%d", len(r.reviews), r.repository, r.pr.GetNumber())
 	}
 }
 
@@ -60,14 +60,14 @@ func (c Collaborator) GetGitHubName() string {
 	return cmp.Or(c.Name, c.Login)
 }
 
-func (r FetchTimelineResult) asPR() PR {
+func (r FetchReviewsResult) asPR() PR {
 	authorLogin := r.pr.GetUser().GetLogin()
-	eventsWithValidUser := utilities.Filter(r.timelineEvents, hasValidReviewerUserData)
+	reviewsWithValidUser := utilities.Filter(r.reviews, hasValidReviewerUserData)
 
-	approvingReviews := utilities.Filter(eventsWithValidUser, isApprovingReview)
+	approvingReviews := utilities.Filter(reviewsWithValidUser, isApprovingReview)
 	approvedByUsers := extractUniqueCollaboratorsFromReviews(approvingReviews)
 
-	allReviewsAndComments := utilities.Filter(eventsWithValidUser, isReviewEvent)
+	allReviewsAndComments := reviewsWithValidUser
 	commentedByUsers := utilities.Filter(
 		extractUniqueCollaboratorsFromReviews(allReviewsAndComments),
 		getFilterForCommenters(authorLogin, approvedByUsers),
@@ -82,18 +82,18 @@ func (r FetchTimelineResult) asPR() PR {
 	}
 }
 
-func hasValidReviewerUserData(r *github.Timeline) bool {
+func hasValidReviewerUserData(r *github.PullRequestReview) bool {
 	user := r.GetUser()
 	return user != nil && user.GetLogin() != "" && !isBot(user)
 }
 
-func extractUniqueCollaboratorsFromReviews(events []*github.Timeline) []Collaborator {
+func extractUniqueCollaboratorsFromReviews(reviews []*github.PullRequestReview) []Collaborator {
 	return utilities.UniqueFunc(
-		utilities.Map(events, getCollaborator), isUniqueCollaborator,
+		utilities.Map(reviews, getCollaborator), isUniqueCollaborator,
 	)
 }
 
-func getCollaborator(r *github.Timeline) Collaborator {
+func getCollaborator(r *github.PullRequestReview) Collaborator {
 	return newCollaboratorFromUser(r.GetUser())
 }
 
@@ -101,14 +101,8 @@ func isUniqueCollaborator(a, b Collaborator) bool {
 	return a.Login == b.Login
 }
 
-func isApprovingReview(event *github.Timeline) bool {
-	return isReviewEvent(event) && event.GetState() == "approved"
-
-}
-
-// includes diff & timeline comments too
-func isReviewEvent(event *github.Timeline) bool {
-	return event.GetEvent() == "reviewed"
+func isApprovingReview(review *github.PullRequestReview) bool {
+	return review.GetState() == "APPROVED"
 }
 
 func getFilterForCommenters(authorLogin string, approvedByUsers []Collaborator) func(c Collaborator) bool {

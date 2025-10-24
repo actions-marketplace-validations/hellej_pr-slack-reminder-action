@@ -160,22 +160,22 @@ func filterPRsByNumbers(
 
 func TestScenarios(t *testing.T) {
 	testCases := []struct {
-		name                     string
-		config                   testhelpers.TestConfig
-		configOverrides          *map[string]any
-		fetchPRsStatus           int
-		fetchPRsError            error
-		prs                      []*github.PullRequest
-		prsByRepo                map[string][]*github.PullRequest
-		timelineEventsByPRNumber map[int][]*github.Timeline
-		foundSlackChannels       []*mockslackclient.SlackChannel
-		findChannelError         error
-		sendMessageError         error
-		expectedErrorMsg         string
-		expectedPRNumbers        []int
-		expectedPRItemTexts      []string
-		expectedSummary          string
-		expectedHeadings         []string // For group-by-repository mode to check repository headings
+		name                string
+		config              testhelpers.TestConfig
+		configOverrides     *map[string]any
+		fetchPRsStatus      int
+		fetchPRsError       error
+		prs                 []*github.PullRequest
+		prsByRepo           map[string][]*github.PullRequest
+		reviewsByPRNumber   map[int][]*github.PullRequestReview
+		foundSlackChannels  []*mockslackclient.SlackChannel
+		findChannelError    error
+		sendMessageError    error
+		expectedErrorMsg    string
+		expectedPRNumbers   []int
+		expectedPRItemTexts []string
+		expectedSummary     string
+		expectedHeadings    []string // For group-by-repository mode to check repository headings
 	}{
 		{
 			name:   "unset required inputs",
@@ -505,23 +505,23 @@ func TestScenarios(t *testing.T) {
 				"PR 3 2 days ago by Alice (💬 reviewer3)",
 				"PR 4 5 hours ago by Jim (✅ reviewer2 / 💬 reviewer3)",
 			},
-			timelineEventsByPRNumber: map[int][]*github.Timeline{
+			reviewsByPRNumber: map[int][]*github.PullRequestReview{
 				*getTestPRs(GetTestPRsOptions{}).PR1.Number: {
-					mockgithubclient.NewReview(1, "approved", "reviewer1", "", "LGTM 🙏🏻"),
-					mockgithubclient.NewReview(2, "approved", "reviewer2", "", "LGTM 🚀"),
+					mockgithubclient.NewReview(1, "APPROVED", "reviewer1", "", "LGTM 🙏🏻"),
+					mockgithubclient.NewReview(2, "APPROVED", "reviewer2", "", "LGTM 🚀"),
 				},
 				*getTestPRs(GetTestPRsOptions{}).PR2.Number: {
-					mockgithubclient.NewReview(3, "commented", "reviewer1", "", "LGTM, just a few comments..."),
-					mockgithubclient.NewReview(4, "commented", "reviewer2", "", "Looks good but..."),
+					mockgithubclient.NewReview(3, "COMMENTED", "reviewer1", "", "LGTM, just a few comments..."),
+					mockgithubclient.NewReview(4, "COMMENTED", "reviewer2", "", "Looks good but..."),
 				},
 				*getTestPRs(GetTestPRsOptions{}).PR3.Number: {
-					mockgithubclient.NewReview(5, "commented", "reviewer3", "", "Splendid work! Just a few questions..."),
+					mockgithubclient.NewReview(5, "COMMENTED", "reviewer3", "", "Splendid work! Just a few questions..."),
 				},
 				*getTestPRs(GetTestPRsOptions{}).PR4.Number: {
-					mockgithubclient.NewReview(6, "commented", "reviewer3", "", "Splendid work! Just a few questions..."),
-					mockgithubclient.NewReview(7, "commented", "reviewer3", "", "Splendid work! Just a few questions..."), // duplicate review by reviewer3 should be omitted
-					mockgithubclient.NewReview(8, "approved", "reviewer2", "", "LGTM 🚀"),
-					mockgithubclient.NewReview(9, "approved", "reviewer2", "", "LGTM again 🚀"), // duplicate approval by reviewer2 should be omitted
+					mockgithubclient.NewReview(6, "COMMENTED", "reviewer3", "", "Splendid work! Just a few questions..."),
+					mockgithubclient.NewReview(7, "COMMENTED", "reviewer3", "", "Splendid work! Just a few questions..."), // duplicate review by reviewer3 should be omitted
+					mockgithubclient.NewReview(8, "APPROVED", "reviewer2", "", "LGTM 🚀"),
+					mockgithubclient.NewReview(9, "APPROVED", "reviewer2", "", "LGTM again 🚀"), // duplicate approval by reviewer2 should be omitted
 				},
 			},
 			expectedSummary: "4 open PRs are waiting for attention 👀",
@@ -588,12 +588,12 @@ func TestScenarios(t *testing.T) {
 			prs: []*github.PullRequest{
 				getTestPR(GetTestPROptions{Number: 1, Title: "PR with bot and human reviewers", AuthorLogin: "alice"}),
 			},
-			timelineEventsByPRNumber: map[int][]*github.Timeline{
+			reviewsByPRNumber: map[int][]*github.PullRequestReview{
 				1: {
-					mockgithubclient.NewReview(1, "commented", "human-reviewer", "Human Reviewer", "Human feedback", "User"),
-					mockgithubclient.NewReview(2, "commented", "alice", "Alice", "Self review", "User"),
-					mockgithubclient.NewReview(3, "commented", "dependabot", "Dependabot", "Bot feedback", "Bot"),
-					mockgithubclient.NewReview(4, "approved", "codecov", "Codecov", "Bot approval", "Bot"),
+					mockgithubclient.NewReview(1, "COMMENTED", "human-reviewer", "Human Reviewer", "Human feedback", "User"),
+					mockgithubclient.NewReview(2, "COMMENTED", "alice", "Alice", "Self review", "User"),
+					mockgithubclient.NewReview(3, "COMMENTED", "dependabot", "Dependabot", "Bot feedback", "Bot"),
+					mockgithubclient.NewReview(4, "APPROVED", "codecov", "Codecov", "Bot approval", "Bot"),
 				},
 			},
 			expectedPRNumbers: []int{1},
@@ -609,7 +609,7 @@ func TestScenarios(t *testing.T) {
 			testhelpers.SetTestEnvironment(t, tc.config, tc.configOverrides)
 
 			getGitHubClient := mockgithubclient.MakeMockGitHubClientGetter(
-				tc.prs, tc.prsByRepo, cmp.Or(tc.fetchPRsStatus, 200), tc.fetchPRsError, tc.timelineEventsByPRNumber,
+				tc.prs, tc.prsByRepo, cmp.Or(tc.fetchPRsStatus, 200), tc.fetchPRsError, tc.reviewsByPRNumber,
 			)
 			mockSlackAPI := mockslackclient.GetMockSlackAPI(tc.foundSlackChannels, tc.findChannelError, tc.sendMessageError)
 			getSlackClient := mockslackclient.MakeSlackClientGetter(mockSlackAPI)
