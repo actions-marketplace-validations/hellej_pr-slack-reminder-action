@@ -186,7 +186,7 @@ func (c *client) addReviewerInfoToPRs(ctx context.Context, prResults []PRResult)
 	return allPRs, nil
 }
 
-const reviewsMaximumPages = 4
+const reviewsMaximumPages = 2
 
 func fetchPRReviews(
 	ctx context.Context,

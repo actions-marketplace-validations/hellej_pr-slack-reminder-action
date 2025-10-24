@@ -21,7 +21,7 @@ You may not need this action; GitHub provides [built-in scheduled reminders for 
 
 **What's special about this action:**
 
-- Monitor up to 50 repositories
+- Monitor up to 30 repositories
 - Highlight old PRs that need attention (with optional age threshold input)
 - Global and repository specific filters
 - No need for official GitHub team setup
@@ -149,7 +149,7 @@ jobs:
 | `state-file-path`                   | ❌       | Path to state file used to persist message ID in order to later update it                                       |
 | `slack-channel-name`                | ❌       | Slack channel name (use this OR `slack-channel-id`)<br>Example: `dev-team`                                      |
 | `slack-channel-id`                  | ❌       | Slack channel ID (use this OR `slack-channel-name`)<br>Example: `C1234567890`                                   |
-| `github-repositories`               | ❌       | Repositories to monitor (max 50) - defaults to current repo<br>Example:<br>`owner/repo1`<br>`owner/repo2`       |
+| `github-repositories`               | ❌       | Repositories to monitor (max 30) - defaults to current repo<br>Example:<br>`owner/repo1`<br>`owner/repo2`       |
 | `filters`                           | ❌       | Global filters (JSON)<br>Example:<br>`{"authors": ["alice"], "labels-ignore": ["wip"]}`                         |
 | `repository-filters`                | ❌       | Repository-specific filters<br>Example:<br>`repo1: {"labels": ["bug"]}`<br>`repo2: {"authors-ignore": ["bot"]}` |
 | `github-user-slack-user-id-mapping` | ❌       | Map of GitHub usernames to Slack user IDs<br>Example:<br>`alice: U1234567890`<br>`kronk: U2345678901`           |

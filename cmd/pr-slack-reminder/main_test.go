@@ -212,13 +212,13 @@ func TestScenarios(t *testing.T) {
 			configOverrides: &map[string]any{
 				config.InputGithubRepositories: func() string {
 					var repos []string
-					for i := 1; i <= 51; i++ {
+					for i := 1; i <= 31; i++ {
 						repos = append(repos, "org"+strconv.Itoa(i)+"/repo"+strconv.Itoa(i))
 					}
 					return strings.Join(repos, "\n")
 				}(),
 			},
-			expectedErrorMsg: "configuration error: too many repositories: maximum of 50 repositories allowed, got 51",
+			expectedErrorMsg: "configuration error: too many repositories: maximum of 30 repositories allowed, got 31",
 		},
 		{
 			name:            "no PRs found with message",

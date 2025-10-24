@@ -34,7 +34,7 @@ inputs: {
     required: false,
   },
   github-repositories: {
-    description: 'Line break separated list of GitHub repositories (max 50) to check for open PRs. If not provided, the repository of the current workflow run will be used.',
+    description: 'Line break separated list of GitHub repositories (max 30) to check for open PRs. If not provided, the repository of the current workflow run will be used.',
     required: false,
   },
   filters: {

@@ -33,7 +33,7 @@ const (
 	InputGroupByRepository           string = "group-by-repository"
 	InputRepositoryPrefixes          string = "repository-prefixes"
 
-	MaxRepositories int = 50
+	MaxRepositories int = 30
 
 	DefaultRunMode       = RunModePost
 	DefaultStateFilePath = ".pr-slack-reminder/state.json"

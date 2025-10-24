@@ -707,7 +707,7 @@ func TestGetConfig_RepositoryValidation(t *testing.T) {
 			setupConfig: func(h *ConfigTestHelpers) {
 				h.setupMinimalValidConfig()
 				var repos []string
-				for i := 1; i <= 50; i++ {
+				for i := 1; i <= 30; i++ {
 					repos = append(repos, fmt.Sprintf("org%d/repo%d", i, i))
 				}
 				h.setInputList(config.InputGithubRepositories, repos)
@@ -719,13 +719,13 @@ func TestGetConfig_RepositoryValidation(t *testing.T) {
 			setupConfig: func(h *ConfigTestHelpers) {
 				h.setupMinimalValidConfig()
 				var repos []string
-				for i := 1; i <= 51; i++ { // 51 exceeds the limit of 50
+				for i := 1; i <= 31; i++ { // 31 exceeds the limit of 30
 					repos = append(repos, fmt.Sprintf("org%d/repo%d", i, i))
 				}
 				h.setInputList(config.InputGithubRepositories, repos)
 			},
 			expectError:    true,
-			expectedErrMsg: "too many repositories: maximum of 50 repositories allowed, got 51",
+			expectedErrMsg: "too many repositories: maximum of 30 repositories allowed, got 31",
 		},
 	}
 
