@@ -67,8 +67,8 @@ inputs: {
     required: false,
     default: 'false',
   },
-  repository-prefixes: {
-    description: 'Repository-specific prefixes to display before PR titles (e.g., "repo1: 🚀; repo2: 📦")',
+  repository-aliases: {
+    description: 'Repository aliases to display after PR titles (e.g., "repo1: 🚀; repo2: 📦"). Useful if group-by-repository is disabled.',
     required: false,
   },
 }

@@ -1,6 +1,6 @@
 // Package prparser enriches raw GitHub PR data with additional metadata
 // for message display. It handles Slack user ID mapping, age calculation,
-// repository prefixes, and sorting of PRs for presentation.
+// repository aliases, and sorting of PRs for presentation.
 package prparser
 
 import (
@@ -61,8 +61,8 @@ func getPRParser(config config.ContentInputs) func(pr githubclient.PR) PR {
 
 func parsePR(pr githubclient.PR, config config.ContentInputs) PR {
 	prefix := ""
-	if config.RepositoryPrefixes != nil {
-		prefix = config.RepositoryPrefixes[pr.Repository.Name]
+	if config.RepositoryAliases != nil {
+		prefix = config.RepositoryAliases[pr.Repository.Name]
 	}
 
 	return PR{
