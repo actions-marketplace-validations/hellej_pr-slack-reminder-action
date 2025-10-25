@@ -63,17 +63,14 @@ type ContentInputs struct {
 	NoPRsMessage                string
 	OldPRThresholdHours         int
 	GroupByRepository           bool
-	PRLinkRepoPrefixes          map[string]string
+	prLinkRepoPrefixes          map[string]string
 }
 
 func (contentInputs ContentInputs) GetPRLinkRepoPrefix(repo models.Repository) string {
-	prefix, exists := contentInputs.PRLinkRepoPrefixes[repo.GetPath()]
-	if exists {
-		return prefix
-	}
-	prefix, exists = contentInputs.PRLinkRepoPrefixes[repo.Name]
-	if exists {
-		return prefix
+	for _, key := range []string{repo.GetPath(), repo.Name} {
+		if prefix, exists := contentInputs.prLinkRepoPrefixes[key]; exists {
+			return prefix
+		}
 	}
 	return ""
 }
@@ -141,7 +138,7 @@ func GetConfig() (Config, error) {
 			NoPRsMessage:                noPRsMessage,
 			OldPRThresholdHours:         oldPRsThresholdHours,
 			GroupByRepository:           groupByRepository,
-			PRLinkRepoPrefixes:          inputhelpers.UnquoteValues(prLinkRepoPrefixes),
+			prLinkRepoPrefixes:          inputhelpers.UnquoteValues(prLinkRepoPrefixes),
 		},
 	}
 
@@ -153,13 +150,10 @@ func GetConfig() (Config, error) {
 }
 
 func (c Config) GetFiltersForRepository(repo models.Repository) Filters {
-	filters, exists := c.RepositoryFilters[repo.GetPath()]
-	if exists {
-		return filters
-	}
-	filters, exists = c.RepositoryFilters[repo.Name]
-	if exists {
-		return filters
+	for _, key := range []string{repo.GetPath(), repo.Name} {
+		if filters, exists := c.RepositoryFilters[key]; exists {
+			return filters
+		}
 	}
 	return c.GlobalFilters
 }
@@ -199,7 +193,7 @@ func (c Config) validateRepositoryNames() error {
 		return err
 	}
 	if err := validateRepositoryReferences(
-		c.Repositories, c.ContentInputs.PRLinkRepoPrefixes, "pr-link-repo-prefixes",
+		c.Repositories, c.ContentInputs.prLinkRepoPrefixes, "pr-link-repo-prefixes",
 	); err != nil {
 		return err
 	}

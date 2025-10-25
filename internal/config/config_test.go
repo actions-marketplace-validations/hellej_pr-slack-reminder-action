@@ -225,11 +225,12 @@ func TestGetConfig_FullValid(t *testing.T) {
 	}
 
 	expectedPrefixes := map[string]string{
-		"repo1": "R1",
-		"repo2": "R2",
+		"test-org/repo1": "R1",
+		"test-org/repo2": "R2",
 	}
-	for repo, expectedPrefix := range expectedPrefixes {
-		if prefix, exists := cfg.ContentInputs.PRLinkRepoPrefixes[repo]; !exists {
+	for repoPath, expectedPrefix := range expectedPrefixes {
+		repo := h.createRepository(repoPath)
+		if prefix := cfg.ContentInputs.GetPRLinkRepoPrefix(repo); prefix == "" {
 			t.Errorf("Expected repository prefix for '%s' to exist", repo)
 		} else if prefix != expectedPrefix {
 			t.Errorf("Expected prefix '%s' for repo '%s', got '%s'", expectedPrefix, repo, prefix)
@@ -852,5 +853,210 @@ func TestGetConfig_StateFilePath_Custom(t *testing.T) {
 	}
 	if cfg.StateFilePath != custom {
 		t.Errorf("Expected custom StateFilePath '%s', got '%s'", custom, cfg.StateFilePath)
+	}
+}
+
+func TestContentInputs_GetPRLinkRepoPrefix(t *testing.T) {
+	testCases := []struct {
+		name           string
+		repositories   []string
+		prefixes       map[string]string
+		testRepository string
+		expectedPrefix string
+	}{
+		{
+			name:           "empty prefixes map",
+			repositories:   []string{"test-org/test-repo"},
+			prefixes:       map[string]string{},
+			testRepository: "test-org/test-repo",
+			expectedPrefix: "",
+		},
+		{
+			name:           "no match found",
+			repositories:   []string{"test-org/test-repo", "test-org/other-repo"},
+			prefixes:       map[string]string{"other-repo": "OR"},
+			testRepository: "test-org/test-repo",
+			expectedPrefix: "",
+		},
+		{
+			name:           "match by full path",
+			repositories:   []string{"test-org/test-repo"},
+			prefixes:       map[string]string{"test-org/test-repo": "TR"},
+			testRepository: "test-org/test-repo",
+			expectedPrefix: "TR",
+		},
+		{
+			name:           "match by repository name only",
+			repositories:   []string{"test-org/test-repo"},
+			prefixes:       map[string]string{"test-repo": "TR"},
+			testRepository: "test-org/test-repo",
+			expectedPrefix: "TR",
+		},
+		{
+			name:         "full path takes precedence over name",
+			repositories: []string{"test-org/test-repo"},
+			prefixes: map[string]string{
+				"test-repo":          "NAME_MATCH",
+				"test-org/test-repo": "FULL_PATH_MATCH",
+			},
+			testRepository: "test-org/test-repo",
+			expectedPrefix: "FULL_PATH_MATCH",
+		},
+		{
+			name:         "different organization same repo name - no ambiguous match",
+			repositories: []string{"test-org/test-repo", "other-org/different-repo"},
+			prefixes: map[string]string{
+				"other-org/different-repo": "OTHER_ORG",
+				"test-repo":                "NAME_MATCH",
+			},
+			testRepository: "test-org/test-repo",
+			expectedPrefix: "NAME_MATCH",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newConfigTestHelpers(t)
+			h.setupMinimalValidConfig()
+			h.setInputList(config.InputGithubRepositories, tc.repositories)
+			h.setInputMapping(config.InputPRLinkRepoPrefixes, tc.prefixes)
+
+			cfg, err := config.GetConfig()
+			if err != nil {
+				t.Fatalf("Expected no error creating config, got: %v", err)
+			}
+
+			repo := h.createRepository(tc.testRepository)
+			actualPrefix := cfg.ContentInputs.GetPRLinkRepoPrefix(repo)
+			if actualPrefix != tc.expectedPrefix {
+				t.Errorf("Expected prefix '%s', got '%s'", tc.expectedPrefix, actualPrefix)
+			}
+		})
+	}
+}
+
+func TestConfig_GetFiltersForRepository(t *testing.T) {
+	testCases := []struct {
+		name              string
+		globalFilters     config.Filters
+		repositoryFilters map[string]config.Filters
+		repository        string
+		expectedAuthors   []string
+		expectedLabels    []string
+	}{
+		{
+			name: "no repository-specific filters - returns global",
+			globalFilters: config.Filters{
+				Authors: []string{"global-author"},
+				Labels:  []string{"global-label"},
+			},
+			repositoryFilters: map[string]config.Filters{},
+			repository:        "test-org/test-repo",
+			expectedAuthors:   []string{"global-author"},
+			expectedLabels:    []string{"global-label"},
+		},
+		{
+			name: "match by full path",
+			globalFilters: config.Filters{
+				Authors: []string{"global-author"},
+			},
+			repositoryFilters: map[string]config.Filters{
+				"test-org/test-repo": {
+					Authors: []string{"path-specific-author"},
+					Labels:  []string{"path-specific-label"},
+				},
+			},
+			repository:      "test-org/test-repo",
+			expectedAuthors: []string{"path-specific-author"},
+			expectedLabels:  []string{"path-specific-label"},
+		},
+		{
+			name: "match by repository name only",
+			globalFilters: config.Filters{
+				Authors: []string{"global-author"},
+			},
+			repositoryFilters: map[string]config.Filters{
+				"test-repo": {
+					Authors: []string{"name-specific-author"},
+					Labels:  []string{"name-specific-label"},
+				},
+			},
+			repository:      "test-org/test-repo",
+			expectedAuthors: []string{"name-specific-author"},
+			expectedLabels:  []string{"name-specific-label"},
+		},
+		{
+			name: "full path takes precedence over name",
+			globalFilters: config.Filters{
+				Authors: []string{"global-author"},
+			},
+			repositoryFilters: map[string]config.Filters{
+				"test-repo": {
+					Authors: []string{"name-match-author"},
+				},
+				"test-org/test-repo": {
+					Authors: []string{"full-path-author"},
+					Labels:  []string{"full-path-label"},
+				},
+			},
+			repository:      "test-org/test-repo",
+			expectedAuthors: []string{"full-path-author"},
+			expectedLabels:  []string{"full-path-label"},
+		},
+		{
+			name: "no match - fallback to global filters",
+			globalFilters: config.Filters{
+				Authors: []string{"fallback-author"},
+				Labels:  []string{"fallback-label"},
+			},
+			repositoryFilters: map[string]config.Filters{
+				"other-repo": {
+					Authors: []string{"other-author"},
+				},
+			},
+			repository:      "test-org/test-repo",
+			expectedAuthors: []string{"fallback-author"},
+			expectedLabels:  []string{"fallback-label"},
+		},
+		{
+			name:              "empty filters everywhere",
+			globalFilters:     config.Filters{},
+			repositoryFilters: map[string]config.Filters{},
+			repository:        "test-org/test-repo",
+			expectedAuthors:   []string(nil),
+			expectedLabels:    []string(nil),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newConfigTestHelpers(t)
+			repo := h.createRepository(tc.repository)
+
+			cfg := config.Config{
+				GlobalFilters:     tc.globalFilters,
+				RepositoryFilters: tc.repositoryFilters,
+			}
+
+			actualFilters := cfg.GetFiltersForRepository(repo)
+
+			if len(actualFilters.Authors) != len(tc.expectedAuthors) {
+				t.Errorf("Expected authors length %d, got %d", len(tc.expectedAuthors), len(actualFilters.Authors))
+			}
+			for i, expectedAuthor := range tc.expectedAuthors {
+				if i >= len(actualFilters.Authors) || actualFilters.Authors[i] != expectedAuthor {
+					t.Errorf("Expected author[%d] '%s', got '%s'", i, expectedAuthor, actualFilters.Authors[i])
+				}
+			}
+
+			if len(actualFilters.Labels) != len(tc.expectedLabels) {
+				t.Errorf("Expected labels length %d, got %d", len(tc.expectedLabels), len(actualFilters.Labels))
+			}
+			for i, expectedLabel := range tc.expectedLabels {
+				if i >= len(actualFilters.Labels) || actualFilters.Labels[i] != expectedLabel {
+					t.Errorf("Expected label[%d] '%s', got '%s'", i, expectedLabel, actualFilters.Labels[i])
+				}
+			}
+		})
 	}
 }
