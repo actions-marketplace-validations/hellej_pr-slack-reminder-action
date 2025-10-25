@@ -14,12 +14,14 @@ func MakeMockGitHubClientGetter(
 	listPRsResponseStatus int,
 	listPRsErr error,
 	reviewsByPRNumber map[int][]*github.PullRequestReview,
+	commentsByPRNumber map[int][]*github.PullRequestComment,
 ) func(token string) githubclient.Client {
 	return func(token string) githubclient.Client {
 		mockPRService := &mockPullRequestsService{
-			mockPRs:               prs,
-			mockPRsByRepo:         prsByRepo,
-			mockReviewsByPRNumber: reviewsByPRNumber,
+			mockPRs:                prs,
+			mockPRsByRepo:          prsByRepo,
+			mockReviewsByPRNumber:  reviewsByPRNumber,
+			mockCommentsByPRNumber: commentsByPRNumber,
 			mockResponse: &github.Response{
 				Response: &http.Response{
 					StatusCode: listPRsResponseStatus,
@@ -52,12 +54,33 @@ func NewReview(id int64, state, login, name, body string, userType ...string) *g
 	}
 }
 
+func NewComment(id int64, login, name, body string, userType ...string) *github.PullRequestComment {
+	var t *string
+	if len(userType) > 0 && userType[0] != "" {
+		t = github.Ptr(userType[0])
+	}
+	var b *string
+	if body != "" {
+		b = github.Ptr(body)
+	}
+	return &github.PullRequestComment{
+		ID:   github.Ptr(id),
+		Body: b,
+		User: &github.User{
+			Login: github.Ptr(login),
+			Name:  github.Ptr(name),
+			Type:  t,
+		},
+	}
+}
+
 type mockPullRequestsService struct {
-	mockPRs               []*github.PullRequest
-	mockPRsByRepo         map[string][]*github.PullRequest
-	mockReviewsByPRNumber map[int][]*github.PullRequestReview
-	mockResponse          *github.Response
-	mockError             error
+	mockPRs                []*github.PullRequest
+	mockPRsByRepo          map[string][]*github.PullRequest
+	mockReviewsByPRNumber  map[int][]*github.PullRequestReview
+	mockCommentsByPRNumber map[int][]*github.PullRequestComment
+	mockResponse           *github.Response
+	mockError              error
 }
 
 func (m *mockPullRequestsService) List(
@@ -74,4 +97,11 @@ func (m *mockPullRequestsService) ListReviews(
 ) ([]*github.PullRequestReview, *github.Response, error) {
 	reviews := m.mockReviewsByPRNumber[number]
 	return reviews, m.mockResponse, m.mockError
+}
+
+func (m *mockPullRequestsService) ListComments(
+	ctx context.Context, owner string, repo string, number int, opts *github.PullRequestListCommentsOptions,
+) ([]*github.PullRequestComment, *github.Response, error) {
+	comments := m.mockCommentsByPRNumber[number]
+	return comments, m.mockResponse, m.mockError
 }

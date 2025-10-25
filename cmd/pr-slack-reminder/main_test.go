@@ -610,7 +610,7 @@ func TestScenarios(t *testing.T) {
 			testhelpers.SetTestEnvironment(t, tc.config, tc.configOverrides)
 
 			getGitHubClient := mockgithubclient.MakeMockGitHubClientGetter(
-				tc.prs, tc.prsByRepo, cmp.Or(tc.fetchPRsStatus, 200), tc.fetchPRsError, tc.reviewsByPRNumber,
+				tc.prs, tc.prsByRepo, cmp.Or(tc.fetchPRsStatus, 200), tc.fetchPRsError, tc.reviewsByPRNumber, nil,
 			)
 			mockSlackAPI := mockslackclient.GetMockSlackAPI(tc.foundSlackChannels, tc.findChannelError, tc.sendMessageError)
 			getSlackClient := mockslackclient.MakeSlackClientGetter(mockSlackAPI)
@@ -721,7 +721,7 @@ func TestPostModeStateSaving(t *testing.T) {
 	testPRs := getTestPRs(GetTestPRsOptions{})
 
 	mockGitHubClientGetter := mockgithubclient.MakeMockGitHubClientGetter(
-		testPRs.PRs, nil, 200, nil, nil,
+		testPRs.PRs, nil, 200, nil, nil, nil,
 	)
 	mockSlackAPI := mockslackclient.GetMockSlackAPI(nil, nil, nil)
 

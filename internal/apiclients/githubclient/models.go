@@ -26,15 +26,16 @@ type PRResult struct {
 type FetchReviewsResult struct {
 	pr         *github.PullRequest
 	reviews    []*github.PullRequestReview
+	comments   []*github.PullRequestComment
 	repository models.Repository
 	err        error
 }
 
 func (r FetchReviewsResult) printResult() {
 	if r.err != nil {
-		log.Printf("Unable to fetch reviews for PR #%d: %v", r.pr.GetNumber(), r.err)
+		log.Printf("Unable to fetch reviews/comments for PR #%d: %v", r.pr.GetNumber(), r.err)
 	} else {
-		log.Printf("Found %d reviews for PR %v/%d", len(r.reviews), r.repository, r.pr.GetNumber())
+		log.Printf("Found %d reviews and %d comments for PR %v/%d", len(r.reviews), len(r.comments), r.repository, r.pr.GetNumber())
 	}
 }
 
@@ -55,6 +56,10 @@ func isBot(user *github.User) bool {
 	return userType == "Bot"
 }
 
+type GitHubUserProvider interface {
+	GetUser() *github.User
+}
+
 // Returns the GitHub name if available, otherwise login.
 func (c Collaborator) GetGitHubName() string {
 	return cmp.Or(c.Name, c.Login)
@@ -62,14 +67,21 @@ func (c Collaborator) GetGitHubName() string {
 
 func (r FetchReviewsResult) asPR() PR {
 	authorLogin := r.pr.GetUser().GetLogin()
-	reviewsWithValidUser := utilities.Filter(r.reviews, hasValidReviewerUserData)
+
+	reviewsWithValidUser := utilities.Filter(r.reviews, hasValidUserData)
+	commentsWithValidUser := utilities.Filter(r.comments, hasValidUserData)
 
 	approvingReviews := utilities.Filter(reviewsWithValidUser, isApprovingReview)
-	approvedByUsers := extractUniqueCollaboratorsFromReviews(approvingReviews)
+	approvedByUsers := extractUniqueCollaborators(approvingReviews)
 
-	allReviewsAndComments := reviewsWithValidUser
+	reviewCommenters := extractUniqueCollaborators(reviewsWithValidUser)
+	standaloneCommenters := extractUniqueCollaborators(commentsWithValidUser)
+	allCommenters := utilities.UniqueFunc(
+		append(reviewCommenters, standaloneCommenters...),
+		isUniqueCollaborator,
+	)
 	commentedByUsers := utilities.Filter(
-		extractUniqueCollaboratorsFromReviews(allReviewsAndComments),
+		allCommenters,
 		getFilterForCommenters(authorLogin, approvedByUsers),
 	)
 
@@ -82,19 +94,19 @@ func (r FetchReviewsResult) asPR() PR {
 	}
 }
 
-func hasValidReviewerUserData(r *github.PullRequestReview) bool {
-	user := r.GetUser()
+func hasValidUserData[T GitHubUserProvider](item T) bool {
+	user := item.GetUser()
 	return user != nil && user.GetLogin() != "" && !isBot(user)
 }
 
-func extractUniqueCollaboratorsFromReviews(reviews []*github.PullRequestReview) []Collaborator {
+func extractUniqueCollaborators[T GitHubUserProvider](items []T) []Collaborator {
 	return utilities.UniqueFunc(
-		utilities.Map(reviews, getCollaborator), isUniqueCollaborator,
+		utilities.Map(items, getCollaborator[T]), isUniqueCollaborator,
 	)
 }
 
-func getCollaborator(r *github.PullRequestReview) Collaborator {
-	return newCollaboratorFromUser(r.GetUser())
+func getCollaborator[T GitHubUserProvider](item T) Collaborator {
+	return newCollaboratorFromUser(item.GetUser())
 }
 
 func isUniqueCollaborator(a, b Collaborator) bool {

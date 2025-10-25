@@ -36,6 +36,11 @@ type GithubPullRequestsService interface {
 	) (
 		[]*github.PullRequestReview, *github.Response, error,
 	)
+	ListComments(
+		ctx context.Context, owner string, repo string, number int, opts *github.PullRequestListCommentsOptions,
+	) (
+		[]*github.PullRequestComment, *github.Response, error,
+	)
 }
 
 func NewClient(prService GithubPullRequestsService) Client {
@@ -145,35 +150,61 @@ func logFoundPRs(prResults []PRResult) {
 // Fetches review and comment data for the given PRs and returns enriched PR data.
 // Returns all PRs even if fetching review data for some PRs fails (those will just be missing reviewer info then).
 func (c *client) addReviewerInfoToPRs(ctx context.Context, prResults []PRResult) ([]PR, error) {
-	log.Printf("\nFetching pull request reviews for PRs")
+	log.Printf("\nFetching pull request reviews and comments for PRs")
 
-	reviewsGroup, reviewsCtx := errgroup.WithContext(ctx)
-	reviewsGroup.SetLimit(DefaultGitHubAPIConcurrencyLimit)
+	prProcessingGroup, prProcessingCtx := errgroup.WithContext(ctx)
+	prProcessingGroup.SetLimit(DefaultGitHubAPIConcurrencyLimit)
 	resultChannel := make(chan FetchReviewsResult, len(prResults))
 
 	for _, result := range prResults {
 		repo := result.repository
 		pr := result.pr
-		reviewsGroup.Go(func() error {
-			callCtx, cancel := context.WithTimeout(reviewsCtx, ReviewsFetchTimeout)
+		prProcessingGroup.Go(func() error {
+			callCtx, cancel := context.WithTimeout(prProcessingCtx, ReviewsFetchTimeout)
 			defer cancel()
-			reviews, err := fetchPRReviews(
-				callCtx, c.prService, repo.Owner, repo.Name, *pr.Number,
-			)
+
+			var reviews []*github.PullRequestReview
+			var comments []*github.PullRequestComment
+			var reviewsErr, commentsErr error
+
+			// Inner group for fetching reviews and comments for this PR in parallel
+			dataFetchGroup, dataFetchCtx := errgroup.WithContext(callCtx)
+
+			dataFetchGroup.Go(func() error {
+				reviews, reviewsErr = fetchPRReviews(
+					dataFetchCtx, c.prService, repo.Owner, repo.Name, *pr.Number,
+				)
+				return nil // capture error in reviewsErr
+			})
+
+			dataFetchGroup.Go(func() error {
+				comments, commentsErr = fetchPRComments(
+					dataFetchCtx, c.prService, repo.Owner, repo.Name, *pr.Number,
+				)
+				return nil // capture error in commentsErr
+			})
+
+			dataFetchGroup.Wait()
+
 			fetchReviewsResult := FetchReviewsResult{
 				pr:         pr,
 				reviews:    reviews,
+				comments:   comments,
 				repository: repo,
 			}
-			if err != nil {
-				fetchReviewsResult.err = err
+
+			if reviewsErr != nil {
+				fetchReviewsResult.err = reviewsErr
+			} else if commentsErr != nil {
+				fetchReviewsResult.err = commentsErr
 			}
+
 			resultChannel <- fetchReviewsResult
-			return nil
+			return nil // Don't fail outer group - we handle partial failures gracefully
 		})
 	}
 
-	if err := reviewsGroup.Wait(); err != nil {
+	if err := prProcessingGroup.Wait(); err != nil {
 		return nil, err
 	}
 	close(resultChannel)
@@ -225,4 +256,37 @@ func fetchPRReviews(
 		opts.Page = response.NextPage
 	}
 	return reviews, nil
+}
+
+const commentsPerPage = 100 // Fetch only the first 100 comments to keep things simple and performant
+
+func fetchPRComments(
+	ctx context.Context,
+	prService GithubPullRequestsService,
+	owner, repo string,
+	number int,
+) ([]*github.PullRequestComment, error) {
+	opts := &github.PullRequestListCommentsOptions{
+		ListOptions: github.ListOptions{PerPage: commentsPerPage},
+	}
+
+	comments, response, err := prService.ListComments(ctx, owner, repo, number, opts)
+
+	if err == nil {
+		return comments, nil
+	}
+
+	statusText := ""
+	if response != nil && response.Status != "" {
+		statusText = " status=" + response.Status
+	}
+	return nil, fmt.Errorf(
+		"error fetching comments for pull request %s/%s/%d%s: %w",
+		owner,
+		repo,
+		number,
+		statusText,
+		err,
+	)
+
 }
