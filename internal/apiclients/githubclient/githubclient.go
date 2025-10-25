@@ -38,8 +38,8 @@ type GithubPullRequestsService interface {
 	)
 }
 
-func NewClient(prsService GithubPullRequestsService) Client {
-	return &client{prsService: prsService}
+func NewClient(prService GithubPullRequestsService) Client {
+	return &client{prService: prService}
 }
 
 func GetAuthenticatedClient(token string) Client {
@@ -48,7 +48,7 @@ func GetAuthenticatedClient(token string) Client {
 }
 
 type client struct {
-	prsService GithubPullRequestsService
+	prService GithubPullRequestsService
 }
 
 // DefaultGitHubAPIConcurrencyLimit caps concurrent repository fetches to avoid
@@ -108,7 +108,7 @@ func (c *client) fetchOpenPRsForRepository(
 ) ([]PRResult, error) {
 	callCtx, cancel := context.WithTimeout(ctx, PullRequestListTimeout)
 	defer cancel()
-	prs, response, err := c.prsService.List(
+	prs, response, err := c.prService.List(
 		callCtx, repo.Owner, repo.Name, &github.PullRequestListOptions{ListOptions: github.ListOptions{PerPage: 100}},
 	)
 	if err == nil {
@@ -158,7 +158,7 @@ func (c *client) addReviewerInfoToPRs(ctx context.Context, prResults []PRResult)
 			callCtx, cancel := context.WithTimeout(reviewsCtx, ReviewsFetchTimeout)
 			defer cancel()
 			reviews, err := fetchPRReviews(
-				callCtx, c.prsService, repo.Owner, repo.Name, *pr.Number,
+				callCtx, c.prService, repo.Owner, repo.Name, *pr.Number,
 			)
 			fetchReviewsResult := FetchReviewsResult{
 				pr:         pr,
@@ -190,7 +190,7 @@ const reviewsMaximumPages = 2
 
 func fetchPRReviews(
 	ctx context.Context,
-	prsService GithubPullRequestsService,
+	prService GithubPullRequestsService,
 	owner, repo string,
 	number int,
 ) ([]*github.PullRequestReview, error) {
@@ -199,7 +199,7 @@ func fetchPRReviews(
 	pagesFetched := 0
 
 	for {
-		reviewsPage, response, err := prsService.ListReviews(ctx, owner, repo, number, opts)
+		reviewsPage, response, err := prService.ListReviews(ctx, owner, repo, number, opts)
 
 		if err != nil {
 			statusText := ""
