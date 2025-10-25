@@ -4,11 +4,15 @@
 
 This GitHub Action sends a friendly Slack reminder about open Pull Requests. The Slack message contains a list of PRs with (optional) highlighting for the old ones.
 
-> ⚠️ **Beta Version Notice**: This action is currently in beta (`v1-beta`). While functional and tested, the API may change before the stable `v1` release planned for November 2025.
+> ⚠️ **Beta version notice**: This action is currently in beta (`v1-beta`). While functional and tested, the API may change before the stable `v1` release planned for November 2025.
+
+### Example Output
+
+<img src="docs/examples/example_1.png" alt="Example Slack message" width="600" style="border: 1px solid #ddd; border-radius: 4px; padding: 8px;">
 
 ## GitHub's Built-in vs This Action
 
-You may not need this action; GitHub provides [built-in scheduled reminders for teams](https://docs.github.com/en/organizations/organizing-members-into-teams/managing-scheduled-reminders-for-your-team) which can work well in many situations.
+You may not need this action; GitHub provides [built-in scheduled reminders for teams](https://docs.github.com/en/organizations/organizing-members-into-teams/managing-scheduled-reminders-for-your-team) which work well in many situations.
 
 **When to use GitHub's built-in reminders:**
 
@@ -23,11 +27,12 @@ You may not need this action; GitHub provides [built-in scheduled reminders for 
 
 - Monitor up to 30 repositories
 - Highlight old PRs that need attention (with optional age threshold input)
+- Concise review status info for each PR with emojis (incl. approvers & commenters)
+- More customizable message content (e.g. custom heading and prefixes for PR links by repository)
 - Global and repository specific filters
+- Anyone can set this up (no need to be a GitHub team maintainer)
 - No need for official GitHub team setup
-- Anyone can set this up (no need to be GitHub team maintainer)
 - No need for perfect CODEOWNERS files to get reminded about the right PRs
-- More customizable Slack message content
 
 ## Getting Started
 
