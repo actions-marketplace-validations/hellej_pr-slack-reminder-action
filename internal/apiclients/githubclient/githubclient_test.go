@@ -402,12 +402,48 @@ func TestFetchOpenPRs(t *testing.T) {
 }
 
 func TestFetchOpenPRs_MultipleRepositories(t *testing.T) {
-	mockPRService1 := &mockPullRequestsService{mockPRs: []*github.PullRequest{{Number: github.Ptr(1), Title: github.Ptr("Repo1 PR"), Draft: github.Ptr(false), HTMLURL: github.Ptr("https://example.com/r1/1"), User: &github.User{Login: github.Ptr("author1")}}}, mockReviewsByPRNumber: map[int][]*github.PullRequestReview{}, mockCommentsByPRNumber: map[int][]*github.PullRequestComment{}, mockResponse: &github.Response{Response: &http.Response{StatusCode: 200}}, mockError: nil}
-	mockPRService2 := &mockPullRequestsService{mockPRs: []*github.PullRequest{{Number: github.Ptr(2), Title: github.Ptr("Repo2 PR"), Draft: github.Ptr(false), HTMLURL: github.Ptr("https://example.com/r2/2"), User: &github.User{Login: github.Ptr("author2")}}}, mockReviewsByPRNumber: map[int][]*github.PullRequestReview{}, mockCommentsByPRNumber: map[int][]*github.PullRequestComment{}, mockResponse: &github.Response{Response: &http.Response{StatusCode: 200}}, mockError: nil}
+	mockPRService1 := &mockPullRequestsService{
+		mockPRs: []*github.PullRequest{
+			{
+				Number:  github.Ptr(1),
+				Title:   github.Ptr("Repo1 PR"),
+				Draft:   github.Ptr(false),
+				HTMLURL: github.Ptr("https://example.com/r1/1"),
+				User:    &github.User{Login: github.Ptr("author1")},
+			},
+		},
+		mockReviewsByPRNumber:  map[int][]*github.PullRequestReview{},
+		mockCommentsByPRNumber: map[int][]*github.PullRequestComment{},
+		mockResponse:           &github.Response{Response: &http.Response{StatusCode: 200}},
+		mockError:              nil,
+	}
+	mockPRService2 := &mockPullRequestsService{
+		mockPRs: []*github.PullRequest{
+			{
+				Number:  github.Ptr(2),
+				Title:   github.Ptr("Repo2 PR"),
+				Draft:   github.Ptr(false),
+				HTMLURL: github.Ptr("https://example.com/r2/2"),
+				User:    &github.User{Login: github.Ptr("author2")},
+			},
+		},
+		mockReviewsByPRNumber:  map[int][]*github.PullRequestReview{},
+		mockCommentsByPRNumber: map[int][]*github.PullRequestComment{},
+		mockResponse:           &github.Response{Response: &http.Response{StatusCode: 200}},
+		mockError:              nil,
+	}
 
-	client := githubclient.NewClient(&multiRepoPRService{services: map[string]*mockPullRequestsService{"repo1": mockPRService1, "repo2": mockPRService2}})
+	client := githubclient.NewClient(&multiRepoPRService{
+		services: map[string]*mockPullRequestsService{"repo1": mockPRService1, "repo2": mockPRService2},
+	})
 	repos := []models.Repository{{Owner: "o", Name: "repo1"}, {Owner: "o", Name: "repo2"}}
-	result, err := client.FetchOpenPRs(context.Background(), repos, func(models.Repository) config.Filters { return config.Filters{} })
+	result, err := client.FetchOpenPRs(
+		context.Background(),
+		repos, func(models.Repository) config.Filters {
+			return config.Filters{}
+		},
+	)
+
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -421,12 +457,37 @@ func TestFetchOpenPRs_MultipleRepositories(t *testing.T) {
 }
 
 func TestFetchOpenPRs_ErrorShortCircuits(t *testing.T) {
-	mockPRService404 := &mockPullRequestsService{mockPRs: nil, mockReviewsByPRNumber: map[int][]*github.PullRequestReview{}, mockCommentsByPRNumber: map[int][]*github.PullRequestComment{}, mockResponse: &github.Response{Response: &http.Response{StatusCode: 404}}, mockError: fmt.Errorf("not found")}
-	mockPRServiceOK := &mockPullRequestsService{mockPRs: []*github.PullRequest{{Number: github.Ptr(3), Title: github.Ptr("Ok PR"), Draft: github.Ptr(false), HTMLURL: github.Ptr("https://example.com/r/3"), User: &github.User{Login: github.Ptr("author")}}}, mockReviewsByPRNumber: map[int][]*github.PullRequestReview{}, mockCommentsByPRNumber: map[int][]*github.PullRequestComment{}, mockResponse: &github.Response{Response: &http.Response{StatusCode: 200}}, mockError: nil}
+	mockPRService404 := &mockPullRequestsService{
+		mockPRs: nil, mockReviewsByPRNumber: map[int][]*github.PullRequestReview{},
+		mockCommentsByPRNumber: map[int][]*github.PullRequestComment{},
+		mockResponse:           &github.Response{Response: &http.Response{StatusCode: 404}},
+		mockError:              fmt.Errorf("not found"),
+	}
+	mockPRServiceOK := &mockPullRequestsService{
+		mockPRs: []*github.PullRequest{
+			{
+				Number:  github.Ptr(3),
+				Title:   github.Ptr("Ok PR"),
+				Draft:   github.Ptr(false),
+				HTMLURL: github.Ptr("https://example.com/r/3"),
+				User:    &github.User{Login: github.Ptr("author")},
+			},
+		},
+		mockReviewsByPRNumber:  map[int][]*github.PullRequestReview{},
+		mockCommentsByPRNumber: map[int][]*github.PullRequestComment{},
+		mockResponse:           &github.Response{Response: &http.Response{StatusCode: 200}},
+		mockError:              nil,
+	}
 
-	client := githubclient.NewClient(&multiRepoPRService{services: map[string]*mockPullRequestsService{"bad": mockPRService404, "good": mockPRServiceOK}})
+	client := githubclient.NewClient(&multiRepoPRService{
+		services: map[string]*mockPullRequestsService{"bad": mockPRService404, "good": mockPRServiceOK},
+	})
 	repos := []models.Repository{{Owner: "o", Name: "bad"}, {Owner: "o", Name: "good"}}
-	_, err := client.FetchOpenPRs(context.Background(), repos, func(models.Repository) config.Filters { return config.Filters{} })
+	_, err := client.FetchOpenPRs(
+		context.Background(),
+		repos,
+		func(models.Repository) config.Filters { return config.Filters{} },
+	)
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
@@ -440,7 +501,12 @@ func TestFetchOpenPRs_ConcurrencyLimit(t *testing.T) {
 		name := fmt.Sprintf("repo-%d", i)
 		services[name] = &mockPullRequestsService{
 			mockPRs: []*github.PullRequest{
-				{Number: github.Ptr(i + 100), Title: github.Ptr(name + " PR"), Draft: github.Ptr(false), HTMLURL: github.Ptr("https://example.com/" + name), User: &github.User{Login: github.Ptr("author")}},
+				{
+					Number:  github.Ptr(i + 100),
+					Title:   github.Ptr(name + " PR"),
+					Draft:   github.Ptr(false),
+					HTMLURL: github.Ptr("https://example.com/" + name),
+					User:    &github.User{Login: github.Ptr("author")}},
 			},
 			mockReviewsByPRNumber:  map[int][]*github.PullRequestReview{},
 			mockCommentsByPRNumber: map[int][]*github.PullRequestComment{},
@@ -450,7 +516,11 @@ func TestFetchOpenPRs_ConcurrencyLimit(t *testing.T) {
 		repos = append(repos, models.Repository{Owner: "o", Name: name})
 	}
 	client := githubclient.NewClient(&multiRepoPRService{services: services})
-	prs, err := client.FetchOpenPRs(context.Background(), repos, func(models.Repository) config.Filters { return config.Filters{} })
+	prs, err := client.FetchOpenPRs(
+		context.Background(),
+		repos,
+		func(models.Repository) config.Filters { return config.Filters{} },
+	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -514,7 +584,11 @@ func TestFetchOpenPRs_ReviewsPartialErrors(t *testing.T) {
 
 	client := githubclient.NewClient(prService)
 	repos := []models.Repository{{Owner: "o", Name: "repo"}}
-	prs, err := client.FetchOpenPRs(context.Background(), repos, func(models.Repository) config.Filters { return config.Filters{} })
+	prs, err := client.FetchOpenPRs(
+		context.Background(),
+		repos,
+		func(models.Repository) config.Filters { return config.Filters{} },
+	)
 	if err != nil {
 		t.Fatalf("did not expect error, got %v", err)
 	}
