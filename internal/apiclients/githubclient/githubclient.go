@@ -43,23 +43,32 @@ type GithubPullRequestsService interface {
 	)
 }
 
-func NewClient(prService GithubPullRequestsService) Client {
-	return &client{prService: prService}
+type GithubIssuesService interface {
+	ListComments(
+		ctx context.Context, owner string, repo string, number int, opts *github.IssueListCommentsOptions,
+	) (
+		[]*github.IssueComment, *github.Response, error,
+	)
+}
+
+func NewClient(prService GithubPullRequestsService, issueService GithubIssuesService) Client {
+	return &client{prService: prService, issueService: issueService}
 }
 
 func GetAuthenticatedClient(token string) Client {
 	ghClient := github.NewClient(nil).WithAuthToken(token)
-	return NewClient(ghClient.PullRequests)
+	return NewClient(ghClient.PullRequests, ghClient.Issues)
 }
 
 type client struct {
-	prService GithubPullRequestsService
+	prService    GithubPullRequestsService
+	issueService GithubIssuesService
 }
 
 // DefaultGitHubAPIConcurrencyLimit caps concurrent repository fetches to avoid
 // creating excessive simultaneous GitHub API calls when many repositories are configured.
 // Exported to allow tests (and potential future configuration) to reference it.
-const DefaultGitHubAPIConcurrencyLimit = 5
+const DefaultGitHubAPIConcurrencyLimit = 3
 
 // Per-call timeout defaults. Overridable in tests.
 var PullRequestListTimeout = 10 * time.Second
@@ -165,9 +174,10 @@ func (c *client) addReviewerInfoToPRs(ctx context.Context, prResults []PRResult)
 
 			var reviews []*github.PullRequestReview
 			var comments []*github.PullRequestComment
-			var reviewsErr, commentsErr error
+			var timelineComments []*github.IssueComment
+			var reviewsErr, commentsErr, timelineCommentsErr error
 
-			// Inner group for fetching reviews and comments for this PR in parallel
+			// Inner group for fetching reviews, comments, and timeline comments for this PR in parallel
 			dataFetchGroup, dataFetchCtx := errgroup.WithContext(callCtx)
 
 			dataFetchGroup.Go(func() error {
@@ -184,19 +194,29 @@ func (c *client) addReviewerInfoToPRs(ctx context.Context, prResults []PRResult)
 				return nil // capture error in commentsErr
 			})
 
+			dataFetchGroup.Go(func() error {
+				timelineComments, timelineCommentsErr = fetchPRTimelineComments(
+					dataFetchCtx, c.issueService, repo.Owner, repo.Name, *pr.Number,
+				)
+				return nil // capture error in timelineCommentsErr
+			})
+
 			dataFetchGroup.Wait()
 
 			fetchReviewsResult := FetchReviewsResult{
-				pr:         pr,
-				reviews:    reviews,
-				comments:   comments,
-				repository: repo,
+				pr:               pr,
+				reviews:          reviews,
+				comments:         comments,
+				timelineComments: timelineComments,
+				repository:       repo,
 			}
 
 			if reviewsErr != nil {
 				fetchReviewsResult.err = reviewsErr
 			} else if commentsErr != nil {
 				fetchReviewsResult.err = commentsErr
+			} else if timelineCommentsErr != nil {
+				fetchReviewsResult.err = timelineCommentsErr
 			}
 
 			resultChannel <- fetchReviewsResult
@@ -282,6 +302,39 @@ func fetchPRComments(
 	}
 	return nil, fmt.Errorf(
 		"error fetching comments for pull request %s/%s/%d%s: %w",
+		owner,
+		repo,
+		number,
+		statusText,
+		err,
+	)
+
+}
+
+const timelineCommentsPerPage = 100 // Fetch only the first 100 timeline comments to keep things simple and performant
+
+func fetchPRTimelineComments(
+	ctx context.Context,
+	issueService GithubIssuesService,
+	owner, repo string,
+	number int,
+) ([]*github.IssueComment, error) {
+	opts := &github.IssueListCommentsOptions{
+		ListOptions: github.ListOptions{PerPage: timelineCommentsPerPage},
+	}
+
+	comments, response, err := issueService.ListComments(ctx, owner, repo, number, opts)
+
+	if err == nil {
+		return comments, nil
+	}
+
+	statusText := ""
+	if response != nil && response.Status != "" {
+		statusText = " status=" + response.Status
+	}
+	return nil, fmt.Errorf(
+		"error fetching timeline comments for pull request %s/%s/%d%s: %w",
 		owner,
 		repo,
 		number,

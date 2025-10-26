@@ -24,18 +24,19 @@ type PRResult struct {
 }
 
 type FetchReviewsResult struct {
-	pr         *github.PullRequest
-	reviews    []*github.PullRequestReview
-	comments   []*github.PullRequestComment
-	repository models.Repository
-	err        error
+	pr               *github.PullRequest
+	reviews          []*github.PullRequestReview
+	comments         []*github.PullRequestComment
+	timelineComments []*github.IssueComment
+	repository       models.Repository
+	err              error
 }
 
 func (r FetchReviewsResult) printResult() {
 	if r.err != nil {
 		log.Printf("Unable to fetch reviews/comments for PR #%d: %v", r.pr.GetNumber(), r.err)
 	} else {
-		log.Printf("Found %d reviews and %d comments for PR %v/%d", len(r.reviews), len(r.comments), r.repository, r.pr.GetNumber())
+		log.Printf("Found %d reviews, %d PR comments, and %d timeline comments for PR %v/%d", len(r.reviews), len(r.comments), len(r.timelineComments), r.repository, r.pr.GetNumber())
 	}
 }
 
@@ -70,18 +71,18 @@ func (r FetchReviewsResult) asPR() PR {
 
 	reviewsWithValidUser := utilities.Filter(r.reviews, hasValidUserData)
 	commentsWithValidUser := utilities.Filter(r.comments, hasValidUserData)
+	timelineCommentsWithValidUser := utilities.Filter(r.timelineComments, hasValidUserData)
 
 	approvingReviews := utilities.Filter(reviewsWithValidUser, isApprovingReview)
 	approvedByUsers := extractUniqueCollaborators(approvingReviews)
 
 	reviewCommenters := extractUniqueCollaborators(reviewsWithValidUser)
 	standaloneCommenters := extractUniqueCollaborators(commentsWithValidUser)
-	allCommenters := utilities.UniqueFunc(
-		append(reviewCommenters, standaloneCommenters...),
-		isUniqueCollaborator,
-	)
+	timelineCommenters := extractUniqueCollaborators(timelineCommentsWithValidUser)
+
+	allCommenters := slices.Concat(reviewCommenters, standaloneCommenters, timelineCommenters)
 	commentedByUsers := utilities.Filter(
-		allCommenters,
+		utilities.UniqueFunc(allCommenters, isUniqueCollaborator),
 		getFilterForCommenters(authorLogin, approvedByUsers),
 	)
 

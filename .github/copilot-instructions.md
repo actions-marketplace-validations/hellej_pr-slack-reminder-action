@@ -57,7 +57,7 @@ go run .github/scripts/check_inputs.go
 This is a GitHub Action written in Go that fetches PRs from GitHub repositories and sends a Slack reminder listing them. The architecture follows a clear data pipeline:
 
 1. **Config** (`internal/config/`) - Parses GitHub Action inputs using environment variables with `INPUT_` prefix pattern
-2. **GitHub Client** (`internal/apiclients/githubclient/`) - Fetches PR data and reviews, applies filtering
+2. **GitHub Client** (`internal/apiclients/githubclient/`) - Fetches PR data and reviews, applies filtering. Uses threefold participant collection (PR reviews, PR comments, PR timeline comments) to ensure comprehensive coverage of all PR discussion participants
 3. **PR Parser** (`internal/prparser/`) - Enriches PR data with Slack user mappings and metadata
 4. **Message Content** (`internal/messagecontent/`) - Structures data for messaging
 5. **Message Builder** (`internal/messagebuilder/`) - Constructs Slack Block Kit messages
@@ -83,6 +83,15 @@ This is a GitHub Action written in Go that fetches PRs from GitHub repositories 
 - Config validation uses `selectNonNilError()` to return first encountered error
 - Filters validate mutual exclusivity (e.g., can't use both `authors` and `authors-ignore`)
 - Missing required inputs fail fast with descriptive error messages
+
+### PR Participant Collection
+
+- **Comprehensive Coverage**: GitHub Client fetches participant data from three sources to ensure no discussion participant is missed:
+  1. **PR Reviews** (`/pulls/{pull_number}/reviews`) - Formal review comments and approvals
+  2. **PR Comments** (`/pulls/{pull_number}/comments`) - Line-specific code review comments  
+  3. **PR Timeline Comments** (`/issues/{issue_number}/comments`) - General discussion comments on the PR timeline (PRs are also issues in GitHub's API)
+- **Parallel Fetching**: All three data sources are fetched concurrently for optimal performance
+- **Consistent Filtering**: All participant types undergo the same validation (bot exclusion, author exclusion from commenters, approvers take precedence over commenters)
 
 ### Slack Message Construction
 
