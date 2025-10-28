@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"slices"
 
 	"time"
 
@@ -104,6 +105,7 @@ func (c *client) FetchOpenPRs(
 		utilities.FlatMap(prResultSlices),
 		getPRFilterFunc(getFiltersForRepository),
 	)
+	prResults = includeLatest50PRsOnly(prResults)
 	logFoundPRs(prResults)
 
 	return c.addReviewerInfoToPRs(ctx, prResults)
@@ -154,6 +156,20 @@ func logFoundPRs(prResults []PRResult) {
 	for _, result := range prResults {
 		log.Printf("%s/%v", result.repository.GetPath(), *result.pr.Number)
 	}
+}
+
+func includeLatest50PRsOnly(prs []PRResult) []PRResult {
+	if len(prs) <= 50 {
+		return prs
+	}
+	log.Printf("More than 50 pull requests found (%d), including only the latest 50", len(prs))
+	slices.SortStableFunc(prs, func(a, b PRResult) int {
+		if !a.pr.GetCreatedAt().Time.Equal(b.pr.GetCreatedAt().Time) {
+			return b.pr.GetCreatedAt().Time.Compare(a.pr.GetCreatedAt().Time)
+		}
+		return b.pr.GetUpdatedAt().Time.Compare(a.pr.GetUpdatedAt().Time)
+	})
+	return prs[:50]
 }
 
 // Fetches review and comment data for the given PRs and returns enriched PR data.

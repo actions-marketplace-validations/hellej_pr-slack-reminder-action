@@ -2,6 +2,7 @@ package githubclient_test
 
 import (
 	"testing"
+	"time"
 
 	"context"
 	"fmt"
@@ -481,6 +482,64 @@ func TestFetchOpenPRs(t *testing.T) {
 				if pr.Author.Login != expectedAuthor {
 					t.Errorf("Expected author login %s, got %s", expectedAuthor, pr.Author.Login)
 				}
+			}
+		})
+	}
+}
+
+func TestFetchManyPRs(t *testing.T) {
+	tests := []struct {
+		prCount         int
+		expectedPRCount int
+	}{
+		{prCount: 30, expectedPRCount: 30},
+		{prCount: 50, expectedPRCount: 50},
+		{prCount: 75, expectedPRCount: 50},  // maximum of 50 expected
+		{prCount: 100, expectedPRCount: 50}, // maximum of 50 expected
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%d PRs", tt.prCount), func(t *testing.T) {
+			var mockPRs []*github.PullRequest
+			for i := 1; i <= tt.prCount; i++ {
+				mockPRs = append(mockPRs, &github.PullRequest{
+					Number:    github.Ptr(i),
+					Title:     github.Ptr(fmt.Sprintf("PR %d", i)),
+					Draft:     github.Ptr(false),
+					CreatedAt: &github.Timestamp{Time: time.Now().Add(-time.Duration(i) * time.Hour)},
+					HTMLURL:   github.Ptr(fmt.Sprintf("https://example.com/r/%d", i)),
+					User:      &github.User{Login: github.Ptr("author")},
+				})
+			}
+
+			mockPRService := &mockPullRequestService{
+				mockPRs:                mockPRs,
+				mockReviewsByPRNumber:  map[int][]*github.PullRequestReview{},
+				mockCommentsByPRNumber: map[int][]*github.PullRequestComment{},
+				mockResponse:           &github.Response{Response: &http.Response{StatusCode: 200}},
+				mockError:              nil,
+			}
+			mockIssueService := &mockIssueService{
+				mockTimelineCommentsByPRNumber: map[int][]*github.IssueComment{},
+				mockResponse:                   &github.Response{Response: &http.Response{StatusCode: 200}},
+				mockError:                      nil,
+			}
+			client := githubclient.NewClient(mockPRService, mockIssueService)
+			repos := []models.Repository{{Owner: "testowner", Name: "testrepo"}}
+
+			result, err := client.FetchOpenPRs(
+				context.Background(),
+				repos, func(models.Repository) config.Filters {
+					return config.Filters{}
+				},
+			)
+
+			if err != nil {
+				t.Fatalf("FetchOpenPRs() returned error: %v", err)
+			}
+
+			if len(result) != tt.expectedPRCount {
+				t.Errorf("Expected %d PRs, got %d", tt.expectedPRCount, len(result))
 			}
 		})
 	}
