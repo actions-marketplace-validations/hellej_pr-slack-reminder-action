@@ -2,12 +2,32 @@ package config_test
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/hellej/pr-slack-reminder-action/internal/config"
 	"github.com/hellej/pr-slack-reminder-action/internal/models"
+)
+
+const (
+	TestGithubToken         = "gh_token_123"
+	TestSlackBotToken       = "xoxb-slack-token"
+	TestSlackChannelName    = "test-channel"
+	TestSlackChannelID      = "C1234567890"
+	TestPRListHeading       = "PRs needing attention"
+	TestNoPRsMessage        = "No PRs found!"
+	TestOldPRThresholdHours = 24
+	TestDefaultRepository   = "test-org/test-repo"
+	TestRepository1         = "test-org/repo1"
+	TestRepository2         = "test-org/repo2"
+	TestFallbackRepository  = "fallback-org/fallback-repo"
+	TestAliceSlackID        = "U1234567890"
+	TestBobSlackID          = "U2234567890"
+	TestRepoPrefix1         = "R1"
+	TestRepoPrefix2         = "R2"
+	TestMaskedToken         = "XXXXX"
 )
 
 // ConfigTestHelpers provides helper functions for setting up test environments
@@ -100,42 +120,42 @@ func (h *ConfigTestHelpers) setupMinimalValidConfig(opts ...MinimalConfigOptions
 	}
 
 	if !options.SkipGithubRepository {
-		h.setEnv(config.EnvGithubRepository, "test-org/test-repo")
+		h.setEnv(config.EnvGithubRepository, TestDefaultRepository)
 	} else {
-		h.setEnv(config.EnvGithubRepository, "") // Explicitly clear if skipping
+		h.setEnv(config.EnvGithubRepository, "")
 	}
 	if !options.SkipGithubToken {
-		h.setInput(config.InputGithubToken, "gh_token_123")
+		h.setInput(config.InputGithubToken, TestGithubToken)
 	}
 	if !options.SkipSlackBotToken {
-		h.setInput(config.InputSlackBotToken, "xoxb-slack-token")
+		h.setInput(config.InputSlackBotToken, TestSlackBotToken)
 	}
 	if !options.SkipSlackChannelName {
-		h.setInput(config.InputSlackChannelName, "test-channel")
+		h.setInput(config.InputSlackChannelName, TestSlackChannelName)
 	}
 	if !options.SkipPRListHeading {
-		h.setInput(config.InputPRListHeading, "PRs needing attention")
+		h.setInput(config.InputPRListHeading, TestPRListHeading)
 	}
 }
 
 func (h *ConfigTestHelpers) setupFullValidConfig() {
 	h.setupMinimalValidConfig()
-	h.setInput(config.InputSlackChannelID, "C1234567890")
-	h.setInputInt(config.InputOldPRThresholdHours, 24)
-	h.setInput(config.InputNoPRsMessage, "No PRs found!")
+	h.setInput(config.InputSlackChannelID, TestSlackChannelID)
+	h.setInputInt(config.InputOldPRThresholdHours, TestOldPRThresholdHours)
+	h.setInput(config.InputNoPRsMessage, TestNoPRsMessage)
 	h.setInputMapping(config.InputSlackUserIdByGitHubUsername, map[string]string{
-		"alice": "U1234567890",
-		"bob":   "U2234567890",
+		"alice": TestAliceSlackID,
+		"bob":   TestBobSlackID,
 	})
 	h.setInputList(config.InputGithubRepositories, []string{
-		"test-org/repo1",
-		"test-org/repo2",
+		TestRepository1,
+		TestRepository2,
 	})
 	h.setInput(config.InputGlobalFilters, `{"authors": ["alice"], "labels": ["feature"]}`)
 	h.setInput(config.InputRepositoryFilters, `repo1: {"labels-ignore": ["wip"]}`)
 	h.setInputMapping(config.InputPRLinkRepoPrefixes, map[string]string{
-		"repo1": "R1",
-		"repo2": "R2",
+		"repo1": TestRepoPrefix1,
+		"repo2": TestRepoPrefix2,
 	})
 }
 
@@ -148,24 +168,24 @@ func TestGetConfig_MinimalValid(t *testing.T) {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
 
-	if cfg.GithubToken != "gh_token_123" {
-		t.Errorf("Expected GithubToken 'gh_token_123', got '%s'", cfg.GithubToken)
+	if cfg.GithubToken != TestGithubToken {
+		t.Errorf("Expected GithubToken '%s', got '%s'", TestGithubToken, cfg.GithubToken)
 	}
-	if cfg.SlackBotToken != "xoxb-slack-token" {
-		t.Errorf("Expected SlackBotToken 'xoxb-slack-token', got '%s'", cfg.SlackBotToken)
+	if cfg.SlackBotToken != TestSlackBotToken {
+		t.Errorf("Expected SlackBotToken '%s', got '%s'", TestSlackBotToken, cfg.SlackBotToken)
 	}
-	if cfg.SlackChannelName != "test-channel" {
-		t.Errorf("Expected SlackChannelName 'test-channel', got '%s'", cfg.SlackChannelName)
+	if cfg.SlackChannelName != TestSlackChannelName {
+		t.Errorf("Expected SlackChannelName '%s', got '%s'", TestSlackChannelName, cfg.SlackChannelName)
 	}
-	if cfg.ContentInputs.PRListHeading != "PRs needing attention" {
-		t.Errorf("Expected PRListHeading 'PRs needing attention', got '%s'", cfg.ContentInputs.PRListHeading)
+	if cfg.ContentInputs.PRListHeading != TestPRListHeading {
+		t.Errorf("Expected PRListHeading '%s', got '%s'", TestPRListHeading, cfg.ContentInputs.PRListHeading)
 	}
 
 	if len(cfg.Repositories) != 1 {
 		t.Fatalf("Expected 1 repository, got %d", len(cfg.Repositories))
 	}
-	if cfg.Repositories[0].GetPath() != "test-org/test-repo" {
-		t.Errorf("Expected repository path 'test-org/test-repo', got '%s'", cfg.Repositories[0].GetPath())
+	if cfg.Repositories[0].GetPath() != TestDefaultRepository {
+		t.Errorf("Expected repository path '%s', got '%s'", TestDefaultRepository, cfg.Repositories[0].GetPath())
 	}
 	if cfg.Repositories[0].Owner != "test-org" {
 		t.Errorf("Expected repository owner 'test-org', got '%s'", cfg.Repositories[0].Owner)
@@ -192,19 +212,19 @@ func TestGetConfig_FullValid(t *testing.T) {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
 
-	if cfg.SlackChannelID != "C1234567890" {
-		t.Errorf("Expected SlackChannelID 'C1234567890', got '%s'", cfg.SlackChannelID)
+	if cfg.SlackChannelID != TestSlackChannelID {
+		t.Errorf("Expected SlackChannelID '%s', got '%s'", TestSlackChannelID, cfg.SlackChannelID)
 	}
-	if cfg.ContentInputs.OldPRThresholdHours != 24 {
-		t.Errorf("Expected OldPRThresholdHours 24, got %d", cfg.ContentInputs.OldPRThresholdHours)
+	if cfg.ContentInputs.OldPRThresholdHours != TestOldPRThresholdHours {
+		t.Errorf("Expected OldPRThresholdHours %d, got %d", TestOldPRThresholdHours, cfg.ContentInputs.OldPRThresholdHours)
 	}
-	if cfg.ContentInputs.NoPRsMessage != "No PRs found!" {
-		t.Errorf("Expected NoPRsMessage 'No PRs found!', got '%s'", cfg.ContentInputs.NoPRsMessage)
+	if cfg.ContentInputs.NoPRsMessage != TestNoPRsMessage {
+		t.Errorf("Expected NoPRsMessage '%s', got '%s'", TestNoPRsMessage, cfg.ContentInputs.NoPRsMessage)
 	}
 
 	expectedUsers := map[string]string{
-		"alice": "U1234567890",
-		"bob":   "U2234567890",
+		"alice": TestAliceSlackID,
+		"bob":   TestBobSlackID,
 	}
 	for username, expectedSlackID := range expectedUsers {
 		if slackID, exists := cfg.ContentInputs.SlackUserIdByGitHubUsername[username]; !exists {
@@ -217,7 +237,7 @@ func TestGetConfig_FullValid(t *testing.T) {
 	if len(cfg.Repositories) != 2 {
 		t.Fatalf("Expected 2 repositories, got %d", len(cfg.Repositories))
 	}
-	expectedRepos := []string{"test-org/repo1", "test-org/repo2"}
+	expectedRepos := []string{TestRepository1, TestRepository2}
 	for i, expectedRepo := range expectedRepos {
 		if cfg.Repositories[i].GetPath() != expectedRepo {
 			t.Errorf("Expected repository %d path '%s', got '%s'", i, expectedRepo, cfg.Repositories[i].GetPath())
@@ -225,8 +245,8 @@ func TestGetConfig_FullValid(t *testing.T) {
 	}
 
 	expectedPrefixes := map[string]string{
-		"test-org/repo1": "R1",
-		"test-org/repo2": "R2",
+		TestRepository1: TestRepoPrefix1,
+		TestRepository2: TestRepoPrefix2,
 	}
 	for repoPath, expectedPrefix := range expectedPrefixes {
 		repo := h.createRepository(repoPath)
@@ -367,10 +387,9 @@ func TestMultipleRepositories_WithInvalid(t *testing.T) {
 }
 
 func TestRepositoriesFallbackToDefault(t *testing.T) {
-	// When github-repositories is not set, should fall back to GITHUB_REPOSITORY
 	h := newConfigTestHelpers(t)
 	h.setupMinimalValidConfig(MinimalConfigOptions{SkipGithubRepository: true})
-	h.setEnv(config.EnvGithubRepository, "fallback-org/fallback-repo")
+	h.setEnv(config.EnvGithubRepository, TestFallbackRepository)
 
 	cfg, err := config.GetConfig()
 	if err != nil {
@@ -382,8 +401,8 @@ func TestRepositoriesFallbackToDefault(t *testing.T) {
 	}
 
 	repo := cfg.Repositories[0]
-	if repo.GetPath() != "fallback-org/fallback-repo" {
-		t.Errorf("Expected repository path 'fallback-org/fallback-repo', got '%s'", repo.GetPath())
+	if repo.GetPath() != TestFallbackRepository {
+		t.Errorf("Expected repository path '%s', got '%s'", TestFallbackRepository, repo.GetPath())
 	}
 	if repo.Owner != "fallback-org" {
 		t.Errorf("Expected repository owner 'fallback-org', got '%s'", repo.Owner)
@@ -531,7 +550,7 @@ func TestGetConfig_Validation(t *testing.T) {
 			name: "valid config with channel ID",
 			setupConfig: func(h *ConfigTestHelpers) {
 				h.setupMinimalValidConfig(MinimalConfigOptions{SkipSlackChannelName: true})
-				h.setInput(config.InputSlackChannelID, "C1234567890")
+				h.setInput(config.InputSlackChannelID, TestSlackChannelID)
 			},
 			expectError: false,
 		},
@@ -767,6 +786,49 @@ func TestConfigPrint(t *testing.T) {
 	}
 
 	cfg.Print() // should not panic
+}
+
+func TestConfigPrint_MasksTokens(t *testing.T) {
+	h := newConfigTestHelpers(t)
+	h.setupMinimalValidConfig(MinimalConfigOptions{})
+
+	cfg, err := config.GetConfig()
+	if err != nil {
+		t.Fatalf("Failed to get config: %v", err)
+	}
+
+	var capturedOutput strings.Builder
+	originalFlags := log.Flags()
+	originalOutput := log.Writer()
+
+	log.SetFlags(0)
+	log.SetOutput(&capturedOutput)
+
+	defer func() {
+		log.SetFlags(originalFlags)
+		log.SetOutput(originalOutput)
+	}()
+
+	cfg.Print()
+
+	output := capturedOutput.String()
+
+	if strings.Contains(output, TestGithubToken) {
+		t.Error("GitHub token should be masked, but actual token found in output")
+	}
+	if strings.Contains(output, TestSlackBotToken) {
+		t.Error("Slack bot token should be masked, but actual token found in output")
+	}
+
+	if !strings.Contains(output, `"GithubToken": "`+TestMaskedToken+`"`) {
+		t.Errorf("Expected masked GitHub token '%s' not found in output", TestMaskedToken)
+	}
+	if !strings.Contains(output, `"SlackBotToken": "`+TestMaskedToken+`"`) {
+		t.Errorf("Expected masked Slack bot token '%s' not found in output", TestMaskedToken)
+	}
+	if !strings.Contains(output, TestSlackChannelName) {
+		t.Error("Expected slack channel name to be present in output")
+	}
 }
 
 func TestGetConfig_RunMode_DefaultsToPost(t *testing.T) {
