@@ -102,7 +102,7 @@ func SaveSentSlackBlocks(
 	if err := os.WriteFile(filePath, jsonData, 0644); err != nil {
 		return fmt.Errorf("failed to write sent blocks file %s: %w", filePath, err)
 	}
-
+	log.Printf("Saved sent Slack blocks JSON to %s", filePath)
 	return nil
 }
 
