@@ -4,6 +4,7 @@
 package config
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -15,7 +16,8 @@ import (
 )
 
 const (
-	EnvGithubRepository string = "GITHUB_REPOSITORY"
+	EnvGithubRepository        string = "GITHUB_REPOSITORY"
+	EnvSentSlackBlocksFilePath string = "SENT_SLACK_BLOCKS_FILE_PATH"
 
 	InputGithubToken                 string = "github-token"
 	InputSlackBotToken               string = "slack-bot-token"
@@ -95,6 +97,9 @@ func GetConfig() (Config, error) {
 	slackToken, err2 := inputhelpers.GetInputRequired(InputSlackBotToken)
 	runMode, err3 := getRunMode(InputRunMode)
 	stateFilePath := inputhelpers.GetInputOr(InputStateFilePath, DefaultStateFilePath)
+	sentSlackBlocksFilePath := cmp.Or(
+		inputhelpers.GetEnv(EnvSentSlackBlocksFilePath), DefaultSentSlackBlocksFilePath,
+	)
 	slackChannelName := inputhelpers.GetInput(InputSlackChannelName)
 	slackChannelID := inputhelpers.GetInput(InputSlackChannelID)
 	repository, err4 := inputhelpers.GetEnvRequired(EnvGithubRepository)
@@ -128,7 +133,7 @@ func GetConfig() (Config, error) {
 		SlackBotToken:           slackToken,
 		RunMode:                 runMode,
 		StateFilePath:           stateFilePath,
-		SentSlackBlocksFilePath: DefaultSentSlackBlocksFilePath,
+		SentSlackBlocksFilePath: sentSlackBlocksFilePath,
 		SlackChannelName:        slackChannelName,
 		SlackChannelID:          slackChannelID,
 		repository:              repository,

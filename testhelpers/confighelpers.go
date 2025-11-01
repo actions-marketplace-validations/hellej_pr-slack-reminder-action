@@ -38,11 +38,12 @@ func GetDefaultConfigFull() TestConfig {
 
 	return TestConfig{
 		Config: config.Config{
-			GithubToken:      "SOME_TOKEN",
-			SlackBotToken:    "SOME_TOKEN",
-			RunMode:          config.RunModePost,
-			StateFilePath:    "/tmp/pr-slack-reminder-test-state.json",
-			SlackChannelName: "some-channel-name",
+			GithubToken:             "SOME_TOKEN",
+			SlackBotToken:           "SOME_TOKEN",
+			RunMode:                 config.RunModePost,
+			StateFilePath:           "/tmp/pr-slack-reminder-test-state.json",
+			SentSlackBlocksFilePath: "/tmp/sent-slack-blocks.json",
+			SlackChannelName:        "some-channel-name",
 			ContentInputs: config.ContentInputs{
 				NoPRsMessage:                "No open PRs found.",
 				PRListHeading:               "There are <pr_count> open PRs 🚀",
@@ -62,11 +63,12 @@ func GetDefaultConfigMinimal() TestConfig {
 	return TestConfig{
 		Repository: "test-org/test-repo",
 		Config: config.Config{
-			GithubToken:      "SOME_TOKEN",
-			SlackBotToken:    "SOME_TOKEN",
-			RunMode:          config.RunModePost,
-			StateFilePath:    "/tmp/pr-slack-reminder-test-state.json",
-			SlackChannelName: "some-channel-name",
+			GithubToken:             "SOME_TOKEN",
+			SlackBotToken:           "SOME_TOKEN",
+			RunMode:                 config.RunModePost,
+			StateFilePath:           "/tmp/pr-slack-reminder-test-state.json",
+			SentSlackBlocksFilePath: "/tmp/sent-slack-blocks.json",
+			SlackChannelName:        "some-channel-name",
 			ContentInputs: config.ContentInputs{
 				PRListHeading: "There are <pr_count> open PRs 🚀",
 			},
@@ -75,7 +77,9 @@ func GetDefaultConfigMinimal() TestConfig {
 }
 
 func setEnvFromConfig(t *testing.T, c TestConfig, overrides *map[string]any) {
-	setInputEnv(t, overrides, config.EnvGithubRepository, c.Repository)
+	setEnv(t, overrides, config.EnvGithubRepository, c.Repository)
+	setEnv(t, overrides, config.EnvSentSlackBlocksFilePath, c.SentSlackBlocksFilePath)
+
 	setInputEnv(t, overrides, config.InputGithubRepositories, c.Repositories)
 	setInputEnv(t, overrides, config.InputGithubToken, c.GithubToken)
 	setInputEnv(t, overrides, config.InputSlackBotToken, c.SlackBotToken)
@@ -93,7 +97,24 @@ func setEnvFromConfig(t *testing.T, c TestConfig, overrides *map[string]any) {
 	setInputEnv(t, overrides, config.InputGroupByRepository, c.GroupByRepository)
 }
 
-func setInputEnv(t *testing.T, overrides *map[string]interface{}, inputName string, value any) {
+func setEnv(t *testing.T, overrides *map[string]any, envName string, value any) {
+	strValue := getValueAsString(t, overrides, envName, value)
+	if strValue != nil {
+		t.Setenv(envName, *strValue)
+	}
+}
+
+func setInputEnv(t *testing.T, overrides *map[string]any, inputName string, value any) {
+	strValue := getValueAsString(t, overrides, inputName, value)
+	envName := inputNameAsEnv(inputName)
+	if strValue != nil {
+		t.Setenv(envName, *strValue)
+	}
+}
+
+func getValueAsString(
+	t *testing.T, overrides *map[string]any, inputName string, value any,
+) *string {
 	var strValue string
 	if overrides != nil {
 		if overrideValue, ok := (*overrides)[inputName]; ok {
@@ -101,12 +122,7 @@ func setInputEnv(t *testing.T, overrides *map[string]interface{}, inputName stri
 		}
 	}
 	if value == nil {
-		return
-	}
-
-	envName := inputNameAsEnv(inputName)
-	if inputName == config.EnvGithubRepository {
-		envName = inputName
+		return nil
 	}
 
 	switch v := value.(type) {
@@ -122,8 +138,8 @@ func setInputEnv(t *testing.T, overrides *map[string]interface{}, inputName stri
 		strValue = strconv.Itoa(v)
 	case *int:
 		if v == nil {
-			t.Setenv(envName, "")
-			return
+			empty := ""
+			return &empty
 		}
 		strValue = strconv.Itoa(*v)
 	case bool:
@@ -133,7 +149,7 @@ func setInputEnv(t *testing.T, overrides *map[string]interface{}, inputName stri
 	default:
 		t.Fatalf("unsupported value type for setInputEnv: %T", value)
 	}
-	t.Setenv(envName, strValue)
+	return &strValue
 }
 
 func listAsString(list []string) string {
