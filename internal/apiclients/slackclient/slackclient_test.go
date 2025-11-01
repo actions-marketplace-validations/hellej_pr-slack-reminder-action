@@ -190,7 +190,7 @@ func TestSendMessage(t *testing.T) {
 
 			blocks := slack.NewBlockMessage()
 
-			_, err := client.SendMessage(tt.channelID, blocks, tt.summaryText)
+			_, _, err := client.SendMessage(tt.channelID, blocks, tt.summaryText)
 
 			if tt.expectedError != "" {
 				if err == nil {

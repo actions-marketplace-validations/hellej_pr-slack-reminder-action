@@ -51,13 +51,16 @@ func Run(
 	}
 	blocks, summaryText := messagebuilder.BuildMessage(content)
 
-	messageResponse, err := slackClient.SendMessage(cfg.SlackChannelID, blocks, summaryText)
+	messageResponse, sentBlocks, err := slackClient.SendMessage(cfg.SlackChannelID, blocks, summaryText)
 	if err != nil {
 		return err
 	}
 
 	if cfg.RunMode == config.RunModePost {
 		if err := state.SavePostState(cfg.StateFilePath, parsedPRs, messageResponse); err != nil {
+			return err
+		}
+		if err := state.SaveSentSlackBlocks(cfg.SentSlackBlocksFilePath, sentBlocks); err != nil {
 			return err
 		}
 	}

@@ -75,6 +75,37 @@ func SavePostState(
 		})
 }
 
+func SaveSentSlackBlocks(
+	filePath string,
+	sentBlocks []string,
+) error {
+	dir := filepath.Dir(filePath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory %s: %w", dir, err)
+	}
+
+	// Parse JSON strings back to raw JSON objects to avoid double-encoding
+	var parsedBlocks []json.RawMessage
+	for i, blockJSON := range sentBlocks {
+		var rawMessage json.RawMessage
+		if err := json.Unmarshal([]byte(blockJSON), &rawMessage); err != nil {
+			return fmt.Errorf("failed to parse block %d as JSON: %w", i, err)
+		}
+		parsedBlocks = append(parsedBlocks, rawMessage)
+	}
+
+	jsonData, err := json.MarshalIndent(parsedBlocks, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal sent blocks: %w", err)
+	}
+
+	if err := os.WriteFile(filePath, jsonData, 0644); err != nil {
+		return fmt.Errorf("failed to write sent blocks file %s: %w", filePath, err)
+	}
+
+	return nil
+}
+
 func savePostState(filePath string, pullRequestRefs []PullRequestRef, slackRef SlackRef) error {
 	stateToSave := State{
 		SchemaVersion: CurrentSchemaVersion,
@@ -90,8 +121,8 @@ func savePostState(filePath string, pullRequestRefs []PullRequestRef, slackRef S
 	return nil
 }
 
-func save(path string, state State) error {
-	dir := filepath.Dir(path)
+func save(filePath string, state State) error {
+	dir := filepath.Dir(filePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", dir, err)
 	}
@@ -101,8 +132,8 @@ func save(path string, state State) error {
 		return fmt.Errorf("failed to marshal state: %w", err)
 	}
 
-	if err := os.WriteFile(path, jsonData, 0644); err != nil {
-		return fmt.Errorf("failed to write state file %s: %w", path, err)
+	if err := os.WriteFile(filePath, jsonData, 0644); err != nil {
+		return fmt.Errorf("failed to write state file %s: %w", filePath, err)
 	}
 
 	return nil

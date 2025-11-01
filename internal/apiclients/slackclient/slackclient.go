@@ -18,7 +18,7 @@ type MessageResponse struct {
 
 type Client interface {
 	GetChannelIDByName(channelName string) (string, error)
-	SendMessage(channelID string, blocks slack.Message, summaryText string) (*MessageResponse, error)
+	SendMessage(channelID string, blocks slack.Message, summaryText string) (*MessageResponse, []string, error)
 	UpdateMessage(channelID string, messageTS string, blocks slack.Message, summaryText string) error
 }
 
@@ -88,7 +88,11 @@ func (c *client) GetChannelIDByName(channelName string) (string, error) {
 	return "", errors.New("channel not found (check channel name)")
 }
 
-func (c *client) SendMessage(channelID string, blocks slack.Message, summaryText string) (*MessageResponse, error) {
+func (c *client) SendMessage(
+	channelID string,
+	blocks slack.Message,
+	summaryText string,
+) (*MessageResponse, []string, error) {
 	log.Printf("\nSending message with summary: %s", summaryText)
 	responseChannelID, timestamp, err := c.slackAPI.PostMessage(
 		channelID,
@@ -96,13 +100,24 @@ func (c *client) SendMessage(channelID string, blocks slack.Message, summaryText
 		slack.MsgOptionText(summaryText, false),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send Slack message: %v", err)
+		return nil, nil, fmt.Errorf("failed to send Slack message: %v", err)
 	}
 	log.Printf("Sent message to Slack channel: %s", channelID)
+
+	var sentBlocks []string
+	_, values, err := slack.UnsafeApplyMsgOptions(
+		"", "", "", slack.MsgOptionBlocks(blocks.Blocks.BlockSet...),
+	)
+	if err == nil {
+		if valuesBlocks, ok := values["blocks"]; ok && len(valuesBlocks) > 0 {
+			sentBlocks = valuesBlocks
+		}
+	}
+
 	return &MessageResponse{
 		ChannelID: responseChannelID,
 		Timestamp: timestamp,
-	}, nil
+	}, sentBlocks, nil
 }
 
 func (c *client) UpdateMessage(channelID string, messageTS string, blocks slack.Message, summaryText string) error {

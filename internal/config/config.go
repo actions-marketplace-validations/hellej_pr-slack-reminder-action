@@ -35,16 +35,18 @@ const (
 
 	MaxRepositories int = 30
 
-	DefaultRunMode       = RunModePost
-	DefaultStateFilePath = ".pr-slack-reminder/state.json"
+	DefaultRunMode                 = RunModePost
+	DefaultStateFilePath           = ".pr-slack-reminder/state.json"
+	DefaultSentSlackBlocksFilePath = ".pr-slack-reminder/sent-slack-blocks.json"
 )
 
 type Config struct {
 	GithubToken   string
 	SlackBotToken string
 
-	RunMode       RunMode
-	StateFilePath string
+	RunMode                 RunMode
+	StateFilePath           string
+	SentSlackBlocksFilePath string
 
 	SlackChannelName string
 	SlackChannelID   string
@@ -122,16 +124,17 @@ func GetConfig() (Config, error) {
 	}
 
 	config := Config{
-		GithubToken:       githubToken,
-		SlackBotToken:     slackToken,
-		RunMode:           runMode,
-		StateFilePath:     stateFilePath,
-		SlackChannelName:  slackChannelName,
-		SlackChannelID:    slackChannelID,
-		repository:        repository,
-		Repositories:      repositories,
-		GlobalFilters:     globalFilters,
-		RepositoryFilters: repositoryFilters,
+		GithubToken:             githubToken,
+		SlackBotToken:           slackToken,
+		RunMode:                 runMode,
+		StateFilePath:           stateFilePath,
+		SentSlackBlocksFilePath: DefaultSentSlackBlocksFilePath,
+		SlackChannelName:        slackChannelName,
+		SlackChannelID:          slackChannelID,
+		repository:              repository,
+		Repositories:            repositories,
+		GlobalFilters:           globalFilters,
+		RepositoryFilters:       repositoryFilters,
 		ContentInputs: ContentInputs{
 			SlackUserIdByGitHubUsername: slackUserIdByGitHubUsername,
 			PRListHeading:               mainListHeading,
