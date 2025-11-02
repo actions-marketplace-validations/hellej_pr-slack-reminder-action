@@ -88,7 +88,15 @@ func (c *client) GetChannelIDByName(channelName string) (string, error) {
 	return "", errors.New("channel not found (check channel name)")
 }
 
+// The message must not have more than 50 blocks
 func (c *client) SendMessage(channelID string, blocks slack.Message, summaryText string) (*MessageResponse, error) {
+	if len(blocks.Blocks.BlockSet) > 50 {
+		return nil, fmt.Errorf(
+			"message has too many blocks for Slack API (limit: 50, was: %v)",
+			len(blocks.Blocks.BlockSet),
+		)
+	}
+
 	log.Printf("\nSending message with summary: %s", summaryText)
 	responseChannelID, timestamp, err := c.slackAPI.PostMessage(
 		channelID,

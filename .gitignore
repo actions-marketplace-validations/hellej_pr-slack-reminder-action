@@ -27,6 +27,7 @@ go.work.sum
 
 .DS_Store
 .local
+.debug
 .vscode
 
 # state from "post" run-mode
