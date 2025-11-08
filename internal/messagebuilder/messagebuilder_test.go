@@ -1,6 +1,7 @@
 package messagebuilder_test
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 	"github.com/hellej/pr-slack-reminder-action/internal/prparser"
 )
 
-func TestComposeSlackBlocksMessage(t *testing.T) {
+func TestBuildSlackBlocksMessage(t *testing.T) {
 	t.Run("No PRs", func(t *testing.T) {
 		content := messagecontent.Content{
 			SummaryText: "No open PRs, happy coding! 🎉",
@@ -141,9 +142,60 @@ func TestComposeSlackBlocksMessage(t *testing.T) {
 	})
 }
 
+func TestLimitMessageSizeByMaxBlocks(t *testing.T) {
+	testCases := []struct {
+		name            string
+		numRepositories int
+		expectedBlocks  int
+	}{
+		{
+			name:            "Within block limit",
+			numRepositories: 5,
+			expectedBlocks:  14, // 3 blocks per PR (except the last one has only 2)
+		},
+		{
+			name:            "Exceeding block limit",
+			numRepositories: 20, // -> 59 blocks
+			expectedBlocks:  50,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			repoLists := []messagecontent.PRsOfRepository{}
+			repoId := 1
+			for repoId <= tc.numRepositories {
+				repoLists = append(repoLists, newRepositoryList(repoId))
+				repoId += 1
+			}
+
+			message, _ := messagebuilder.BuildMessage(
+				messagecontent.Content{
+					SummaryText:            "2 open PRs are waiting for attention 👀",
+					GroupedByRepository:    true,
+					PRsGroupedByRepository: repoLists,
+				},
+			)
+
+			if len(message.Blocks.BlockSet) != tc.expectedBlocks {
+				t.Errorf("Expected %d blocks, got %d", tc.expectedBlocks, len(message.Blocks.BlockSet))
+			}
+		})
+	}
+}
+
+func newRepositoryList(id int) messagecontent.PRsOfRepository {
+	return messagecontent.PRsOfRepository{
+		HeadingPrefix:       "Open PRs in repo " + strconv.Itoa(id),
+		RepositoryLinkLabel: "owner/repo-" + strconv.Itoa(id),
+		RepositoryLink:      "https://github.com/owner/repo-" + strconv.Itoa(id),
+		PRs:                 []prparser.PR{getTestPRs().PR1},
+	}
+}
+
 type TestPRs struct {
-	PRs []prparser.PR
 	PR1 prparser.PR
+	PRs []prparser.PR
 }
 
 func getTestPRs() TestPRs {
@@ -158,15 +210,15 @@ func getTestPRs() TestPRs {
 				},
 			},
 		},
-	}
-	pr1.Author = prparser.Collaborator{
-		Collaborator: &githubclient.Collaborator{
-			Login: "Test User",
+		Author: prparser.Collaborator{
+			Collaborator: &githubclient.Collaborator{
+				Login: "Test User",
+			},
+			SlackUserID: "U12345678",
 		},
-		SlackUserID: "U12345678",
 	}
 	return TestPRs{
-		PRs: []prparser.PR{pr1},
 		PR1: pr1,
+		PRs: []prparser.PR{pr1},
 	}
 }
