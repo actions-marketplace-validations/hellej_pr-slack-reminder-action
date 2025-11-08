@@ -11,6 +11,13 @@ import (
 	"github.com/slack-go/slack"
 )
 
+// Slack API has limit of 50 blocks for PostMessage
+// If the content is grouped by repository, each repository section uses 3 blocks (heading,
+// PR list, spacing). To ensure that the last PR list is not cut off to only title, we set
+// the limit to 50 blocks (16 repositories * 3 blocks each + 2 blocks for the last PR list
+// which doesn't need spacing block after it).
+const maximumBlocksInSlackMessage = 50
+
 func BuildMessage(content messagecontent.Content) (slack.Message, string) {
 	var blocks []slack.Block
 
@@ -29,14 +36,13 @@ func BuildMessage(content messagecontent.Content) (slack.Message, string) {
 	return slack.NewBlockMessage(blocks...), content.SummaryText
 }
 
-// Slack API has limit of 50 blocks for PostMessage
 func limitMaximumMessageSize(blocks []slack.Block) []slack.Block {
-	if len(blocks) > 50 {
+	if len(blocks) > maximumBlocksInSlackMessage {
 		log.Printf(
 			"Message content is too large (too many blocks: %v, dropping: %v)",
-			len(blocks), len(blocks)-50,
+			len(blocks), len(blocks)-maximumBlocksInSlackMessage,
 		)
-		blocks = blocks[:50]
+		blocks = blocks[:maximumBlocksInSlackMessage]
 	}
 	return blocks
 }
