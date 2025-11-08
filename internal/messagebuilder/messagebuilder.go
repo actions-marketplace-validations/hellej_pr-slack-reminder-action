@@ -4,6 +4,8 @@
 package messagebuilder
 
 import (
+	"log"
+
 	"github.com/hellej/pr-slack-reminder-action/internal/messagecontent"
 	"github.com/hellej/pr-slack-reminder-action/internal/prparser"
 	"github.com/slack-go/slack"
@@ -20,10 +22,23 @@ func BuildMessage(content messagecontent.Content) (slack.Message, string) {
 	if !content.GroupedByRepository {
 		blocks = addPRListBLock(blocks, content.PRListHeading, content.PRs)
 	} else {
-		blocks = addGroupedPRsBlocks(blocks, content.PRsGroupedByRepository)
+		blocks = addRepositoryPRListBlocks(blocks, content.PRsGroupedByRepository)
 	}
 
+	blocks = limitMaximumMessageSize(blocks)
 	return slack.NewBlockMessage(blocks...), content.SummaryText
+}
+
+// Slack API has limit of 50 blocks for PostMessage
+func limitMaximumMessageSize(blocks []slack.Block) []slack.Block {
+	if len(blocks) > 50 {
+		log.Printf(
+			"Message content is too large (too many blocks: %v, dropping: %v)",
+			len(blocks), len(blocks)-50,
+		)
+		blocks = blocks[:50]
+	}
+	return blocks
 }
 
 func addNoPRsBlock(blocks []slack.Block, noPRsText string) []slack.Block {
@@ -47,7 +62,7 @@ func addPRListBLock(blocks []slack.Block, heading string, prs []prparser.PR) []s
 	)
 }
 
-func addGroupedPRsBlocks(
+func addRepositoryPRListBlocks(
 	blocks []slack.Block,
 	prsGroupedByRepository []messagecontent.PRsOfRepository,
 ) []slack.Block {

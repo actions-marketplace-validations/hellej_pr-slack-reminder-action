@@ -11,14 +11,15 @@ import (
 	"github.com/slack-go/slack"
 )
 
-type MessageResponse struct {
-	ChannelID string
-	Timestamp string
+type SentMessageInfo struct {
+	ChannelID  string
+	Timestamp  string
+	JSONBlocks []string
 }
 
 type Client interface {
 	GetChannelIDByName(channelName string) (string, error)
-	SendMessage(channelID string, blocks slack.Message, summaryText string) (*MessageResponse, []string, error)
+	SendMessage(channelID string, blocks slack.Message, summaryText string) (*SentMessageInfo, error)
 	UpdateMessage(channelID string, messageTS string, blocks slack.Message, summaryText string) error
 }
 
@@ -88,11 +89,19 @@ func (c *client) GetChannelIDByName(channelName string) (string, error) {
 	return "", errors.New("channel not found (check channel name)")
 }
 
+// The message must not have more than 50 blocks
 func (c *client) SendMessage(
 	channelID string,
 	blocks slack.Message,
 	summaryText string,
-) (*MessageResponse, []string, error) {
+) (*SentMessageInfo, error) {
+	if len(blocks.Blocks.BlockSet) > 50 {
+		return nil, fmt.Errorf(
+			"message has too many blocks for Slack API (limit: 50, was: %v)",
+			len(blocks.Blocks.BlockSet),
+		)
+	}
+
 	log.Printf("\nSending message with summary: %s", summaryText)
 	responseChannelID, timestamp, err := c.slackAPI.PostMessage(
 		channelID,
@@ -100,27 +109,33 @@ func (c *client) SendMessage(
 		slack.MsgOptionText(summaryText, false),
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to send Slack message: %v", err)
+		return nil, fmt.Errorf("failed to send Slack message: %v", err)
 	}
 	log.Printf("Sent message to Slack channel: %s", channelID)
 
-	var sentBlocks []string
+	var sentJSONBlocks []string
 	_, values, err := slack.UnsafeApplyMsgOptions(
 		"", "", "", slack.MsgOptionBlocks(blocks.Blocks.BlockSet...),
 	)
 	if err == nil {
 		if valuesBlocks, ok := values["blocks"]; ok && len(valuesBlocks) > 0 {
-			sentBlocks = valuesBlocks
+			sentJSONBlocks = valuesBlocks
 		}
 	}
 
-	return &MessageResponse{
-		ChannelID: responseChannelID,
-		Timestamp: timestamp,
-	}, sentBlocks, nil
+	return &SentMessageInfo{
+		ChannelID:  responseChannelID,
+		Timestamp:  timestamp,
+		JSONBlocks: sentJSONBlocks,
+	}, nil
 }
 
-func (c *client) UpdateMessage(channelID string, messageTS string, blocks slack.Message, summaryText string) error {
+func (c *client) UpdateMessage(
+	channelID string,
+	messageTS string,
+	blocks slack.Message,
+	summaryText string,
+) error {
 	log.Printf("Updating message with timestamp %s and summary: %s", messageTS, summaryText)
 	_, _, _, err := c.slackAPI.UpdateMessage(
 		channelID,

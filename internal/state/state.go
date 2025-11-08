@@ -64,7 +64,7 @@ func (s *State) Validate() error {
 func SavePostState(
 	filePath string,
 	parsedPRs []prparser.PR,
-	messageResponse *slackclient.MessageResponse,
+	messageResponse *slackclient.SentMessageInfo,
 ) error {
 	return savePostState(
 		filePath,

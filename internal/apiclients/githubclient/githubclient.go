@@ -357,5 +357,4 @@ func fetchPRTimelineComments(
 		statusText,
 		err,
 	)
-
 }
