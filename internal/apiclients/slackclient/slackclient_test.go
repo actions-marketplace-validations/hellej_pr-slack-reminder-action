@@ -135,14 +135,9 @@ type mockSlackAPI struct {
 	privateChannels      []slack.Channel
 	publicChannelsError  error
 	privateChannelsError error
-	callCount            int
 }
 
 func (m *mockSlackAPI) GetConversations(params *slack.GetConversationsParameters) ([]slack.Channel, string, error) {
-	m.callCount++
-
-	// The new implementation calls GetConversations separately for each channel type
-	// Check what type is being requested
 	if len(params.Types) == 1 {
 		switch params.Types[0] {
 		case "public_channel":
@@ -174,12 +169,21 @@ func TestSendMessage(t *testing.T) {
 		name          string
 		channelID     string
 		summaryText   string
+		blocksCount   int
 		expectedError string
 	}{
 		{
 			name:        "successful message send",
 			channelID:   "C12345",
 			summaryText: "Test summary",
+			blocksCount: 5,
+		},
+		{
+			name:          "message with too many blocks (error)",
+			channelID:     "C12345",
+			summaryText:   "Test summary",
+			blocksCount:   55,
+			expectedError: "message has too many blocks for Slack API (limit: 50, was: 55)",
 		},
 	}
 
@@ -188,9 +192,10 @@ func TestSendMessage(t *testing.T) {
 			mockAPI := &mockSlackAPI{}
 			client := slackclient.NewClient(mockAPI)
 
-			blocks := slack.NewBlockMessage()
+			blocks := make([]slack.Block, tt.blocksCount)
+			message := slack.NewBlockMessage(blocks...)
 
-			_, err := client.SendMessage(tt.channelID, blocks, tt.summaryText)
+			_, err := client.SendMessage(tt.channelID, message, tt.summaryText)
 
 			if tt.expectedError != "" {
 				if err == nil {
