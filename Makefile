@@ -8,7 +8,12 @@ SEMVER =
 test:
 	$(TEST)
 
-test-with-coverage:
+clean-test-cache:
+	go clean -testcache
+	go clean -cache
+	@echo "Cleared Go test and build caches"
+
+test-with-coverage: clean-test-cache
 	$(TEST) -coverprofile=coverage.out -covermode=atomic -coverpkg=./cmd/...,./internal/...
 	go tool cover -func=coverage.out
 
