@@ -114,14 +114,14 @@ func savePostState(filePath string, pullRequestRefs []PullRequestRef, slackRef S
 		PullRequests:  pullRequestRefs,
 	}
 
-	if err := save(filePath, stateToSave); err != nil {
+	if err := Save(filePath, stateToSave); err != nil {
 		return fmt.Errorf("failed to save state: %w", err)
 	}
 	log.Printf("Saved state to %s with %d PRs", filePath, len(pullRequestRefs))
 	return nil
 }
 
-func save(filePath string, state State) error {
+func Save(filePath string, state State) error {
 	dir := filepath.Dir(filePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", dir, err)

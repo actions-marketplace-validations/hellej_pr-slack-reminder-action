@@ -36,6 +36,16 @@ func Run(
 		cfg.SlackChannelID = channelID
 	}
 
+	switch cfg.RunMode {
+	case config.RunModePost:
+		return runPostMode(githubClient, slackClient, cfg)
+	default:
+		return fmt.Errorf("unsupported run mode: %s", cfg.RunMode)
+	}
+
+}
+
+func runPostMode(githubClient githubclient.Client, slackClient slackclient.Client, cfg config.Config) error {
 	const prFetchTimeout = 60 * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), prFetchTimeout)
 	defer cancel()
@@ -43,6 +53,7 @@ func Run(
 	if err != nil {
 		return err
 	}
+
 	parsedPRs := prparser.ParsePRs(prs, cfg.ContentInputs)
 	content := messagecontent.GetContent(parsedPRs, cfg.ContentInputs)
 	if !content.HasPRs() && content.SummaryText == "" {

@@ -8,7 +8,7 @@ import (
 // creates the MockSlackAPI (for dependency injection) if nil is provided
 func MakeSlackClientGetter(slackAPI *MockSlackAPI) func(token string) slackclient.Client {
 	if slackAPI == nil {
-		slackAPI = GetMockSlackAPI(nil, nil, nil)
+		slackAPI = GetMockSlackAPI(nil, nil, nil, nil)
 	}
 	return func(token string) slackclient.Client {
 		return slackclient.NewClient(slackAPI)
@@ -19,8 +19,9 @@ func GetMockSlackAPI(
 	slackChannels []*SlackChannel,
 	findChannelError error,
 	postMessageError error,
+	updateMessageError error,
 ) *MockSlackAPI {
-	return GetMockSlackAPIWithUpdateError(slackChannels, findChannelError, postMessageError, nil)
+	return GetMockSlackAPIWithUpdateError(slackChannels, findChannelError, postMessageError, updateMessageError)
 }
 
 func GetMockSlackAPIWithUpdateError(

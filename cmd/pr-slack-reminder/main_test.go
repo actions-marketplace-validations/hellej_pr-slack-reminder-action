@@ -17,6 +17,7 @@ import (
 	"github.com/google/go-github/v72/github"
 	main "github.com/hellej/pr-slack-reminder-action/cmd/pr-slack-reminder"
 	"github.com/hellej/pr-slack-reminder-action/internal/config"
+	"github.com/hellej/pr-slack-reminder-action/internal/models"
 	"github.com/hellej/pr-slack-reminder-action/internal/state"
 	"github.com/hellej/pr-slack-reminder-action/testhelpers"
 	"github.com/hellej/pr-slack-reminder-action/testhelpers/mockgithubclient"
@@ -164,7 +165,7 @@ func TestScenarios(t *testing.T) {
 		config              testhelpers.TestConfig
 		configOverrides     *map[string]any
 		fetchPRsStatus      int
-		fetchPRsError       error
+		prServiceError      error
 		prs                 []*github.PullRequest
 		prsByRepo           map[string][]*github.PullRequest
 		reviewsByPRNumber   map[int][]*github.PullRequestReview
@@ -265,14 +266,14 @@ func TestScenarios(t *testing.T) {
 			name:             "repo not found",
 			config:           testhelpers.GetDefaultConfigMinimal(),
 			fetchPRsStatus:   404,
-			fetchPRsError:    errors.New("repository not found"),
+			prServiceError:   errors.New("repository not found"),
 			expectedErrorMsg: "repository test-org/test-repo not found - check the repository name and permissions",
 		},
 		{
 			name:             "unable to fetch PRs",
 			config:           testhelpers.GetDefaultConfigMinimal(),
 			fetchPRsStatus:   500,
-			fetchPRsError:    errors.New("unable to fetch PRs"),
+			prServiceError:   errors.New("unable to fetch PRs"),
 			expectedErrorMsg: "error fetching pull requests from test-org/test-repo: unable to fetch PRs",
 		},
 		{
@@ -610,9 +611,10 @@ func TestScenarios(t *testing.T) {
 			testhelpers.SetTestEnvironment(t, tc.config, tc.configOverrides)
 
 			getGitHubClient := mockgithubclient.MakeMockGitHubClientGetter(
-				tc.prs, tc.prsByRepo, cmp.Or(tc.fetchPRsStatus, 200), tc.fetchPRsError, tc.reviewsByPRNumber, nil,
+				nil, nil,
+				tc.prs, tc.prsByRepo, cmp.Or(tc.fetchPRsStatus, 200), tc.reviewsByPRNumber, nil, tc.prServiceError,
 			)
-			mockSlackAPI := mockslackclient.GetMockSlackAPI(tc.foundSlackChannels, tc.findChannelError, tc.sendMessageError)
+			mockSlackAPI := mockslackclient.GetMockSlackAPI(tc.foundSlackChannels, tc.findChannelError, tc.sendMessageError, nil)
 			getSlackClient := mockslackclient.MakeSlackClientGetter(mockSlackAPI)
 			err := main.Run(getGitHubClient, getSlackClient)
 
@@ -721,9 +723,9 @@ func TestPostModeStateSaving(t *testing.T) {
 	testPRs := getTestPRs(GetTestPRsOptions{})
 
 	mockGitHubClientGetter := mockgithubclient.MakeMockGitHubClientGetter(
-		testPRs.PRs, nil, 200, nil, nil, nil,
+		nil, nil, testPRs.PRs, nil, 200, nil, nil, nil,
 	)
-	mockSlackAPI := mockslackclient.GetMockSlackAPI(nil, nil, nil)
+	mockSlackAPI := mockslackclient.GetMockSlackAPI(nil, nil, nil, nil)
 
 	err := main.Run(
 		mockGitHubClientGetter,
@@ -766,4 +768,131 @@ func TestPostModeStateSaving(t *testing.T) {
 			t.Logf("Failed to clean up test state file: %v", err)
 		}
 	}()
+}
+
+func TestScenariosUpdateMode(t *testing.T) {
+	testCases := []struct {
+		name                   string
+		config                 testhelpers.TestConfig
+		configOverrides        *map[string]any
+		state                  state.State
+		prByNumber             map[int]*github.PullRequest
+		fetchPRErrorByPRNumber map[int]error
+		reviewsByPRNumber      map[int][]*github.PullRequestReview
+		updateMessageError     error
+		expectedErrorMsg       string
+		expectedPRItemTexts    []string
+	}{
+		{
+			name:   "unset required inputs",
+			config: testhelpers.GetDefaultConfigMinimal(),
+			configOverrides: &map[string]any{
+				config.InputSlackBotToken: nil,
+			},
+			expectedErrorMsg: "configuration error: required input slack-bot-token is not set",
+		},
+		{
+			name:   "update mode with two PRs",
+			config: testhelpers.GetDefaultConfigMinimal(),
+			configOverrides: &map[string]any{
+				config.InputRunMode: config.RunModeUpdate,
+			},
+			state: state.State{
+				SchemaVersion: 1,
+				CreatedAt:     time.Now().Add(-1 * time.Hour),
+				SlackMessage: state.SlackRef{
+					ChannelID: "C12345678",
+					MessageTS: "1623850245.000200",
+				},
+				PullRequests: []state.PullRequestRef{
+					{
+						Repository: models.Repository{
+							Owner: "test-org",
+							Name:  "test-repo",
+						},
+						Number: 1,
+					},
+					{
+						Repository: models.Repository{
+							Owner: "test-org",
+							Name:  "test-repo",
+						},
+						Number: 2,
+					},
+				},
+			},
+			prByNumber: map[int]*github.PullRequest{
+				1: getTestPR(GetTestPROptions{Number: 1, Title: "First PR", AuthorLogin: "alice"}),
+				2: getTestPR(GetTestPROptions{Number: 2, Title: "Second PR", AuthorLogin: "bob"}),
+			},
+			expectedPRItemTexts: []string{
+				"First PR 5 minutes ago by Alice",
+				"Second PR 5 minutes ago by Bob",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			testhelpers.SetTestEnvironment(t, tc.config, tc.configOverrides)
+			getGitHubClient := mockgithubclient.MakeMockGitHubClientGetter(
+				tc.prByNumber,
+				tc.fetchPRErrorByPRNumber,
+				[]*github.PullRequest{},
+				map[string][]*github.PullRequest{},
+				200,
+				tc.reviewsByPRNumber,
+				map[int][]*github.PullRequestComment{},
+				nil,
+			)
+			mockSlackAPI := mockslackclient.GetMockSlackAPI(
+				nil,
+				nil,
+				nil,
+				tc.updateMessageError,
+			)
+			getSlackClient := mockslackclient.MakeSlackClientGetter(mockSlackAPI)
+			state.Save(tc.config.StateFilePath, tc.state)
+
+			err := main.Run(getGitHubClient, getSlackClient)
+
+			if tc.expectedErrorMsg == "" && err != nil {
+				t.Errorf("Expected no error, got: %v", err)
+			}
+			if tc.expectedErrorMsg != "" && err == nil {
+				t.Errorf("Expected error: %v, got no error", tc.expectedErrorMsg)
+			}
+			if tc.expectedErrorMsg != "" && err != nil && !strings.Contains(err.Error(), tc.expectedErrorMsg) {
+				t.Errorf("Expected error message '%v', got: %v", tc.expectedErrorMsg, err)
+				t.Logf("Got error: %v", err)
+			}
+			if tc.expectedErrorMsg != "" {
+				return
+			}
+			if len(tc.expectedPRItemTexts) != mockSlackAPI.SentMessage.Blocks.GetPRCount() {
+				t.Errorf(
+					"Expected %v PRs to be included in the message (was %v)",
+					len(tc.expectedPRItemTexts), mockSlackAPI.SentMessage.Blocks.GetPRCount(),
+				)
+			}
+			if len(tc.expectedPRItemTexts) > 0 {
+				missingPRItems := false
+				for _, expectedText := range tc.expectedPRItemTexts {
+					if !mockSlackAPI.SentMessage.Blocks.SomePRItemTextIsEqualTo(expectedText) {
+						t.Errorf(
+							"Expected list item text '%s' to be in the sent message blocks", expectedText,
+						)
+						missingPRItems = true
+					}
+				}
+				if missingPRItems {
+					prItems := mockSlackAPI.SentMessage.Blocks.GetAllPRItemTexts()
+					t.Logf("Found PR items:")
+					for _, prItem := range prItems {
+						t.Log(prItem)
+					}
+				}
+			}
+		})
+	}
 }

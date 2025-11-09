@@ -16,10 +16,20 @@ import (
 
 type mockPullRequestService struct {
 	mockPRs                []*github.PullRequest
+	mockPRsByNumber        map[int]*github.PullRequest
 	mockReviewsByPRNumber  map[int][]*github.PullRequestReview
 	mockCommentsByPRNumber map[int][]*github.PullRequestComment
 	mockResponse           *github.Response
 	mockError              error
+}
+
+func (m *mockPullRequestService) Get(
+	ctx context.Context, owner string, repo string, number int,
+) (*github.PullRequest, *github.Response, error) {
+	if pr, ok := m.mockPRsByNumber[number]; ok {
+		return pr, m.mockResponse, m.mockError
+	}
+	return nil, &github.Response{Response: &http.Response{StatusCode: 404}}, fmt.Errorf("unknown repo")
 }
 
 func (m *mockPullRequestService) List(
@@ -100,9 +110,18 @@ func NewTimelineComment(login, name string, userType ...string) *github.IssueCom
 	}
 }
 
-// multiRepoPRService routes List calls to different mock services based on repo name
+// multiRepoPRService routes Get & List calls to different mock services based on repo name
 type multiRepoPRService struct {
 	services map[string]*mockPullRequestService
+}
+
+func (m *multiRepoPRService) Get(
+	ctx context.Context, owner string, repo string, number int,
+) (*github.PullRequest, *github.Response, error) {
+	if svc, ok := m.services[repo]; ok {
+		return svc.mockPRs[number], svc.mockResponse, svc.mockError
+	}
+	return nil, &github.Response{Response: &http.Response{StatusCode: 404}}, fmt.Errorf("unknown repo")
 }
 
 func (m *multiRepoPRService) List(
@@ -723,6 +742,20 @@ type selectivePRService struct {
 	errByPRNumber      map[int]error
 	response           *github.Response
 	reviewsResponse    *github.Response
+}
+
+func (s *selectivePRService) Get(
+	ctx context.Context, owner string, repo string, number int,
+) (*github.PullRequest, *github.Response, error) {
+	if err, ok := s.errByPRNumber[number]; ok {
+		return nil, s.response, err
+	}
+	for _, pr := range s.mockPRs {
+		if pr.GetNumber() == number {
+			return pr, s.response, nil
+		}
+	}
+	return nil, s.response, fmt.Errorf("PR not found")
 }
 
 func (s *selectivePRService) List(

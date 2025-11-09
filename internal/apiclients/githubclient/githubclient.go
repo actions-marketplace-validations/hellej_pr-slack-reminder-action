@@ -27,6 +27,11 @@ type Client interface {
 }
 
 type GithubPullRequestsService interface {
+	Get(
+		ctx context.Context, owner string, repo string, number int,
+	) (
+		*github.PullRequest, *github.Response, error,
+	)
 	List(
 		ctx context.Context, owner string, repo string, opts *github.PullRequestListOptions,
 	) (
