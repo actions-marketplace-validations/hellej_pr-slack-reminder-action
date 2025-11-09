@@ -17,10 +17,10 @@ import (
 const CurrentSchemaVersion = 1
 
 type State struct {
-	SchemaVersion int              `json:"schemaVersion"`
-	CreatedAt     time.Time        `json:"createdAt"`
-	SlackMessage  SlackRef         `json:"slackMessage"`
-	PullRequests  []PullRequestRef `json:"pullRequests"`
+	SchemaVersion int                     `json:"schemaVersion"`
+	CreatedAt     time.Time               `json:"createdAt"`
+	SlackMessage  SlackRef                `json:"slackMessage"`
+	PullRequests  []models.PullRequestRef `json:"pullRequests"`
 }
 
 type SlackRef struct {
@@ -28,13 +28,8 @@ type SlackRef struct {
 	MessageTS string `json:"messageTs"`
 }
 
-type PullRequestRef struct {
-	Repository models.Repository `json:"repository"`
-	Number     int               `json:"number"`
-}
-
-func PRToPullRequestRef(pr prparser.PR) PullRequestRef {
-	return PullRequestRef{
+func PRToPullRequestRef(pr prparser.PR) models.PullRequestRef {
+	return models.PullRequestRef{
 		Repository: pr.Repository,
 		Number:     *pr.Number,
 	}
@@ -106,7 +101,7 @@ func SaveSentSlackBlocks(
 	return nil
 }
 
-func savePostState(filePath string, pullRequestRefs []PullRequestRef, slackRef SlackRef) error {
+func savePostState(filePath string, pullRequestRefs []models.PullRequestRef, slackRef SlackRef) error {
 	stateToSave := State{
 		SchemaVersion: CurrentSchemaVersion,
 		CreatedAt:     time.Now(),

@@ -39,17 +39,18 @@ func Run(
 	switch cfg.RunMode {
 	case config.RunModePost:
 		return runPostMode(githubClient, slackClient, cfg)
+	case config.RunModeUpdate:
+		return runUpdateMode(githubClient, slackClient, cfg)
 	default:
 		return fmt.Errorf("unsupported run mode: %s", cfg.RunMode)
 	}
-
 }
 
 func runPostMode(githubClient githubclient.Client, slackClient slackclient.Client, cfg config.Config) error {
 	const prFetchTimeout = 60 * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), prFetchTimeout)
 	defer cancel()
-	prs, err := githubClient.FetchOpenPRs(ctx, cfg.Repositories, cfg.GetFiltersForRepository)
+	prs, err := githubClient.FindOpenPRs(ctx, cfg.Repositories, cfg.GetFiltersForRepository)
 	if err != nil {
 		return err
 	}
@@ -76,6 +77,44 @@ func runPostMode(githubClient githubclient.Client, slackClient slackclient.Clien
 		); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func runUpdateMode(githubClient githubclient.Client, slackClient slackclient.Client, cfg config.Config) error {
+	loadedState, err := state.Load(cfg.StateFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to load state: %w", err)
+	}
+	if len(loadedState.PullRequests) == 0 {
+		log.Println("No PRs to update in state, exiting")
+		return nil
+	}
+
+	const prFetchTimeout = 60 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), prFetchTimeout)
+	defer cancel()
+	prs, err := githubClient.GetPRs(ctx, loadedState.PullRequests, cfg.GetFiltersForRepository)
+	if err != nil {
+		return err
+	}
+
+	parsedPRs := prparser.ParsePRs(prs, cfg.ContentInputs)
+	content := messagecontent.GetContent(parsedPRs, cfg.ContentInputs)
+	if !content.HasPRs() && content.SummaryText == "" {
+		log.Println("No PRs found and no message configured for this case, exiting")
+		return nil
+	}
+	blocks, summaryText := messagebuilder.BuildMessage(content)
+
+	if err := slackClient.UpdateMessage(
+		cfg.SlackChannelID,
+		loadedState.SlackMessage.MessageTS,
+		blocks,
+		summaryText,
+	); err != nil {
+		return err
 	}
 
 	return nil

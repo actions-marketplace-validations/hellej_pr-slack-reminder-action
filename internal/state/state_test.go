@@ -23,7 +23,7 @@ func TestStateSaveAndLoadRoundTrip(t *testing.T) {
 			ChannelID: "C123456789",
 			MessageTS: "1729123456.123456",
 		},
-		PullRequests: []PullRequestRef{
+		PullRequests: []models.PullRequestRef{
 			{Repository: models.NewRepository("owner1", "repo1"), Number: 1},
 			{Repository: models.NewRepository("owner1", "repo1"), Number: 2},
 			{Repository: models.NewRepository("owner2", "repo2"), Number: 5},
@@ -109,7 +109,7 @@ func TestStateValidateSchemaVersionMismatch(t *testing.T) {
 			ChannelID: "C123456789",
 			MessageTS: "1729123456.123456",
 		},
-		PullRequests: []PullRequestRef{
+		PullRequests: []models.PullRequestRef{
 			{Repository: models.NewRepository("owner1", "repo1"), Number: 1},
 		},
 	}
@@ -133,7 +133,7 @@ func TestStateValidateValidState(t *testing.T) {
 			ChannelID: "C123456789",
 			MessageTS: "1729123456.123456",
 		},
-		PullRequests: []PullRequestRef{
+		PullRequests: []models.PullRequestRef{
 			{Repository: models.NewRepository("owner1", "repo1"), Number: 1},
 		},
 	}

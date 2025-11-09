@@ -175,7 +175,7 @@ func TestGetAuthenticatedClient(t *testing.T) {
 	}
 }
 
-func TestFetchOpenPRs(t *testing.T) {
+func TestFindOpenPRs(t *testing.T) {
 	tests := []struct {
 		name                    string
 		mockPRs                 []*github.PullRequest
@@ -456,10 +456,10 @@ func TestFetchOpenPRs(t *testing.T) {
 				return config.Filters{} // empty filters = allow all
 			}
 
-			result, err := client.FetchOpenPRs(context.Background(), repos, getFilters)
+			result, err := client.FindOpenPRs(context.Background(), repos, getFilters)
 
 			if err != nil {
-				t.Fatalf("FetchOpenPRs() returned error: %v", err)
+				t.Fatalf("FindOpenPRs() returned error: %v", err)
 			}
 
 			if len(result) != tt.expectedPRCount {
@@ -546,7 +546,7 @@ func TestFetchManyPRs(t *testing.T) {
 			client := githubclient.NewClient(mockPRService, mockIssueService)
 			repos := []models.Repository{{Owner: "testowner", Name: "testrepo"}}
 
-			result, err := client.FetchOpenPRs(
+			result, err := client.FindOpenPRs(
 				context.Background(),
 				repos, func(models.Repository) config.Filters {
 					return config.Filters{}
@@ -554,7 +554,7 @@ func TestFetchManyPRs(t *testing.T) {
 			)
 
 			if err != nil {
-				t.Fatalf("FetchOpenPRs() returned error: %v", err)
+				t.Fatalf("FindOpenPRs() returned error: %v", err)
 			}
 
 			if len(result) != tt.expectedPRCount {
@@ -564,7 +564,7 @@ func TestFetchManyPRs(t *testing.T) {
 	}
 }
 
-func TestFetchOpenPRs_MultipleRepositories(t *testing.T) {
+func TestFindOpenPRs_MultipleRepositories(t *testing.T) {
 	mockPRService1 := &mockPullRequestService{
 		mockPRs: []*github.PullRequest{
 			{
@@ -615,7 +615,7 @@ func TestFetchOpenPRs_MultipleRepositories(t *testing.T) {
 		},
 	)
 	repos := []models.Repository{{Owner: "o", Name: "repo1"}, {Owner: "o", Name: "repo2"}}
-	result, err := client.FetchOpenPRs(
+	result, err := client.FindOpenPRs(
 		context.Background(),
 		repos, func(models.Repository) config.Filters {
 			return config.Filters{}
@@ -634,7 +634,7 @@ func TestFetchOpenPRs_MultipleRepositories(t *testing.T) {
 	}
 }
 
-func TestFetchOpenPRs_ErrorShortCircuits(t *testing.T) {
+func TestFindOpenPRs_ErrorShortCircuits(t *testing.T) {
 	mockPRService404 := &mockPullRequestService{
 		mockPRs: nil, mockReviewsByPRNumber: map[int][]*github.PullRequestReview{},
 		mockCommentsByPRNumber: map[int][]*github.PullRequestComment{},
@@ -677,7 +677,7 @@ func TestFetchOpenPRs_ErrorShortCircuits(t *testing.T) {
 		},
 	)
 	repos := []models.Repository{{Owner: "o", Name: "bad"}, {Owner: "o", Name: "good"}}
-	_, err := client.FetchOpenPRs(
+	_, err := client.FindOpenPRs(
 		context.Background(),
 		repos,
 		func(models.Repository) config.Filters { return config.Filters{} },
@@ -687,7 +687,7 @@ func TestFetchOpenPRs_ErrorShortCircuits(t *testing.T) {
 	}
 }
 
-func TestFetchOpenPRs_ConcurrencyLimit(t *testing.T) {
+func TestFindOpenPRs_ConcurrencyLimit(t *testing.T) {
 	repoCount := githubclient.DefaultGitHubAPIConcurrencyLimit + 3
 	services := make(map[string]*mockPullRequestService)
 	repos := make([]models.Repository, 0, repoCount)
@@ -721,7 +721,7 @@ func TestFetchOpenPRs_ConcurrencyLimit(t *testing.T) {
 		&multiRepoPRService{services: services},
 		&multiRepoIssuesService{services: issueServices},
 	)
-	prs, err := client.FetchOpenPRs(
+	prs, err := client.FindOpenPRs(
 		context.Background(),
 		repos,
 		func(models.Repository) config.Filters { return config.Filters{} },
@@ -795,7 +795,7 @@ func (s *selectiveIssuesService) ListComments(
 	return comments, s.response, err
 }
 
-func TestFetchOpenPRs_ReviewsPartialErrors(t *testing.T) {
+func TestFindOpenPRs_ReviewsPartialErrors(t *testing.T) {
 	// Two PRs: first reviews fetch fails, second succeeds.
 	prService := &selectivePRService{
 		mockPRs: []*github.PullRequest{
@@ -824,7 +824,7 @@ func TestFetchOpenPRs_ReviewsPartialErrors(t *testing.T) {
 
 	client := githubclient.NewClient(prService, issueService)
 	repos := []models.Repository{{Owner: "o", Name: "repo"}}
-	prs, err := client.FetchOpenPRs(
+	prs, err := client.FindOpenPRs(
 		context.Background(),
 		repos,
 		func(models.Repository) config.Filters { return config.Filters{} },

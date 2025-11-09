@@ -804,7 +804,7 @@ func TestScenariosUpdateMode(t *testing.T) {
 					ChannelID: "C12345678",
 					MessageTS: "1623850245.000200",
 				},
-				PullRequests: []state.PullRequestRef{
+				PullRequests: []models.PullRequestRef{
 					{
 						Repository: models.Repository{
 							Owner: "test-org",
@@ -826,8 +826,8 @@ func TestScenariosUpdateMode(t *testing.T) {
 				2: getTestPR(GetTestPROptions{Number: 2, Title: "Second PR", AuthorLogin: "bob"}),
 			},
 			expectedPRItemTexts: []string{
-				"First PR 5 minutes ago by Alice",
-				"Second PR 5 minutes ago by Bob",
+				"First PR 5 hours ago by Alice",
+				"Second PR 5 hours ago by Bob",
 			},
 		},
 	}
@@ -869,24 +869,24 @@ func TestScenariosUpdateMode(t *testing.T) {
 			if tc.expectedErrorMsg != "" {
 				return
 			}
-			if len(tc.expectedPRItemTexts) != mockSlackAPI.SentMessage.Blocks.GetPRCount() {
+			if len(tc.expectedPRItemTexts) != mockSlackAPI.UpdatedMessage.Blocks.GetPRCount() {
 				t.Errorf(
 					"Expected %v PRs to be included in the message (was %v)",
-					len(tc.expectedPRItemTexts), mockSlackAPI.SentMessage.Blocks.GetPRCount(),
+					len(tc.expectedPRItemTexts), mockSlackAPI.UpdatedMessage.Blocks.GetPRCount(),
 				)
 			}
 			if len(tc.expectedPRItemTexts) > 0 {
 				missingPRItems := false
 				for _, expectedText := range tc.expectedPRItemTexts {
-					if !mockSlackAPI.SentMessage.Blocks.SomePRItemTextIsEqualTo(expectedText) {
+					if !mockSlackAPI.UpdatedMessage.Blocks.SomePRItemTextIsEqualTo(expectedText) {
 						t.Errorf(
-							"Expected list item text '%s' to be in the sent message blocks", expectedText,
+							"Expected list item text '%s' to be in the updated message blocks", expectedText,
 						)
 						missingPRItems = true
 					}
 				}
 				if missingPRItems {
-					prItems := mockSlackAPI.SentMessage.Blocks.GetAllPRItemTexts()
+					prItems := mockSlackAPI.UpdatedMessage.Blocks.GetAllPRItemTexts()
 					t.Logf("Found PR items:")
 					for _, prItem := range prItems {
 						t.Log(prItem)

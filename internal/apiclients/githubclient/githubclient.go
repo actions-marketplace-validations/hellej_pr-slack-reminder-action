@@ -19,9 +19,14 @@ import (
 )
 
 type Client interface {
-	FetchOpenPRs(
+	FindOpenPRs(
 		ctx context.Context,
 		repositories []models.Repository,
+		getFiltersForRepository func(repo models.Repository) config.Filters,
+	) ([]PR, error)
+	GetPRs(
+		ctx context.Context,
+		references []models.PullRequestRef,
 		getFiltersForRepository func(repo models.Repository) config.Filters,
 	) ([]PR, error)
 }
@@ -76,12 +81,15 @@ type client struct {
 // Exported to allow tests (and potential future configuration) to reference it.
 const DefaultGitHubAPIConcurrencyLimit = 3
 
+const MaxPRsToFetch = 50
+
 // Per-call timeout defaults. Overridable in tests.
-var PullRequestListTimeout = 10 * time.Second
-var ReviewsFetchTimeout = 10 * time.Second
+const PullRequestListTimeout = 10 * time.Second
+const PullRequestFetchTimeout = 5 * time.Second
+const ReviewsFetchTimeout = 10 * time.Second
 
 // Returns an error if fetching PRs from any repository fails (and cancels the other requests).
-func (c *client) FetchOpenPRs(
+func (c *client) FindOpenPRs(
 	ctx context.Context,
 	repositories []models.Repository,
 	getFiltersForRepository func(repo models.Repository) config.Filters,
@@ -110,7 +118,50 @@ func (c *client) FetchOpenPRs(
 		utilities.FlatMap(prResultSlices),
 		getPRFilterFunc(getFiltersForRepository),
 	)
-	prResults = includeLatest50PRsOnly(prResults)
+	prResults = includeLatestPRsOnlyIfExceedsLimit(prResults)
+	logFoundPRs(prResults)
+
+	return c.addReviewerInfoToPRs(ctx, prResults)
+}
+
+func (c *client) GetPRs(
+	ctx context.Context,
+	references []models.PullRequestRef,
+	getFiltersForRepository func(repo models.Repository) config.Filters,
+) ([]PR, error) {
+	if len(references) > MaxPRsToFetch {
+		log.Printf(
+			"More than %d PRs requested (%d), fetching only the first %d",
+			MaxPRsToFetch, len(references), MaxPRsToFetch,
+		)
+		references = references[:MaxPRsToFetch]
+	} else {
+		log.Printf("Fetching %d pull requests", len(references))
+	}
+
+	listGroup, listCtx := errgroup.WithContext(ctx)
+	listGroup.SetLimit(DefaultGitHubAPIConcurrencyLimit)
+	prResultSlices := make([]PRResult, len(references))
+
+	for i, prRef := range references {
+		i, prRef := i, prRef // https://golang.org/doc/faq#closures_and_goroutines
+		listGroup.Go(func() error {
+			res, err := c.fetchPR(listCtx, prRef)
+			if err == nil {
+				prResultSlices[i] = res
+			}
+			return err
+		})
+	}
+	if err := listGroup.Wait(); err != nil {
+		return nil, err
+	}
+
+	prResults := utilities.Filter(
+		prResultSlices,
+		getPRFilterFunc(getFiltersForRepository),
+	)
+	prResults = includeLatestPRsOnlyIfExceedsLimit(prResults)
 	logFoundPRs(prResults)
 
 	return c.addReviewerInfoToPRs(ctx, prResults)
@@ -147,6 +198,31 @@ func (c *client) fetchOpenPRsForRepository(
 	)
 }
 
+func (c *client) fetchPR(
+	ctx context.Context, prRef models.PullRequestRef,
+) (PRResult, error) {
+	callCtx, cancel := context.WithTimeout(ctx, PullRequestFetchTimeout)
+	defer cancel()
+	pr, response, err := c.prService.Get(
+		callCtx, prRef.Repository.Owner, prRef.Repository.Name, prRef.Number,
+	)
+	if err == nil {
+		return getPRResultMapper(prRef.Repository)(pr), nil
+	}
+	if response != nil && response.StatusCode == 404 {
+		return PRResult{}, fmt.Errorf(
+			"PR %s/%s/%d not found - check the path and permissions",
+			prRef.Repository.Owner,
+			prRef.Repository.Name,
+			prRef.Number,
+		)
+	}
+	return PRResult{}, fmt.Errorf(
+		"error fetching pull request %s/%s/%d: %w",
+		prRef.Repository.Owner, prRef.Repository.Name, prRef.Number, err,
+	)
+}
+
 func getPRResultMapper(repo models.Repository) func(pr *github.PullRequest) PRResult {
 	return func(pr *github.PullRequest) PRResult {
 		return PRResult{
@@ -163,18 +239,21 @@ func logFoundPRs(prResults []PRResult) {
 	}
 }
 
-func includeLatest50PRsOnly(prs []PRResult) []PRResult {
-	if len(prs) <= 50 {
+func includeLatestPRsOnlyIfExceedsLimit(prs []PRResult) []PRResult {
+	if len(prs) <= MaxPRsToFetch {
 		return prs
 	}
-	log.Printf("More than 50 pull requests found (%d), including only the latest 50", len(prs))
+	log.Printf(
+		"More than %d pull requests found (%d), including only the latest %d",
+		MaxPRsToFetch, len(prs), MaxPRsToFetch,
+	)
 	slices.SortStableFunc(prs, func(a, b PRResult) int {
 		if !a.pr.GetCreatedAt().Time.Equal(b.pr.GetCreatedAt().Time) {
 			return b.pr.GetCreatedAt().Time.Compare(a.pr.GetCreatedAt().Time)
 		}
 		return b.pr.GetUpdatedAt().Time.Compare(a.pr.GetUpdatedAt().Time)
 	})
-	return prs[:50]
+	return prs[:MaxPRsToFetch]
 }
 
 // Fetches review and comment data for the given PRs and returns enriched PR data.
