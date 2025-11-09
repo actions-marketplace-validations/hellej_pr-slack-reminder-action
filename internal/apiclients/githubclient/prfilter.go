@@ -3,7 +3,7 @@ package githubclient
 import (
 	"slices"
 
-	"github.com/google/go-github/v72/github"
+	"github.com/google/go-github/v78/github"
 	"github.com/hellej/pr-slack-reminder-action/internal/config"
 )
 

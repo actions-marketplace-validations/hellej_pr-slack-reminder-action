@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-github/v72/github"
+	"github.com/google/go-github/v78/github"
 	"github.com/slack-go/slack"
 
 	"github.com/hellej/pr-slack-reminder-action/internal/apiclients/githubclient"
