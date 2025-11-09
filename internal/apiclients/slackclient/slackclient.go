@@ -19,8 +19,11 @@ type SentMessageInfo struct {
 
 type Client interface {
 	GetChannelIDByName(channelName string) (string, error)
-	SendMessage(channelID string, blocks slack.Message, summaryText string) (*SentMessageInfo, error)
-	UpdateMessage(channelID string, messageTS string, blocks slack.Message, summaryText string) error
+	SendMessage(channelID string, message slack.Message, summaryText string,
+	) (SentMessageInfo, error)
+	UpdateMessage(
+		channelID string, messageTS string, message slack.Message, summaryText string,
+	) (SentMessageInfo, error)
 }
 
 func GetAuthenticatedClient(token string) Client {
@@ -92,62 +95,72 @@ func (c *client) GetChannelIDByName(channelName string) (string, error) {
 // The message must not have more than 50 blocks
 func (c *client) SendMessage(
 	channelID string,
-	blocks slack.Message,
+	message slack.Message,
 	summaryText string,
-) (*SentMessageInfo, error) {
-	if len(blocks.Blocks.BlockSet) > 50 {
-		return nil, fmt.Errorf(
+) (SentMessageInfo, error) {
+	if len(message.Blocks.BlockSet) > 50 {
+		return SentMessageInfo{}, fmt.Errorf(
 			"message has too many blocks for Slack API (limit: 50, was: %v)",
-			len(blocks.Blocks.BlockSet),
+			len(message.Blocks.BlockSet),
 		)
 	}
 
 	log.Printf("\nSending message with summary: %s", summaryText)
 	responseChannelID, timestamp, err := c.slackAPI.PostMessage(
 		channelID,
-		slack.MsgOptionBlocks(blocks.Blocks.BlockSet...),
+		slack.MsgOptionBlocks(message.Blocks.BlockSet...),
 		slack.MsgOptionText(summaryText, false),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send Slack message: %v", err)
+		return SentMessageInfo{}, fmt.Errorf("failed to send Slack message: %v", err)
 	}
 	log.Printf("Sent message to Slack channel: %s", channelID)
 
-	var sentJSONBlocks []string
-	_, values, err := slack.UnsafeApplyMsgOptions(
-		"", "", "", slack.MsgOptionBlocks(blocks.Blocks.BlockSet...),
-	)
-	if err == nil {
-		if valuesBlocks, ok := values["blocks"]; ok && len(valuesBlocks) > 0 {
-			sentJSONBlocks = valuesBlocks
-		}
-	}
-
-	return &SentMessageInfo{
+	return SentMessageInfo{
 		ChannelID:  responseChannelID,
 		Timestamp:  timestamp,
-		JSONBlocks: sentJSONBlocks,
+		JSONBlocks: parseSentJSONBlocks(message),
 	}, nil
 }
 
 func (c *client) UpdateMessage(
 	channelID string,
 	messageTS string,
-	blocks slack.Message,
+	message slack.Message,
 	summaryText string,
-) error {
+) (SentMessageInfo, error) {
 	log.Printf("Updating message with timestamp %s and summary: %s", messageTS, summaryText)
 	_, _, _, err := c.slackAPI.UpdateMessage(
 		channelID,
 		messageTS,
-		slack.MsgOptionBlocks(blocks.Blocks.BlockSet...),
+		slack.MsgOptionBlocks(message.Blocks.BlockSet...),
 		slack.MsgOptionText(summaryText, false),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to update Slack message: %v", err)
+		return SentMessageInfo{}, fmt.Errorf("failed to update Slack message: %v", err)
 	}
 	log.Printf("Updated message in Slack channel: %s", channelID)
-	return nil
+
+	return SentMessageInfo{
+		ChannelID:  channelID,
+		Timestamp:  messageTS,
+		JSONBlocks: parseSentJSONBlocks(message),
+	}, nil
+}
+
+func parseSentJSONBlocks(message slack.Message) []string {
+	var sentJSONBlocks []string
+	_, values, err := slack.UnsafeApplyMsgOptions(
+		"", "", "", slack.MsgOptionBlocks(message.Blocks.BlockSet...),
+	)
+	if err == nil {
+		if valuesBlocks, ok := values["blocks"]; ok && len(valuesBlocks) > 0 {
+			sentJSONBlocks = valuesBlocks
+		}
+	} else {
+		log.Printf("Warning: unable to parse sent JSON blocks: %v", err)
+	}
+	return sentJSONBlocks
 }
 
 func (c *client) fetchChannels(types []string) ([]slack.Channel, error) {

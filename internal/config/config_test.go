@@ -14,6 +14,7 @@ import (
 const (
 	TestGithubToken         = "gh_token_123"
 	TestSlackBotToken       = "xoxb-slack-token"
+	TestDefaultRunMode      = "post"
 	TestSlackChannelName    = "test-channel"
 	TestSlackChannelID      = "C1234567890"
 	TestPRListHeading       = "PRs needing attention"
@@ -103,6 +104,7 @@ func (h *ConfigTestHelpers) createRepository(repoPath string) models.Repository 
 
 // MinimalConfigOptions allows selectively disabling certain inputs in setupMinimalValidConfig
 type MinimalConfigOptions struct {
+	SkipRunMode          bool // Skip setting mode
 	SkipGithubRepository bool // Skip setting GITHUB_REPOSITORY
 	SkipGithubToken      bool // Skip setting github-token
 	SkipSlackBotToken    bool // Skip setting slack-bot-token
@@ -119,6 +121,11 @@ func (h *ConfigTestHelpers) setupMinimalValidConfig(opts ...MinimalConfigOptions
 		options = opts[0]
 	}
 
+	if !options.SkipRunMode {
+		h.setInput(config.InputRunMode, TestDefaultRunMode)
+	} else {
+		h.setEnv(config.InputRunMode, "")
+	}
 	if !options.SkipGithubRepository {
 		h.setEnv(config.EnvGithubRepository, TestDefaultRepository)
 	} else {

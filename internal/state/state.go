@@ -59,14 +59,14 @@ func (s *State) Validate() error {
 func SavePostState(
 	filePath string,
 	parsedPRs []prparser.PR,
-	messageResponse *slackclient.SentMessageInfo,
+	messageInfo slackclient.SentMessageInfo,
 ) error {
 	return savePostState(
 		filePath,
 		utilities.Map(parsedPRs, PRToPullRequestRef),
 		SlackRef{
-			ChannelID: messageResponse.ChannelID,
-			MessageTS: messageResponse.Timestamp,
+			ChannelID: messageInfo.ChannelID,
+			MessageTS: messageInfo.Timestamp,
 		})
 }
 

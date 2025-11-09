@@ -36,17 +36,24 @@ func Run(
 		cfg.SlackChannelID = channelID
 	}
 
+	sentMessageHandler := getSentMessageHandler(cfg)
+
 	switch cfg.RunMode {
 	case config.RunModePost:
-		return runPostMode(githubClient, slackClient, cfg)
+		return runPostMode(githubClient, slackClient, cfg, sentMessageHandler)
 	case config.RunModeUpdate:
-		return runUpdateMode(githubClient, slackClient, cfg)
+		return runUpdateMode(githubClient, slackClient, cfg, sentMessageHandler)
 	default:
 		return fmt.Errorf("unsupported run mode: %s", cfg.RunMode)
 	}
 }
 
-func runPostMode(githubClient githubclient.Client, slackClient slackclient.Client, cfg config.Config) error {
+func runPostMode(
+	githubClient githubclient.Client,
+	slackClient slackclient.Client,
+	cfg config.Config,
+	sentMessageHandler func(slackclient.SentMessageInfo) error,
+) error {
 	const prFetchTimeout = 60 * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), prFetchTimeout)
 	defer cancel()
@@ -61,28 +68,25 @@ func runPostMode(githubClient githubclient.Client, slackClient slackclient.Clien
 		log.Println("No PRs found and no message configured for this case, exiting")
 		return nil
 	}
-	blocks, summaryText := messagebuilder.BuildMessage(content)
+	message, summaryText := messagebuilder.BuildMessage(content)
 
-	sentMessageInfo, err := slackClient.SendMessage(cfg.SlackChannelID, blocks, summaryText)
+	sentMessageInfo, err := slackClient.SendMessage(cfg.SlackChannelID, message, summaryText)
 	if err != nil {
 		return err
 	}
 
-	if cfg.RunMode == config.RunModePost {
-		if err := state.SavePostState(cfg.StateFilePath, parsedPRs, sentMessageInfo); err != nil {
-			return err
-		}
-		if err := state.SaveSentSlackBlocks(
-			cfg.SentSlackBlocksFilePath, sentMessageInfo.JSONBlocks,
-		); err != nil {
-			return err
-		}
+	if err := state.SavePostState(cfg.StateFilePath, parsedPRs, sentMessageInfo); err != nil {
+		return err
 	}
-
-	return nil
+	return sentMessageHandler(sentMessageInfo)
 }
 
-func runUpdateMode(githubClient githubclient.Client, slackClient slackclient.Client, cfg config.Config) error {
+func runUpdateMode(
+	githubClient githubclient.Client,
+	slackClient slackclient.Client,
+	cfg config.Config,
+	sentMessageHandler func(slackclient.SentMessageInfo) error,
+) error {
 	loadedState, err := state.Load(cfg.StateFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to load state: %w", err)
@@ -106,16 +110,29 @@ func runUpdateMode(githubClient githubclient.Client, slackClient slackclient.Cli
 		log.Println("No PRs found and no message configured for this case, exiting")
 		return nil
 	}
-	blocks, summaryText := messagebuilder.BuildMessage(content)
+	message, summaryText := messagebuilder.BuildMessage(content)
 
-	if err := slackClient.UpdateMessage(
-		cfg.SlackChannelID,
+	sentMessageInfo, err := slackClient.UpdateMessage(
+		loadedState.SlackMessage.ChannelID,
 		loadedState.SlackMessage.MessageTS,
-		blocks,
+		message,
 		summaryText,
-	); err != nil {
+	)
+	if err != nil {
 		return err
 	}
+	return sentMessageHandler(sentMessageInfo)
+}
 
-	return nil
+// Returns a handler function that saves the sent Slack message blocks as a JSON file.
+// This is useful in both dry-run mode of the action (TODO) and in integration tests.
+func getSentMessageHandler(config config.Config) func(slackclient.SentMessageInfo) error {
+	return func(sentMessageInfo slackclient.SentMessageInfo) error {
+		if err := state.SaveSentSlackBlocks(
+			config.SentSlackBlocksFilePath, sentMessageInfo.JSONBlocks,
+		); err != nil {
+			return err
+		}
+		return nil
+	}
 }

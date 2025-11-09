@@ -236,7 +236,7 @@ func TestUpdateMessage(t *testing.T) {
 
 			blocks := slack.NewBlockMessage()
 
-			err := client.UpdateMessage(tt.channelID, tt.messageTS, blocks, tt.summaryText)
+			_, err := client.UpdateMessage(tt.channelID, tt.messageTS, blocks, tt.summaryText)
 
 			if tt.expectedError != "" {
 				if err == nil {
