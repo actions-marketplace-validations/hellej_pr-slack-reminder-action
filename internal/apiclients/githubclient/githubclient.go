@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"slices"
 
 	"time"
@@ -29,6 +30,11 @@ type Client interface {
 		references []models.PullRequestRef,
 		getFiltersForRepository func(repo models.Repository) config.Filters,
 	) ([]PR, error)
+	FetchLatestArtifactByName(
+		ctx context.Context,
+		owner, repo, artifactName, jsonFilename string,
+		out interface{},
+	) error
 }
 
 type GithubPullRequestsService interface {
@@ -62,18 +68,48 @@ type GithubIssuesService interface {
 	)
 }
 
-func NewClient(prService GithubPullRequestsService, issueService GithubIssuesService) Client {
-	return &client{prService: prService, issueService: issueService}
+type GithubActionsService interface {
+	ListArtifacts(
+		context.Context, string, string, *github.ListArtifactsOptions,
+	) (
+		*github.ArtifactList, *github.Response, error,
+	)
+}
+
+type BaseService interface {
+	NewRequest(method string, urlStr string, body any, opts ...github.RequestOption) (*http.Request, error)
+	Do(ctx context.Context, req *http.Request, v any) (*github.Response, error)
+}
+
+func NewClient(
+	baseService BaseService,
+	prService GithubPullRequestsService,
+	issueService GithubIssuesService,
+	actionsService GithubActionsService,
+) Client {
+	return &client{
+		BaseService:    baseService,
+		prService:      prService,
+		issueService:   issueService,
+		actionsService: actionsService,
+	}
 }
 
 func GetAuthenticatedClient(token string) Client {
 	ghClient := github.NewClient(nil).WithAuthToken(token)
-	return NewClient(ghClient.PullRequests, ghClient.Issues)
+	return NewClient(
+		ghClient,
+		ghClient.PullRequests,
+		ghClient.Issues,
+		ghClient.Actions,
+	)
 }
 
 type client struct {
-	prService    GithubPullRequestsService
-	issueService GithubIssuesService
+	BaseService
+	prService      GithubPullRequestsService
+	issueService   GithubIssuesService
+	actionsService GithubActionsService
 }
 
 // DefaultGitHubAPIConcurrencyLimit caps concurrent repository fetches to avoid
