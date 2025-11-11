@@ -42,7 +42,23 @@ func MakeMockGitHubClientGetter(
 			},
 			err: nil,
 		}
-		return githubclient.NewClient(mockPRService, mockIssueService)
+		mockRequests := &mockRequests{
+			response: &github.Response{
+				Response: &http.Response{
+					StatusCode: 200,
+				},
+			},
+			err: nil,
+		}
+		mockActionsService := &mockActionsService{
+			response: &github.Response{
+				Response: &http.Response{
+					StatusCode: 200,
+				},
+			},
+			err: nil,
+		}
+		return githubclient.NewClient(mockRequests, mockPRService, mockIssueService, mockActionsService)
 	}
 }
 
@@ -144,4 +160,29 @@ func (m *mockIssueService) ListComments(
 ) ([]*github.IssueComment, *github.Response, error) {
 	comments := m.mockTimelineCommentsByPRNumber[number]
 	return comments, m.response, m.err
+}
+
+type mockActionsService struct {
+	response *github.Response
+	err      error
+}
+
+func (m *mockActionsService) ListArtifacts(
+	ctx context.Context, owner string, repo string, opts *github.ListArtifactsOptions,
+) (*github.ArtifactList, *github.Response, error) {
+	return &github.ArtifactList{}, m.response, m.err
+}
+
+type mockRequests struct {
+	response *github.Response
+	err      error
+}
+
+func (m *mockRequests) NewRequest(method string, urlStr string, body any, opts ...github.RequestOption) (*http.Request, error) {
+	req, err := http.NewRequest(method, urlStr, nil)
+	return req, err
+}
+
+func (m *mockRequests) Do(ctx context.Context, req *http.Request, v any) (*github.Response, error) {
+	return m.response, m.err
 }

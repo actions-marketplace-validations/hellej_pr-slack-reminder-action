@@ -33,7 +33,7 @@ type Client interface {
 	FetchLatestArtifactByName(
 		ctx context.Context,
 		owner, repo, artifactName, jsonFilename string,
-		out interface{},
+		out any,
 	) error
 }
 
@@ -76,19 +76,19 @@ type GithubActionsService interface {
 	)
 }
 
-type BaseService interface {
+type Requests interface {
 	NewRequest(method string, urlStr string, body any, opts ...github.RequestOption) (*http.Request, error)
 	Do(ctx context.Context, req *http.Request, v any) (*github.Response, error)
 }
 
 func NewClient(
-	baseService BaseService,
+	requests Requests,
 	prService GithubPullRequestsService,
 	issueService GithubIssuesService,
 	actionsService GithubActionsService,
 ) Client {
 	return &client{
-		BaseService:    baseService,
+		requests:       requests,
 		prService:      prService,
 		issueService:   issueService,
 		actionsService: actionsService,
@@ -106,7 +106,7 @@ func GetAuthenticatedClient(token string) Client {
 }
 
 type client struct {
-	BaseService
+	requests       Requests
 	prService      GithubPullRequestsService
 	issueService   GithubIssuesService
 	actionsService GithubActionsService

@@ -49,12 +49,12 @@ func (client *client) FetchLatestArtifactByName(
 		)
 	}
 
-	req, err := client.NewRequest("GET", archiveURL, nil)
+	req, err := client.requests.NewRequest("GET", archiveURL, nil)
 	if err != nil {
 		return fmt.Errorf("create download request: %w", err)
 	}
 
-	ghResp, err := client.Do(ctx, req, nil) // v == nil -> do not attempt JSON decode
+	ghResp, err := client.requests.Do(ctx, req, nil) // v == nil -> do not attempt JSON decode
 	if err != nil {
 		return fmt.Errorf("download artifact zip: %w", err)
 	}
