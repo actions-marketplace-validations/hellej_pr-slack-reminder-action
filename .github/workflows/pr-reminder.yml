@@ -1,0 +1,26 @@
+name: PR Reminder
+
+on:
+  workflow_dispatch:
+  schedule:
+  - cron: '0 9 * * 0-6'  # at 09:00 every day
+
+jobs:
+  reminder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send PR reminder
+        uses: ./
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
+          slack-channel-name: github
+          github-user-slack-user-id-mapping: |
+            hellej: U08SZJTJF0U
+            bob: U08EVPGNWER
+      
+      - uses: actions/upload-artifact@v5
+        with:
+          name: pr-slack-reminder-state
+          path: pr-slack-reminder-state.json
+          retention-days: 1

@@ -905,8 +905,9 @@ func TestGetConfig_StateFilePath_Default(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
-	if cfg.StateFilePath != ".pr-slack-reminder/state.json" {
-		t.Errorf("Expected default StateFilePath '.pr-slack-reminder/state.json', got '%s'", cfg.StateFilePath)
+	expectedPath := "pr-slack-reminder-state.json"
+	if cfg.StateFilePath != expectedPath {
+		t.Errorf("Expected default StateFilePath '%s', got '%s'", expectedPath, cfg.StateFilePath)
 	}
 }
 

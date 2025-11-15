@@ -38,8 +38,8 @@ const (
 	MaxRepositories int = 30
 
 	DefaultRunMode                 = RunModePost
-	DefaultStateFilePath           = ".pr-slack-reminder/state.json"
-	DefaultSentSlackBlocksFilePath = ".pr-slack-reminder/sent-slack-blocks.json"
+	DefaultStateFilePath           = "pr-slack-reminder-state.json"
+	DefaultSentSlackBlocksFilePath = "pr-slack-reminder-sent-blocks.json"
 )
 
 type Config struct {
