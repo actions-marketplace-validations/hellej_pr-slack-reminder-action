@@ -9,6 +9,8 @@ jobs:
   reminder:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v5
+
       - name: Send PR reminder
         uses: ./
         with:
