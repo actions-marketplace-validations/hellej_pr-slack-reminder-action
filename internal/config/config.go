@@ -96,7 +96,7 @@ func GetConfig() (Config, error) {
 	githubToken, err1 := inputhelpers.GetInputRequired(InputGithubToken)
 	slackToken, err2 := inputhelpers.GetInputRequired(InputSlackBotToken)
 	runMode, err3 := getRunMode(InputRunMode)
-	stateFilePath := inputhelpers.GetInputOr(InputStateFilePath, DefaultStateFilePath)
+	stateFilePath := cmp.Or(inputhelpers.GetEnv(InputStateFilePath), DefaultStateFilePath)
 	sentSlackBlocksFilePath := cmp.Or(
 		inputhelpers.GetEnv(EnvSentSlackBlocksFilePath), DefaultSentSlackBlocksFilePath,
 	)

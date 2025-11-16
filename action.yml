@@ -23,7 +23,7 @@ inputs: {
   state-file-path: {
     description: 'Path to state file used to persist message ID in order to later update it',
     required: false,
-    default: '.pr-slack-reminder/state.json',
+    default: 'pr-slack-reminder-state.json',
   },
   slack-channel-name: {
     description: 'Slack channel name to send the message to',
