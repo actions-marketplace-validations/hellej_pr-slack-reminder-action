@@ -20,6 +20,10 @@ inputs: {
     required: false,
     default: 'post',
   },
+  state-artifact-name: {
+    description: 'Name of the artifact containing state from previous runs (required when mode is update)',
+    required: false,
+  },
   slack-channel-name: {
     description: 'Slack channel name to send the message to',
     required: false,

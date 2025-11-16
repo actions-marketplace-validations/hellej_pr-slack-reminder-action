@@ -12,10 +12,13 @@ import (
 	"github.com/google/go-github/v78/github"
 )
 
+// FetchLatestArtifactByName downloads the most recent GitHub Actions artifact by name,
+// extracts a JSON file from the zip archive, and unmarshals it into the provided struct.
+// The target parameter should be a pointer to the target struct for JSON deserialization.
 func (client *client) FetchLatestArtifactByName(
 	ctx context.Context,
 	owner, repo, artifactName, jsonFilename string,
-	out interface{},
+	target any,
 ) error {
 	opts := &github.ListArtifactsOptions{
 		ListOptions: github.ListOptions{PerPage: 100},
@@ -93,7 +96,7 @@ func (client *client) FetchLatestArtifactByName(
 				return fmt.Errorf("open file inside zip: %w", err)
 			}
 			dec := json.NewDecoder(rc)
-			if err := dec.Decode(out); err != nil {
+			if err := dec.Decode(target); err != nil {
 				_ = rc.Close()
 				return fmt.Errorf("decode json %q: %w", jsonFilename, err)
 			}

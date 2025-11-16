@@ -23,6 +23,7 @@ const (
 	InputGithubToken                 string = "github-token"
 	InputSlackBotToken               string = "slack-bot-token"
 	InputRunMode                     string = "mode"
+	InputStateArtifactName           string = "state-artifact-name"
 	InputSlackChannelName            string = "slack-channel-name"
 	InputSlackChannelID              string = "slack-channel-id"
 	InputGithubRepositories          string = "github-repositories"
@@ -47,14 +48,15 @@ type Config struct {
 	SlackBotToken string
 
 	RunMode                 RunMode
+	StateArtifactName       string
 	StateFilePath           string
 	SentSlackBlocksFilePath string
 
 	SlackChannelName string
 	SlackChannelID   string
 
-	repository   string
-	Repositories []models.Repository
+	CurrentRepository models.Repository
+	Repositories      []models.Repository
 
 	GlobalFilters     Filters
 	RepositoryFilters map[string]Filters
@@ -97,6 +99,7 @@ func GetConfig() (Config, error) {
 	slackToken, err2 := inputhelpers.GetInputRequired(InputSlackBotToken)
 
 	runMode, err3 := getRunMode(InputRunMode)
+	stateArtifactName := inputhelpers.GetInput(InputStateArtifactName)
 	stateFilePath := cmp.Or(inputhelpers.GetEnv(EnvStateFilePath), DefaultStateFilePath)
 	sentSlackBlocksFilePath := cmp.Or(
 		inputhelpers.GetEnv(EnvSentSlackBlocksFilePath), DefaultSentSlackBlocksFilePath,
@@ -105,17 +108,20 @@ func GetConfig() (Config, error) {
 	slackChannelName := inputhelpers.GetInput(InputSlackChannelName)
 	slackChannelID := inputhelpers.GetInput(InputSlackChannelID)
 	repository, err4 := inputhelpers.GetEnvRequired(EnvGithubRepository)
+	currentRepository, err5 := models.ParseRepository(repository)
 	repositoryPaths := inputhelpers.GetInputList(InputGithubRepositories)
-	globalFilters, err5 := GetGlobalFiltersFromInput(InputGlobalFilters)
-	repositoryFilters, err6 := GetRepositoryFiltersFromInput(InputRepositoryFilters)
-	slackUserIdByGitHubUsername, err7 := inputhelpers.GetInputMapping(InputSlackUserIdByGitHubUsername)
+	globalFilters, err6 := GetGlobalFiltersFromInput(InputGlobalFilters)
+	repositoryFilters, err7 := GetRepositoryFiltersFromInput(InputRepositoryFilters)
+	slackUserIdByGitHubUsername, err8 := inputhelpers.GetInputMapping(InputSlackUserIdByGitHubUsername)
 	mainListHeading := inputhelpers.GetInput(InputPRListHeading)
 	noPRsMessage := inputhelpers.GetInput(InputNoPRsMessage)
-	oldPRsThresholdHours, err8 := inputhelpers.GetInputInt(InputOldPRThresholdHours)
-	groupByRepository, err9 := inputhelpers.GetInputBool(InputGroupByRepository)
-	prLinkRepoPrefixes, err10 := inputhelpers.GetInputMapping(InputPRLinkRepoPrefixes)
+	oldPRsThresholdHours, err9 := inputhelpers.GetInputInt(InputOldPRThresholdHours)
+	groupByRepository, err10 := inputhelpers.GetInputBool(InputGroupByRepository)
+	prLinkRepoPrefixes, err11 := inputhelpers.GetInputMapping(InputPRLinkRepoPrefixes)
 
-	if err := selectNonNilError(err1, err2, err3, err4, err5, err6, err7, err8, err9, err10); err != nil {
+	if err := selectNonNilError(
+		err1, err2, err3, err4, err5, err6, err7, err8, err9, err10, err11,
+	); err != nil {
 		return Config{}, err
 	}
 
@@ -134,11 +140,12 @@ func GetConfig() (Config, error) {
 		GithubToken:             githubToken,
 		SlackBotToken:           slackToken,
 		RunMode:                 runMode,
+		StateArtifactName:       stateArtifactName,
 		StateFilePath:           stateFilePath,
 		SentSlackBlocksFilePath: sentSlackBlocksFilePath,
 		SlackChannelName:        slackChannelName,
 		SlackChannelID:          slackChannelID,
-		repository:              repository,
+		CurrentRepository:       currentRepository,
 		Repositories:            repositories,
 		GlobalFilters:           globalFilters,
 		RepositoryFilters:       repositoryFilters,
@@ -187,6 +194,9 @@ func (c Config) validate() error {
 		return err
 	}
 	if err := c.validateHeadingOptions(); err != nil {
+		return err
+	}
+	if err := c.validateStateArtifactName(); err != nil {
 		return err
 	}
 
@@ -257,6 +267,13 @@ func validateRepositoryReferences[V any](
 func (c Config) validateHeadingOptions() error {
 	if !c.ContentInputs.GroupByRepository && c.ContentInputs.PRListHeading == "" {
 		return fmt.Errorf("%s is required when group-by-repository is false", InputPRListHeading)
+	}
+	return nil
+}
+
+func (c Config) validateStateArtifactName() error {
+	if c.RunMode == RunModeUpdate && c.StateArtifactName == "" {
+		return fmt.Errorf("%s is required when run mode is '%s'", InputStateArtifactName, RunModeUpdate)
 	}
 	return nil
 }

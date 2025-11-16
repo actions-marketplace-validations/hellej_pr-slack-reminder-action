@@ -198,13 +198,13 @@ func TestScenarios(t *testing.T) {
 		{
 			name:             "invalid repository input 1",
 			config:           testhelpers.GetDefaultConfigMinimal(),
-			configOverrides:  &map[string]any{config.EnvGithubRepository: "invalid/repo/name"},
+			configOverrides:  &map[string]any{config.InputGithubRepositories: []string{"invalid/repo/name"}},
 			expectedErrorMsg: "configuration error: invalid repositories input: invalid owner/repository format: invalid/repo/name",
 		},
 		{
 			name:             "invalid repository input 2",
 			config:           testhelpers.GetDefaultConfigMinimal(),
-			configOverrides:  &map[string]any{config.EnvGithubRepository: "invalid/"},
+			configOverrides:  &map[string]any{config.InputGithubRepositories: []string{"invalid/"}},
 			expectedErrorMsg: "configuration error: invalid repositories input: owner or repository name cannot be empty in: invalid/",
 		},
 		{
@@ -626,7 +626,6 @@ func TestScenarios(t *testing.T) {
 			}
 			if tc.expectedErrorMsg != "" && err != nil && !strings.Contains(err.Error(), tc.expectedErrorMsg) {
 				t.Errorf("Expected error message '%v', got: %v", tc.expectedErrorMsg, err)
-				t.Logf("Got error: %v", err)
 			}
 			if tc.expectedSummary == "" && mockSlackAPI.SentMessage.Text != "" {
 				t.Errorf("Expected no summary message, but got: %v", mockSlackAPI.SentMessage.Text)
@@ -741,7 +740,8 @@ func TestPostModeStateSaving(t *testing.T) {
 		return
 	}
 
-	loadedState, err := state.Load(testStateFilePath)
+	var loadedState state.State
+	err = testhelpers.LoadJSONFromFile(testStateFilePath, &loadedState)
 	if err != nil {
 		t.Fatalf("Failed to load state file: %v", err)
 	}

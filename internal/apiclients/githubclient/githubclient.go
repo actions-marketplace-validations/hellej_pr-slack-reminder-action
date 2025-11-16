@@ -33,7 +33,7 @@ type Client interface {
 	FetchLatestArtifactByName(
 		ctx context.Context,
 		owner, repo, artifactName, jsonFilename string,
-		out any,
+		target any,
 	) error
 }
 

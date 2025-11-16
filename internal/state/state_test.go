@@ -12,6 +12,20 @@ import (
 	"github.com/hellej/pr-slack-reminder-action/internal/models"
 )
 
+func LoadFromFile(filePath string) (*State, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	var state State
+	if err := json.Unmarshal(data, &state); err != nil {
+		return nil, err
+	}
+
+	return &state, nil
+}
+
 func TestStateSaveAndLoadRoundTrip(t *testing.T) {
 	tempDir := t.TempDir()
 	statePath := filepath.Join(tempDir, "state.json")
@@ -35,9 +49,9 @@ func TestStateSaveAndLoadRoundTrip(t *testing.T) {
 		t.Fatalf("Save failed: %v", err)
 	}
 
-	loadedState, err := Load(statePath)
+	loadedState, err := LoadFromFile(statePath)
 	if err != nil {
-		t.Fatalf("Load failed: %v", err)
+		t.Fatalf("LoadFromFile failed: %v", err)
 	}
 
 	if loadedState.SchemaVersion != originalState.SchemaVersion {
@@ -71,7 +85,7 @@ func TestStateSaveAndLoadRoundTrip(t *testing.T) {
 func TestLoadFileNotFound(t *testing.T) {
 	nonExistentPath := "/tmp/non-existent-state.json"
 
-	_, err := Load(nonExistentPath)
+	_, err := LoadFromFile(nonExistentPath)
 	if err == nil {
 		t.Fatal("Expected error when loading non-existent file, got nil")
 	}
@@ -90,7 +104,7 @@ func TestLoadInvalidJSON(t *testing.T) {
 		t.Fatalf("Failed to create invalid JSON file: %v", err)
 	}
 
-	_, err = Load(invalidJSONPath)
+	_, err = LoadFromFile(invalidJSONPath)
 	if err == nil {
 		t.Fatal("Expected error when loading invalid JSON, got nil")
 	}
