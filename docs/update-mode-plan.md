@@ -171,7 +171,7 @@ Follow these steps in order, ensuring tests are written before implementation at
 
 ### 1. Configure Inputs
 - **`internal/config/config.go`**:
-    - Add `InputRunMode` and `InputStateFilePath` constants.
+    - Add `InputRunMode` and `EnvStateFilePath` constants.
     - Add `RunMode` and `StateFilePath` fields to the `Config` struct.
     - In `GetConfig()`, parse these new inputs, setting a default for `RunMode` to `post`.
 - **`internal/config/config_test.go`**:

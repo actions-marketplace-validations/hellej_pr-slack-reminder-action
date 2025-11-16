@@ -915,7 +915,7 @@ func TestGetConfig_StateFilePath_Custom(t *testing.T) {
 	h := newConfigTestHelpers(t)
 	h.setupMinimalValidConfig()
 	custom := "custom/path/state.json"
-	h.setInput(config.InputStateFilePath, custom)
+	h.setEnv(config.EnvStateFilePath, custom)
 
 	cfg, err := config.GetConfig()
 	if err != nil {

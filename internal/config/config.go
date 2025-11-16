@@ -18,11 +18,11 @@ import (
 const (
 	EnvGithubRepository        string = "GITHUB_REPOSITORY"
 	EnvSentSlackBlocksFilePath string = "SENT_SLACK_BLOCKS_FILE_PATH"
+	EnvStateFilePath           string = "STATE_FILE_PATH"
 
 	InputGithubToken                 string = "github-token"
 	InputSlackBotToken               string = "slack-bot-token"
 	InputRunMode                     string = "mode"
-	InputStateFilePath               string = "state-file-path"
 	InputSlackChannelName            string = "slack-channel-name"
 	InputSlackChannelID              string = "slack-channel-id"
 	InputGithubRepositories          string = "github-repositories"
@@ -95,11 +95,13 @@ func (c Config) Print() {
 func GetConfig() (Config, error) {
 	githubToken, err1 := inputhelpers.GetInputRequired(InputGithubToken)
 	slackToken, err2 := inputhelpers.GetInputRequired(InputSlackBotToken)
+
 	runMode, err3 := getRunMode(InputRunMode)
-	stateFilePath := cmp.Or(inputhelpers.GetInput(InputStateFilePath), DefaultStateFilePath)
+	stateFilePath := cmp.Or(inputhelpers.GetEnv(EnvStateFilePath), DefaultStateFilePath)
 	sentSlackBlocksFilePath := cmp.Or(
 		inputhelpers.GetEnv(EnvSentSlackBlocksFilePath), DefaultSentSlackBlocksFilePath,
 	)
+
 	slackChannelName := inputhelpers.GetInput(InputSlackChannelName)
 	slackChannelID := inputhelpers.GetInput(InputSlackChannelID)
 	repository, err4 := inputhelpers.GetEnvRequired(EnvGithubRepository)

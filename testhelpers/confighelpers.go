@@ -79,12 +79,12 @@ func GetDefaultConfigMinimal() TestConfig {
 func setEnvFromConfig(t *testing.T, c TestConfig, overrides *map[string]any) {
 	setEnv(t, overrides, config.EnvGithubRepository, c.Repository)
 	setEnv(t, overrides, config.EnvSentSlackBlocksFilePath, c.SentSlackBlocksFilePath)
+	setEnv(t, overrides, config.EnvStateFilePath, c.StateFilePath)
 
 	setInputEnv(t, overrides, config.InputGithubRepositories, c.Repositories)
 	setInputEnv(t, overrides, config.InputGithubToken, c.GithubToken)
 	setInputEnv(t, overrides, config.InputSlackBotToken, c.SlackBotToken)
 	setInputEnv(t, overrides, config.InputRunMode, string(c.RunMode))
-	setInputEnv(t, overrides, config.InputStateFilePath, c.StateFilePath)
 	setInputEnv(t, overrides, config.InputSlackChannelName, c.SlackChannelName)
 	setInputEnv(t, overrides, config.InputSlackChannelID, c.SlackChannelID)
 	setInputEnv(t, overrides, config.InputSlackUserIdByGitHubUsername, c.ContentInputs.SlackUserIdByGitHubUsername)

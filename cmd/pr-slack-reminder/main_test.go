@@ -715,8 +715,8 @@ func TestPostModeStateSaving(t *testing.T) {
 
 	postModeConfig := testhelpers.GetDefaultConfigFull()
 	configOverrides := map[string]any{
-		config.InputRunMode:       config.RunModePost,
-		config.InputStateFilePath: testStateFilePath,
+		config.InputRunMode:     config.RunModePost,
+		config.EnvStateFilePath: testStateFilePath,
 	}
 	testhelpers.SetTestEnvironment(t, postModeConfig, &configOverrides)
 
