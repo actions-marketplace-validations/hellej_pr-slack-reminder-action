@@ -32,7 +32,7 @@ type SlackRef struct {
 type StateArtifactFetcher interface {
 	FetchLatestArtifactByName(
 		ctx context.Context,
-		owner, repo, artifactName, jsonFilename string,
+		owner, repo, artifactName, jsonFilePath string,
 		target any,
 	) error
 }
@@ -48,13 +48,14 @@ func Load(
 	ctx context.Context,
 	reader StateArtifactFetcher,
 	repository models.Repository,
-	artifactName, stateFileName string,
+	artifactName string,
+	stateFilePath string,
 ) (*State, error) {
 	var state State
 	if err := reader.FetchLatestArtifactByName(
 		ctx,
 		repository.Owner, repository.Name,
-		artifactName, stateFileName,
+		artifactName, stateFilePath,
 		&state,
 	); err != nil {
 		return nil, err

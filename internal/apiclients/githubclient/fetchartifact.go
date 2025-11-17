@@ -17,7 +17,7 @@ import (
 // The target parameter should be a pointer to the target struct for JSON deserialization.
 func (client *client) FetchLatestArtifactByName(
 	ctx context.Context,
-	owner, repo, artifactName, jsonFilename string,
+	owner, repo, artifactName, jsonFilePath string,
 	target any,
 ) error {
 	opts := &github.ListArtifactsOptions{
@@ -89,7 +89,7 @@ func (client *client) FetchLatestArtifactByName(
 
 	found := false
 	for _, f := range zr.File {
-		if f.Name == jsonFilename {
+		if f.Name == jsonFilePath {
 			found = true
 			rc, err := f.Open()
 			if err != nil {
@@ -98,7 +98,7 @@ func (client *client) FetchLatestArtifactByName(
 			dec := json.NewDecoder(rc)
 			if err := dec.Decode(target); err != nil {
 				_ = rc.Close()
-				return fmt.Errorf("decode json %q: %w", jsonFilename, err)
+				return fmt.Errorf("decode json %q: %w", jsonFilePath, err)
 			}
 			_ = rc.Close()
 			break
@@ -106,7 +106,7 @@ func (client *client) FetchLatestArtifactByName(
 	}
 
 	if !found {
-		return fmt.Errorf("json file %q not found inside artifact zip", jsonFilename)
+		return fmt.Errorf("json file %q not found inside artifact zip", jsonFilePath)
 	}
 
 	return nil
