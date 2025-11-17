@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"sort"
 
@@ -32,6 +33,7 @@ func (client *client) FetchLatestArtifactByName(
 		}
 		return fmt.Errorf("failed to list artifacts: %w%s", err, statusText)
 	}
+	log.Printf("Found %d artifacts with name %q", res.GetTotalCount(), artifactName)
 
 	artifacts := res.Artifacts
 	if len(artifacts) == 0 {
@@ -43,6 +45,10 @@ func (client *client) FetchLatestArtifactByName(
 
 	latest := artifacts[0]
 	artifactID := latest.GetID()
+	log.Printf(
+		"Downloading artifact %q (ID: %d) created at %s",
+		artifactName, artifactID, latest.GetCreatedAt(),
+	)
 
 	archiveURL := latest.GetArchiveDownloadURL()
 	if archiveURL == "" {

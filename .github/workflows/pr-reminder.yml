@@ -34,6 +34,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           slack-bot-token: ${{ secrets.DEV_SLACK_TOKEN }}
+          mode: ${{ github.event.inputs.mode }}
           slack-channel-name: github
           github-user-slack-user-id-mapping: |
             hellej: U08SZJTJF0U
