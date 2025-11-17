@@ -50,10 +50,10 @@ func (client *client) FetchLatestArtifactByName(
 		artifactName, artifactID, latest.GetCreatedAt(),
 	)
 
-	downloadURL := latest.GetArchiveDownloadURL()
-	if downloadURL == "" {
-		return fmt.Errorf("artifact %q does not have a download URL", artifactName)
-	}
+	downloadURL := fmt.Sprintf(
+		"https://api.github.com/repos/%s/%s/actions/artifacts/%d/zip",
+		owner, repo, artifactID,
+	)
 
 	req, err := client.requests.NewRequest("GET", downloadURL, nil)
 	if err != nil {
