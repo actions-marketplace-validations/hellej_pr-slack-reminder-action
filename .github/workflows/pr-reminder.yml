@@ -2,6 +2,20 @@ name: PR Reminder
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Whether to bump major, minor, or patch version'
+        type: choice
+        options:
+          - post
+          - update
+        default: post
+        required: false
+      build-first:
+        description: 'Whether to build the project before running the reminder'
+        type: boolean
+        default: false
+        required: false
   schedule:
     - cron: '0 9 * * 0-6'  # at 09:00 every day
 
@@ -10,6 +24,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+
+      - name: Build application
+        if: inputs.build-first == 'true'
+        uses: ./.github/actions/build
 
       - name: Send PR reminder
         uses: ./
