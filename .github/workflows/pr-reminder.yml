@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Whether to bump major, minor, or patch version'
+        description: 'Run mode'
         type: choice
         options:
           - post
@@ -12,7 +12,7 @@ on:
         default: post
         required: false
       build-first:
-        description: 'Whether to build the project before running the reminder'
+        description: 'Build the project first'
         type: boolean
         default: false
         required: false
