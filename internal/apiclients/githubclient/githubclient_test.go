@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/google/go-github/v78/github"
 	"github.com/hellej/pr-slack-reminder-action/internal/apiclients/githubclient"
@@ -75,18 +76,20 @@ func (m *mockActionsService) ListArtifacts(
 ) (*github.ArtifactList, *github.Response, error) {
 	return &github.ArtifactList{}, m.mockResponse, m.mockError
 }
+func (m *mockActionsService) DownloadArtifact(
+	ctx context.Context, owner string, repo string, artifactID int64, maxRedirects int,
+) (
+	*url.URL, *github.Response, error,
+) {
+	return &url.URL{}, m.mockResponse, m.mockError
+}
 
-type mockRequests struct {
-	mockResponse *github.Response
+type mockHTTPClient struct {
+	mockResponse *http.Response
 	mockError    error
 }
 
-func (m *mockRequests) NewRequest(method string, urlStr string, body any, opts ...github.RequestOption) (*http.Request, error) {
-	req, err := http.NewRequest(method, urlStr, nil)
-	return req, err
-}
-
-func (m *mockRequests) Do(ctx context.Context, req *http.Request, v any) (*github.Response, error) {
+func (m *mockHTTPClient) Get(url string) (*http.Response, error) {
 	return m.mockResponse, m.mockError
 }
 
@@ -471,15 +474,15 @@ func TestFindOpenPRs(t *testing.T) {
 				mockResponse:                   &github.Response{Response: &http.Response{StatusCode: 200}},
 				mockError:                      nil,
 			}
-			mockRequests := &mockRequests{
-				mockResponse: &github.Response{Response: &http.Response{StatusCode: 200}},
-				mockError:    nil,
-			}
 			mockActionsService := &mockActionsService{
 				mockResponse: &github.Response{Response: &http.Response{StatusCode: 200}},
 				mockError:    nil,
 			}
-			client := githubclient.NewClient(mockRequests, mockPRService, mockIssueService, mockActionsService)
+			mockHTTPClient := &mockHTTPClient{
+				mockResponse: &http.Response{StatusCode: 200},
+				mockError:    nil,
+			}
+			client := githubclient.NewClient(mockHTTPClient, mockPRService, mockIssueService, mockActionsService)
 
 			repos := []models.Repository{
 				{Owner: "testowner", Name: "testrepo"},
@@ -576,15 +579,15 @@ func TestFetchManyPRs(t *testing.T) {
 				mockResponse:                   &github.Response{Response: &http.Response{StatusCode: 200}},
 				mockError:                      nil,
 			}
-			mockRequests := &mockRequests{
-				mockResponse: &github.Response{Response: &http.Response{StatusCode: 200}},
+			mockHTTPClient := &mockHTTPClient{
+				mockResponse: &http.Response{StatusCode: 200},
 				mockError:    nil,
 			}
 			mockActionsService := &mockActionsService{
 				mockResponse: &github.Response{Response: &http.Response{StatusCode: 200}},
 				mockError:    nil,
 			}
-			client := githubclient.NewClient(mockRequests, mockPRService, mockIssueService, mockActionsService)
+			client := githubclient.NewClient(mockHTTPClient, mockPRService, mockIssueService, mockActionsService)
 			repos := []models.Repository{{Owner: "testowner", Name: "testrepo"}}
 
 			result, err := client.FindOpenPRs(
@@ -647,8 +650,8 @@ func TestFindOpenPRs_MultipleRepositories(t *testing.T) {
 		mockResponse:                   &github.Response{Response: &http.Response{StatusCode: 200}},
 		mockError:                      nil,
 	}
-	mockRequests := &mockRequests{
-		mockResponse: &github.Response{Response: &http.Response{StatusCode: 200}},
+	mockHTTPClient := &mockHTTPClient{
+		mockResponse: &http.Response{StatusCode: 200},
 		mockError:    nil,
 	}
 	mockActionsService := &mockActionsService{
@@ -656,7 +659,7 @@ func TestFindOpenPRs_MultipleRepositories(t *testing.T) {
 		mockError:    nil,
 	}
 	client := githubclient.NewClient(
-		mockRequests,
+		mockHTTPClient,
 		&multiRepoPRService{
 			services: map[string]*mockPullRequestService{"repo1": mockPRService1, "repo2": mockPRService2},
 		},
@@ -708,8 +711,8 @@ func TestFindOpenPRs_ErrorShortCircuits(t *testing.T) {
 		mockError:              nil,
 	}
 
-	mockRequests := &mockRequests{
-		mockResponse: &github.Response{Response: &http.Response{StatusCode: 200}},
+	mockHTTPClient := &mockHTTPClient{
+		mockResponse: &http.Response{StatusCode: 200},
 		mockError:    nil,
 	}
 	mockActionsService := &mockActionsService{
@@ -717,7 +720,7 @@ func TestFindOpenPRs_ErrorShortCircuits(t *testing.T) {
 		mockError:    nil,
 	}
 	client := githubclient.NewClient(
-		mockRequests,
+		mockHTTPClient,
 		&multiRepoPRService{
 			services: map[string]*mockPullRequestService{"bad": mockPRService404, "good": mockPRServiceOK},
 		},
@@ -778,8 +781,8 @@ func TestFindOpenPRs_ConcurrencyLimit(t *testing.T) {
 			mockError:                      nil,
 		}
 	}
-	mockRequests := &mockRequests{
-		mockResponse: &github.Response{Response: &http.Response{StatusCode: 200}},
+	mockHTTPClient := &mockHTTPClient{
+		mockResponse: &http.Response{StatusCode: 200},
 		mockError:    nil,
 	}
 	mockActionsService := &mockActionsService{
@@ -787,7 +790,7 @@ func TestFindOpenPRs_ConcurrencyLimit(t *testing.T) {
 		mockError:    nil,
 	}
 	client := githubclient.NewClient(
-		mockRequests,
+		mockHTTPClient,
 		&multiRepoPRService{services: services},
 		&multiRepoIssuesService{services: issueServices},
 		mockActionsService,
@@ -893,15 +896,15 @@ func TestFindOpenPRs_ReviewsPartialErrors(t *testing.T) {
 		response:                   &github.Response{Response: &http.Response{StatusCode: 200}},
 	}
 
-	mockRequests := &mockRequests{
-		mockResponse: &github.Response{Response: &http.Response{StatusCode: 200}},
+	mockHTTPClient := &mockHTTPClient{
+		mockResponse: &http.Response{StatusCode: 200},
 		mockError:    nil,
 	}
 	mockActionsService := &mockActionsService{
 		mockResponse: &github.Response{Response: &http.Response{StatusCode: 200}},
 		mockError:    nil,
 	}
-	client := githubclient.NewClient(mockRequests, prService, issueService, mockActionsService)
+	client := githubclient.NewClient(mockHTTPClient, prService, issueService, mockActionsService)
 	repos := []models.Repository{{Owner: "o", Name: "repo"}}
 	prs, err := client.FindOpenPRs(
 		context.Background(),

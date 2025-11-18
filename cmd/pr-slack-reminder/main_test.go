@@ -795,7 +795,8 @@ func TestScenariosUpdateMode(t *testing.T) {
 			name:   "update mode with two PRs",
 			config: testhelpers.GetDefaultConfigMinimal(),
 			configOverrides: &map[string]any{
-				config.InputRunMode: config.RunModeUpdate,
+				config.InputRunMode:           config.RunModeUpdate,
+				config.InputStateArtifactName: "pr-slack-reminder-state",
 			},
 			state: state.State{
 				SchemaVersion: 1,

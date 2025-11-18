@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"sort"
 
@@ -50,22 +51,20 @@ func (client *client) FetchLatestArtifactByName(
 		artifactName, artifactID, latest.GetCreatedAt(),
 	)
 
-	downloadURL := fmt.Sprintf(
-		"https://api.github.com/repos/%s/%s/actions/artifacts/%d/zip",
-		owner, repo, artifactID,
-	)
-
-	req, err := client.requests.NewRequest("GET", downloadURL, nil)
+	downloadURL, _, err := client.actionsService.DownloadArtifact(ctx, owner, repo, artifactID, 1)
 	if err != nil {
-		return fmt.Errorf("create download request: %w", err)
+		return fmt.Errorf("get artifact download URL: %w", err)
 	}
 
-	ghResp, err := client.requests.Do(ctx, req, nil) // v == nil -> do not attempt JSON decode
+	httpResp, err := client.http.Get(downloadURL.String())
 	if err != nil {
 		return fmt.Errorf("download artifact zip: %w", err)
 	}
-	httpResp := ghResp.Response
 	defer httpResp.Body.Close()
+
+	if httpResp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code %d when downloading artifact", httpResp.StatusCode)
+	}
 
 	tmpFile, err := os.CreateTemp("", "artifact-*.zip")
 	if err != nil {

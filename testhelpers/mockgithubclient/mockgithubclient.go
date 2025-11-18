@@ -3,6 +3,7 @@ package mockgithubclient
 import (
 	"context"
 	"net/http"
+	"net/url"
 
 	"github.com/google/go-github/v78/github"
 	"github.com/hellej/pr-slack-reminder-action/internal/apiclients/githubclient"
@@ -42,11 +43,9 @@ func MakeMockGitHubClientGetter(
 			},
 			err: nil,
 		}
-		mockRequests := &mockRequests{
-			response: &github.Response{
-				Response: &http.Response{
-					StatusCode: 200,
-				},
+		mockHTTPClient := &mockHTTPClient{
+			response: &http.Response{
+				StatusCode: 200,
 			},
 			err: nil,
 		}
@@ -58,7 +57,7 @@ func MakeMockGitHubClientGetter(
 			},
 			err: nil,
 		}
-		return githubclient.NewClient(mockRequests, mockPRService, mockIssueService, mockActionsService)
+		return githubclient.NewClient(mockHTTPClient, mockPRService, mockIssueService, mockActionsService)
 	}
 }
 
@@ -173,16 +172,18 @@ func (m *mockActionsService) ListArtifacts(
 	return &github.ArtifactList{}, m.response, m.err
 }
 
-type mockRequests struct {
-	response *github.Response
+func (m *mockActionsService) DownloadArtifact(
+	ctx context.Context, owner, repo string, artifactID int64, maxRedirects int,
+) (*url.URL, *github.Response, error) {
+	u, _ := url.Parse("https://example.com/mock-download-url")
+	return u, m.response, m.err
+}
+
+type mockHTTPClient struct {
+	response *http.Response
 	err      error
 }
 
-func (m *mockRequests) NewRequest(method string, urlStr string, body any, opts ...github.RequestOption) (*http.Request, error) {
-	req, err := http.NewRequest(method, urlStr, nil)
-	return req, err
-}
-
-func (m *mockRequests) Do(ctx context.Context, req *http.Request, v any) (*github.Response, error) {
+func (m *mockHTTPClient) Get(url string) (*http.Response, error) {
 	return m.response, m.err
 }

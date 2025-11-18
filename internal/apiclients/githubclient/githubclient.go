@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"slices"
 
 	"time"
@@ -74,21 +75,31 @@ type GithubActionsService interface {
 	) (
 		*github.ArtifactList, *github.Response, error,
 	)
+	DownloadArtifact(
+		ctx context.Context, owner, repo string, artifactID int64, maxRedirects int,
+	) (
+		*url.URL, *github.Response, error,
+	)
 }
 
-type Requests interface {
-	NewRequest(method string, urlStr string, body any, opts ...github.RequestOption) (*http.Request, error)
-	Do(ctx context.Context, req *http.Request, v any) (*github.Response, error)
+type HTTPClient interface {
+	Get(url string) (resp *http.Response, err error)
+}
+
+type httpClient struct{}
+
+func (h httpClient) Get(url string) (*http.Response, error) {
+	return http.Get(url)
 }
 
 func NewClient(
-	requests Requests,
+	httpClient HTTPClient,
 	prService GithubPullRequestsService,
 	issueService GithubIssuesService,
 	actionsService GithubActionsService,
 ) Client {
 	return &client{
-		requests:       requests,
+		http:           httpClient,
 		prService:      prService,
 		issueService:   issueService,
 		actionsService: actionsService,
@@ -98,7 +109,7 @@ func NewClient(
 func GetAuthenticatedClient(token string) Client {
 	ghClient := github.NewClient(nil).WithAuthToken(token)
 	return NewClient(
-		ghClient,
+		httpClient{},
 		ghClient.PullRequests,
 		ghClient.Issues,
 		ghClient.Actions,
@@ -106,7 +117,7 @@ func GetAuthenticatedClient(token string) Client {
 }
 
 type client struct {
-	requests       Requests
+	http           HTTPClient
 	prService      GithubPullRequestsService
 	issueService   GithubIssuesService
 	actionsService GithubActionsService
