@@ -6,6 +6,7 @@ package config
 import (
 	"cmp"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 
@@ -119,7 +120,7 @@ func GetConfig() (Config, error) {
 	groupByRepository, err10 := inputhelpers.GetInputBool(InputGroupByRepository)
 	prLinkRepoPrefixes, err11 := inputhelpers.GetInputMapping(InputPRLinkRepoPrefixes)
 
-	if err := selectNonNilError(
+	if err := errors.Join(
 		err1, err2, err3, err4, err5, err6, err7, err8, err9, err10, err11,
 	); err != nil {
 		return Config{}, err
@@ -268,15 +269,6 @@ func (c Config) validateHeadingOptions() error {
 func (c Config) validateStateArtifactName() error {
 	if c.RunMode == RunModeUpdate && c.StateArtifactName == "" {
 		return fmt.Errorf("%s is required when run mode is '%s'", InputStateArtifactName, RunModeUpdate)
-	}
-	return nil
-}
-
-func selectNonNilError(errs ...error) error {
-	for _, err := range errs {
-		if err != nil {
-			return err
-		}
 	}
 	return nil
 }
