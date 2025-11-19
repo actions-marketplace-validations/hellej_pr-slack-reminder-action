@@ -824,15 +824,33 @@ func TestScenariosUpdateMode(t *testing.T) {
 			expectedErrorMsg: "configuration error: required input slack-bot-token is not set",
 		},
 		{
+			name:   "update mode with empty state exits gracefully",
+			config: testhelpers.GetDefaultConfigMinimal(),
+			configOverrides: &map[string]any{
+				config.InputRunMode: config.RunModeUpdate,
+			},
+			mockState: testhelpers.AsPointer(getTestState(GetTestStateOptions{PRNumbers: []int{}})),
+		},
+		{
+			name:   "update mode with all PRs filtered out exits gracefully",
+			config: testhelpers.GetDefaultConfigMinimal(),
+			configOverrides: &map[string]any{
+				config.InputRunMode:       config.RunModeUpdate,
+				config.InputGlobalFilters: "{\"authors-ignore\": [\"alice\", \"bob\"]}",
+			},
+			mockState: testhelpers.AsPointer(getTestState(GetTestStateOptions{PRNumbers: []int{1, 2}})),
+			prByNumber: map[int]*github.PullRequest{
+				1: getTestPR(GetTestPROptions{Number: 1, Title: "First PR", AuthorLogin: "alice"}),
+				2: getTestPR(GetTestPROptions{Number: 2, Title: "Second PR", AuthorLogin: "bob"}),
+			},
+		},
+		{
 			name:   "update mode with two PRs",
 			config: testhelpers.GetDefaultConfigMinimal(),
 			configOverrides: &map[string]any{
 				config.InputRunMode: config.RunModeUpdate,
 			},
-			mockState: func() *state.State {
-				s := getTestState(GetTestStateOptions{PRNumbers: []int{1, 2}})
-				return &s
-			}(),
+			mockState: testhelpers.AsPointer(getTestState(GetTestStateOptions{PRNumbers: []int{1, 2}})),
 			prByNumber: map[int]*github.PullRequest{
 				1: getTestPR(GetTestPROptions{Number: 1, Title: "First PR", AuthorLogin: "alice"}),
 				2: getTestPR(GetTestPROptions{Number: 2, Title: "Second PR", AuthorLogin: "bob"}),
@@ -848,10 +866,7 @@ func TestScenariosUpdateMode(t *testing.T) {
 			configOverrides: &map[string]any{
 				config.InputRunMode: config.RunModeUpdate,
 			},
-			mockState: func() *state.State {
-				s := getTestState(GetTestStateOptions{PRNumbers: []int{1, 2}})
-				return &s
-			}(),
+			mockState: testhelpers.AsPointer(getTestState(GetTestStateOptions{PRNumbers: []int{1, 2}})),
 			prByNumber: map[int]*github.PullRequest{
 				1: getTestPR(GetTestPROptions{Number: 1, Title: "First PR", AuthorLogin: "alice"}),
 			},
@@ -866,10 +881,7 @@ func TestScenariosUpdateMode(t *testing.T) {
 			configOverrides: &map[string]any{
 				config.InputRunMode: config.RunModeUpdate,
 			},
-			mockState: func() *state.State {
-				s := getTestState(GetTestStateOptions{PRNumbers: []int{1}})
-				return &s
-			}(),
+			mockState:          testhelpers.AsPointer(getTestState(GetTestStateOptions{PRNumbers: []int{1}})),
 			listArtifactsError: errors.New("artifact listing error"),
 			expectedErrorMsg:   "artifact listing error",
 		},
@@ -879,10 +891,7 @@ func TestScenariosUpdateMode(t *testing.T) {
 			configOverrides: &map[string]any{
 				config.InputRunMode: config.RunModeUpdate,
 			},
-			mockState: func() *state.State {
-				s := getTestState(GetTestStateOptions{PRNumbers: []int{1}})
-				return &s
-			}(),
+			mockState:             testhelpers.AsPointer(getTestState(GetTestStateOptions{PRNumbers: []int{1}})),
 			downloadArtifactError: errors.New("http client error"),
 			expectedErrorMsg:      "http client error",
 		},
@@ -901,10 +910,7 @@ func TestScenariosUpdateMode(t *testing.T) {
 			configOverrides: &map[string]any{
 				config.InputRunMode: config.RunModeUpdate,
 			},
-			mockState: func() *state.State {
-				s := getTestState(GetTestStateOptions{PRNumbers: []int{1}})
-				return &s
-			}(),
+			mockState: testhelpers.AsPointer(getTestState(GetTestStateOptions{PRNumbers: []int{1}})),
 			prByNumber: map[int]*github.PullRequest{
 				1: getTestPR(GetTestPROptions{Number: 1, Title: "First PR", AuthorLogin: "alice"}),
 			},
