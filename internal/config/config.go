@@ -178,12 +178,6 @@ func (c Config) GetFiltersForRepository(repo models.Repository) Filters {
 // validate performs post-construction validation of business rules for Config.
 // It validates repository limits, Slack channel requirements and repository names.
 func (c Config) validate() error {
-	if c.RunMode != RunModePost && c.RunMode != RunModeUpdate {
-		return fmt.Errorf("invalid run mode: %s (expected '%s' or '%s')", c.RunMode, RunModePost, RunModeUpdate)
-	}
-	if len(c.Repositories) == 0 {
-		return fmt.Errorf("at least one repository must be specified in %s or %s", EnvGithubRepository, InputGithubRepositories)
-	}
 	if c.SlackChannelID == "" && c.SlackChannelName == "" {
 		return fmt.Errorf("either %s or %s must be set", InputSlackChannelID, InputSlackChannelName)
 	}
