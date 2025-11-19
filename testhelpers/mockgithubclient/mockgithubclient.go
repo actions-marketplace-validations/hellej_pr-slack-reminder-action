@@ -25,6 +25,8 @@ type MockGitHubClientOptions struct {
 	CommentsByPRNumber     map[int][]*github.PullRequestComment
 	PRServiceError         error
 	MockStateForUpdateMode *state.State
+	ListArtifactsError     error
+	DownloadArtifactError  error
 }
 
 func MakeMockGitHubClientGetter(opts MockGitHubClientOptions) func(token string) githubclient.Client {
@@ -60,7 +62,7 @@ func MakeMockGitHubClientGetter(opts MockGitHubClientOptions) func(token string)
 			response: &http.Response{
 				StatusCode: 200,
 			},
-			err:                    nil,
+			err:                    opts.DownloadArtifactError,
 			mockStateForUpdateMode: opts.MockStateForUpdateMode,
 		}
 		mockActionsService := &mockActionsService{
@@ -69,7 +71,7 @@ func MakeMockGitHubClientGetter(opts MockGitHubClientOptions) func(token string)
 					StatusCode: 200,
 				},
 			},
-			err:                    nil,
+			err:                    opts.ListArtifactsError,
 			mockStateForUpdateMode: opts.MockStateForUpdateMode,
 		}
 		return githubclient.NewClient(mockHTTPClient, mockPRService, mockIssueService, mockActionsService)

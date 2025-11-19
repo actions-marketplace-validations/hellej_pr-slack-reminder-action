@@ -159,6 +159,33 @@ func filterPRsByNumbers(
 	return filteredPRs
 }
 
+type GetTestStateOptions struct {
+	PRNumbers []int
+}
+
+func getTestState(options GetTestStateOptions) state.State {
+	prRefs := make([]models.PullRequestRef, 0, len(options.PRNumbers))
+	for _, prNumber := range options.PRNumbers {
+		prRefs = append(prRefs, models.PullRequestRef{
+			Repository: models.Repository{
+				Owner: "test-org",
+				Name:  "test-repo",
+			},
+			Number: prNumber,
+		})
+	}
+
+	return state.State{
+		SchemaVersion: 1,
+		CreatedAt:     time.Now().Add(-1 * time.Hour),
+		SlackMessage: state.SlackRef{
+			ChannelID: "C12345678",
+			MessageTS: "1623850245.000200",
+		},
+		PullRequests: prRefs,
+	}
+}
+
 func TestScenarios(t *testing.T) {
 	testCases := []struct {
 		name                string
@@ -778,10 +805,12 @@ func TestScenariosUpdateMode(t *testing.T) {
 		name                   string
 		config                 testhelpers.TestConfig
 		configOverrides        *map[string]any
-		state                  state.State
+		mockState              *state.State
 		prByNumber             map[int]*github.PullRequest
 		fetchPRErrorByPRNumber map[int]error
 		reviewsByPRNumber      map[int][]*github.PullRequestReview
+		listArtifactsError     error
+		downloadArtifactError  error
 		updateMessageError     error
 		expectedErrorMsg       string
 		expectedPRItemTexts    []string
@@ -800,30 +829,10 @@ func TestScenariosUpdateMode(t *testing.T) {
 			configOverrides: &map[string]any{
 				config.InputRunMode: config.RunModeUpdate,
 			},
-			state: state.State{
-				SchemaVersion: 1,
-				CreatedAt:     time.Now().Add(-1 * time.Hour),
-				SlackMessage: state.SlackRef{
-					ChannelID: "C12345678",
-					MessageTS: "1623850245.000200",
-				},
-				PullRequests: []models.PullRequestRef{
-					{
-						Repository: models.Repository{
-							Owner: "test-org",
-							Name:  "test-repo",
-						},
-						Number: 1,
-					},
-					{
-						Repository: models.Repository{
-							Owner: "test-org",
-							Name:  "test-repo",
-						},
-						Number: 2,
-					},
-				},
-			},
+			mockState: func() *state.State {
+				s := getTestState(GetTestStateOptions{PRNumbers: []int{1, 2}})
+				return &s
+			}(),
 			prByNumber: map[int]*github.PullRequest{
 				1: getTestPR(GetTestPROptions{Number: 1, Title: "First PR", AuthorLogin: "alice"}),
 				2: getTestPR(GetTestPROptions{Number: 2, Title: "Second PR", AuthorLogin: "bob"}),
@@ -833,16 +842,88 @@ func TestScenariosUpdateMode(t *testing.T) {
 				"Second PR 5 hours ago by Bob",
 			},
 		},
+		{
+			name:   "update mode fails when fetching individual PR fails",
+			config: testhelpers.GetDefaultConfigMinimal(),
+			configOverrides: &map[string]any{
+				config.InputRunMode: config.RunModeUpdate,
+			},
+			mockState: func() *state.State {
+				s := getTestState(GetTestStateOptions{PRNumbers: []int{1, 2}})
+				return &s
+			}(),
+			prByNumber: map[int]*github.PullRequest{
+				1: getTestPR(GetTestPROptions{Number: 1, Title: "First PR", AuthorLogin: "alice"}),
+			},
+			fetchPRErrorByPRNumber: map[int]error{
+				2: errors.New("failed to fetch PR"),
+			},
+			expectedErrorMsg: "failed to fetch PR",
+		},
+		{
+			name:   "update mode fails when artifact listing fails",
+			config: testhelpers.GetDefaultConfigMinimal(),
+			configOverrides: &map[string]any{
+				config.InputRunMode: config.RunModeUpdate,
+			},
+			mockState: func() *state.State {
+				s := getTestState(GetTestStateOptions{PRNumbers: []int{1}})
+				return &s
+			}(),
+			listArtifactsError: errors.New("artifact listing error"),
+			expectedErrorMsg:   "artifact listing error",
+		},
+		{
+			name:   "update mode fails when artifact download fails",
+			config: testhelpers.GetDefaultConfigMinimal(),
+			configOverrides: &map[string]any{
+				config.InputRunMode: config.RunModeUpdate,
+			},
+			mockState: func() *state.State {
+				s := getTestState(GetTestStateOptions{PRNumbers: []int{1}})
+				return &s
+			}(),
+			downloadArtifactError: errors.New("http client error"),
+			expectedErrorMsg:      "http client error",
+		},
+		{
+			name:   "update mode fails when state artifact is not found",
+			config: testhelpers.GetDefaultConfigMinimal(),
+			configOverrides: &map[string]any{
+				config.InputRunMode: config.RunModeUpdate,
+			},
+			mockState:        nil,
+			expectedErrorMsg: "no artifacts found with name",
+		},
+		{
+			name:   "update mode fails when updating Slack message fails",
+			config: testhelpers.GetDefaultConfigMinimal(),
+			configOverrides: &map[string]any{
+				config.InputRunMode: config.RunModeUpdate,
+			},
+			mockState: func() *state.State {
+				s := getTestState(GetTestStateOptions{PRNumbers: []int{1}})
+				return &s
+			}(),
+			prByNumber: map[int]*github.PullRequest{
+				1: getTestPR(GetTestPROptions{Number: 1, Title: "First PR", AuthorLogin: "alice"}),
+			},
+			updateMessageError: errors.New("slack update failed"),
+			expectedErrorMsg:   "failed to update Slack message: slack update failed",
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			testhelpers.SetTestEnvironment(t, tc.config, tc.configOverrides)
+
 			getGitHubClient := mockgithubclient.MakeMockGitHubClientGetter(mockgithubclient.MockGitHubClientOptions{
 				PRsByNumber:            tc.prByNumber,
 				ErrByPRNumber:          tc.fetchPRErrorByPRNumber,
 				ReviewsByPRNumber:      tc.reviewsByPRNumber,
-				MockStateForUpdateMode: &tc.state,
+				MockStateForUpdateMode: tc.mockState,
+				ListArtifactsError:     tc.listArtifactsError,
+				DownloadArtifactError:  tc.downloadArtifactError,
 			})
 			mockSlackAPI := mockslackclient.GetMockSlackAPI(
 				nil,
