@@ -5,6 +5,7 @@ package githubclient
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -356,14 +357,7 @@ func (c *client) addReviewerInfoToPRs(ctx context.Context, prResults []PRResult)
 				comments:         comments,
 				timelineComments: timelineComments,
 				repository:       repo,
-			}
-
-			if reviewsErr != nil {
-				fetchReviewsResult.err = reviewsErr
-			} else if commentsErr != nil {
-				fetchReviewsResult.err = commentsErr
-			} else if timelineCommentsErr != nil {
-				fetchReviewsResult.err = timelineCommentsErr
+				err:              errors.Join(reviewsErr, commentsErr, timelineCommentsErr),
 			}
 
 			resultChannel <- fetchReviewsResult
