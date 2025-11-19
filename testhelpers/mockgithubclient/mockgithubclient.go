@@ -15,47 +15,37 @@ import (
 	"github.com/hellej/pr-slack-reminder-action/internal/state"
 )
 
-func MakeMockGitHubClientGetter(
-	prsByNumber map[int]*github.PullRequest,
-	errByPRNumber map[int]error,
-	prs []*github.PullRequest,
-	prsByRepo map[string][]*github.PullRequest,
-	listPRsResponseStatus int,
-	reviewsByPRNumber map[int][]*github.PullRequestReview,
-	commentsByPRNumber map[int][]*github.PullRequestComment,
-	prServiceError error,
-) func(token string) githubclient.Client {
-	return MakeMockGitHubClientGetterWithState(
-		prsByNumber, errByPRNumber, prs, prsByRepo, listPRsResponseStatus,
-		reviewsByPRNumber, commentsByPRNumber, prServiceError, nil,
-	)
+type MockGitHubClientOptions struct {
+	PRsByNumber            map[int]*github.PullRequest
+	ErrByPRNumber          map[int]error
+	PRs                    []*github.PullRequest
+	PRsByRepo              map[string][]*github.PullRequest
+	ListPRsResponseStatus  int
+	ReviewsByPRNumber      map[int][]*github.PullRequestReview
+	CommentsByPRNumber     map[int][]*github.PullRequestComment
+	PRServiceError         error
+	MockStateForUpdateMode *state.State
 }
 
-func MakeMockGitHubClientGetterWithState(
-	prsByNumber map[int]*github.PullRequest,
-	errByPRNumber map[int]error,
-	prs []*github.PullRequest,
-	prsByRepo map[string][]*github.PullRequest,
-	listPRsResponseStatus int,
-	reviewsByPRNumber map[int][]*github.PullRequestReview,
-	commentsByPRNumber map[int][]*github.PullRequestComment,
-	prServiceError error,
-	mockStateForUpdateMode *state.State,
-) func(token string) githubclient.Client {
+func MakeMockGitHubClientGetter(opts MockGitHubClientOptions) func(token string) githubclient.Client {
+	if opts.ListPRsResponseStatus == 0 {
+		opts.ListPRsResponseStatus = 200
+	}
+
 	return func(token string) githubclient.Client {
 		mockPRService := &mockPullRequestService{
-			prsByNumber:        prsByNumber,
-			errorByPRNumber:    errByPRNumber,
-			prs:                prs,
-			prsByRepo:          prsByRepo,
-			reviewsByPRNumber:  reviewsByPRNumber,
-			commentsByPRNumber: commentsByPRNumber,
+			prsByNumber:        opts.PRsByNumber,
+			errorByPRNumber:    opts.ErrByPRNumber,
+			prs:                opts.PRs,
+			prsByRepo:          opts.PRsByRepo,
+			reviewsByPRNumber:  opts.ReviewsByPRNumber,
+			commentsByPRNumber: opts.CommentsByPRNumber,
 			response: &github.Response{
 				Response: &http.Response{
-					StatusCode: listPRsResponseStatus,
+					StatusCode: opts.ListPRsResponseStatus,
 				},
 			},
-			err: prServiceError,
+			err: opts.PRServiceError,
 		}
 		mockIssueService := &mockIssueService{
 			mockTimelineCommentsByPRNumber: map[int][]*github.IssueComment{},
@@ -71,7 +61,7 @@ func MakeMockGitHubClientGetterWithState(
 				StatusCode: 200,
 			},
 			err:                    nil,
-			mockStateForUpdateMode: mockStateForUpdateMode,
+			mockStateForUpdateMode: opts.MockStateForUpdateMode,
 		}
 		mockActionsService := &mockActionsService{
 			response: &github.Response{
@@ -80,7 +70,7 @@ func MakeMockGitHubClientGetterWithState(
 				},
 			},
 			err:                    nil,
-			mockStateForUpdateMode: mockStateForUpdateMode,
+			mockStateForUpdateMode: opts.MockStateForUpdateMode,
 		}
 		return githubclient.NewClient(mockHTTPClient, mockPRService, mockIssueService, mockActionsService)
 	}

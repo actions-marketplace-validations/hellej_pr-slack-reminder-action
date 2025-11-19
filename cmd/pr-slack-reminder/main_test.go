@@ -610,10 +610,13 @@ func TestScenarios(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			testhelpers.SetTestEnvironment(t, tc.config, tc.configOverrides)
 
-			getGitHubClient := mockgithubclient.MakeMockGitHubClientGetter(
-				nil, nil,
-				tc.prs, tc.prsByRepo, cmp.Or(tc.fetchPRsStatus, 200), tc.reviewsByPRNumber, nil, tc.prServiceError,
-			)
+			getGitHubClient := mockgithubclient.MakeMockGitHubClientGetter(mockgithubclient.MockGitHubClientOptions{
+				PRs:                   tc.prs,
+				PRsByRepo:             tc.prsByRepo,
+				ListPRsResponseStatus: cmp.Or(tc.fetchPRsStatus, 200),
+				ReviewsByPRNumber:     tc.reviewsByPRNumber,
+				PRServiceError:        tc.prServiceError,
+			})
 			mockSlackAPI := mockslackclient.GetMockSlackAPI(tc.foundSlackChannels, tc.findChannelError, tc.sendMessageError, nil)
 			getSlackClient := mockslackclient.MakeSlackClientGetter(mockSlackAPI)
 			err := main.Run(getGitHubClient, getSlackClient)
@@ -721,9 +724,9 @@ func TestPostModeStateSaving(t *testing.T) {
 
 	testPRs := getTestPRs(GetTestPRsOptions{})
 
-	mockGitHubClientGetter := mockgithubclient.MakeMockGitHubClientGetter(
-		nil, nil, testPRs.PRs, nil, 200, nil, nil, nil,
-	)
+	mockGitHubClientGetter := mockgithubclient.MakeMockGitHubClientGetter(mockgithubclient.MockGitHubClientOptions{
+		PRs: testPRs.PRs,
+	})
 	mockSlackAPI := mockslackclient.GetMockSlackAPI(nil, nil, nil, nil)
 
 	err := main.Run(
@@ -835,17 +838,12 @@ func TestScenariosUpdateMode(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			testhelpers.SetTestEnvironment(t, tc.config, tc.configOverrides)
-			getGitHubClient := mockgithubclient.MakeMockGitHubClientGetterWithState(
-				tc.prByNumber,
-				tc.fetchPRErrorByPRNumber,
-				[]*github.PullRequest{},
-				map[string][]*github.PullRequest{},
-				200,
-				tc.reviewsByPRNumber,
-				map[int][]*github.PullRequestComment{},
-				nil,
-				&tc.state,
-			)
+			getGitHubClient := mockgithubclient.MakeMockGitHubClientGetter(mockgithubclient.MockGitHubClientOptions{
+				PRsByNumber:            tc.prByNumber,
+				ErrByPRNumber:          tc.fetchPRErrorByPRNumber,
+				ReviewsByPRNumber:      tc.reviewsByPRNumber,
+				MockStateForUpdateMode: &tc.state,
+			})
 			mockSlackAPI := mockslackclient.GetMockSlackAPI(
 				nil,
 				nil,
