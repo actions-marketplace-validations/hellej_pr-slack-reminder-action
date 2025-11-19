@@ -795,8 +795,7 @@ func TestScenariosUpdateMode(t *testing.T) {
 			name:   "update mode with two PRs",
 			config: testhelpers.GetDefaultConfigMinimal(),
 			configOverrides: &map[string]any{
-				config.InputRunMode:           config.RunModeUpdate,
-				config.InputStateArtifactName: "pr-slack-reminder-state",
+				config.InputRunMode: config.RunModeUpdate,
 			},
 			state: state.State{
 				SchemaVersion: 1,
@@ -836,7 +835,7 @@ func TestScenariosUpdateMode(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			testhelpers.SetTestEnvironment(t, tc.config, tc.configOverrides)
-			getGitHubClient := mockgithubclient.MakeMockGitHubClientGetter(
+			getGitHubClient := mockgithubclient.MakeMockGitHubClientGetterWithState(
 				tc.prByNumber,
 				tc.fetchPRErrorByPRNumber,
 				[]*github.PullRequest{},
@@ -845,6 +844,7 @@ func TestScenariosUpdateMode(t *testing.T) {
 				tc.reviewsByPRNumber,
 				map[int][]*github.PullRequestComment{},
 				nil,
+				&tc.state,
 			)
 			mockSlackAPI := mockslackclient.GetMockSlackAPI(
 				nil,
@@ -853,7 +853,6 @@ func TestScenariosUpdateMode(t *testing.T) {
 				tc.updateMessageError,
 			)
 			getSlackClient := mockslackclient.MakeSlackClientGetter(mockSlackAPI)
-			state.Save(tc.config.StateFilePath, tc.state)
 
 			err := main.Run(getGitHubClient, getSlackClient)
 

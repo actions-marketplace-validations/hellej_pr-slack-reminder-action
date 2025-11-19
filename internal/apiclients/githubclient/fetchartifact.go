@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 
 	"github.com/google/go-github/v78/github"
@@ -91,7 +92,7 @@ func (client *client) FetchLatestArtifactByName(
 
 	found := false
 	for _, f := range zr.File {
-		if f.Name == jsonFilePath {
+		if filepath.Base(f.Name) == filepath.Base(jsonFilePath) {
 			found = true
 			rc, err := f.Open()
 			if err != nil {

@@ -1,12 +1,18 @@
 package mockgithubclient
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/google/go-github/v78/github"
 	"github.com/hellej/pr-slack-reminder-action/internal/apiclients/githubclient"
+	"github.com/hellej/pr-slack-reminder-action/internal/state"
 )
 
 func MakeMockGitHubClientGetter(
@@ -18,6 +24,23 @@ func MakeMockGitHubClientGetter(
 	reviewsByPRNumber map[int][]*github.PullRequestReview,
 	commentsByPRNumber map[int][]*github.PullRequestComment,
 	prServiceError error,
+) func(token string) githubclient.Client {
+	return MakeMockGitHubClientGetterWithState(
+		prsByNumber, errByPRNumber, prs, prsByRepo, listPRsResponseStatus,
+		reviewsByPRNumber, commentsByPRNumber, prServiceError, nil,
+	)
+}
+
+func MakeMockGitHubClientGetterWithState(
+	prsByNumber map[int]*github.PullRequest,
+	errByPRNumber map[int]error,
+	prs []*github.PullRequest,
+	prsByRepo map[string][]*github.PullRequest,
+	listPRsResponseStatus int,
+	reviewsByPRNumber map[int][]*github.PullRequestReview,
+	commentsByPRNumber map[int][]*github.PullRequestComment,
+	prServiceError error,
+	mockStateForUpdateMode *state.State,
 ) func(token string) githubclient.Client {
 	return func(token string) githubclient.Client {
 		mockPRService := &mockPullRequestService{
@@ -47,7 +70,8 @@ func MakeMockGitHubClientGetter(
 			response: &http.Response{
 				StatusCode: 200,
 			},
-			err: nil,
+			err:                    nil,
+			mockStateForUpdateMode: mockStateForUpdateMode,
 		}
 		mockActionsService := &mockActionsService{
 			response: &github.Response{
@@ -55,7 +79,8 @@ func MakeMockGitHubClientGetter(
 					StatusCode: 200,
 				},
 			},
-			err: nil,
+			err:                    nil,
+			mockStateForUpdateMode: mockStateForUpdateMode,
 		}
 		return githubclient.NewClient(mockHTTPClient, mockPRService, mockIssueService, mockActionsService)
 	}
@@ -162,28 +187,90 @@ func (m *mockIssueService) ListComments(
 }
 
 type mockActionsService struct {
-	response *github.Response
-	err      error
+	response               *github.Response
+	err                    error
+	mockStateForUpdateMode *state.State
 }
 
 func (m *mockActionsService) ListArtifacts(
 	ctx context.Context, owner string, repo string, opts *github.ListArtifactsOptions,
 ) (*github.ArtifactList, *github.Response, error) {
-	return &github.ArtifactList{}, m.response, m.err
+	if m.err != nil {
+		return nil, m.response, m.err
+	}
+
+	artifacts := []*github.Artifact{}
+	if m.mockStateForUpdateMode != nil {
+		artifacts = append(artifacts, &github.Artifact{
+			ID:        github.Ptr(int64(123)),
+			Name:      github.Ptr("pr-slack-reminder-state"),
+			CreatedAt: &github.Timestamp{Time: time.Now().Add(-1 * time.Hour)},
+		})
+	}
+
+	return &github.ArtifactList{
+		TotalCount: github.Ptr(int64(len(artifacts))),
+		Artifacts:  artifacts,
+	}, m.response, nil
 }
 
 func (m *mockActionsService) DownloadArtifact(
 	ctx context.Context, owner, repo string, artifactID int64, maxRedirects int,
 ) (*url.URL, *github.Response, error) {
+	if m.err != nil {
+		return nil, m.response, m.err
+	}
 	u, _ := url.Parse("https://example.com/mock-download-url")
-	return u, m.response, m.err
+	return u, m.response, nil
 }
 
 type mockHTTPClient struct {
-	response *http.Response
-	err      error
+	response               *http.Response
+	err                    error
+	mockStateForUpdateMode *state.State
 }
 
 func (m *mockHTTPClient) Get(url string) (*http.Response, error) {
+	if m.err != nil {
+		return m.response, m.err
+	}
+
+	if url == "https://example.com/mock-download-url" && m.mockStateForUpdateMode != nil {
+		zipData, err := createMockArtifactZip(m.mockStateForUpdateMode)
+		if err != nil {
+			return nil, err
+		}
+
+		return &http.Response{
+			StatusCode: 200,
+			Body:       io.NopCloser(bytes.NewReader(zipData)),
+		}, nil
+	}
+
 	return m.response, m.err
+}
+
+func createMockArtifactZip(mockState *state.State) ([]byte, error) {
+	var buf bytes.Buffer
+	zipWriter := zip.NewWriter(&buf)
+
+	file, err := zipWriter.Create("pr-slack-reminder-state.json")
+	if err != nil {
+		return nil, err
+	}
+
+	stateJSON, err := json.Marshal(mockState)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := file.Write(stateJSON); err != nil {
+		return nil, err
+	}
+
+	if err := zipWriter.Close(); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }
