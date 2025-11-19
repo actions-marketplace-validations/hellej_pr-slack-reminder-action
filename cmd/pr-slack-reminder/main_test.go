@@ -193,6 +193,7 @@ func TestScenarios(t *testing.T) {
 		configOverrides     *map[string]any
 		fetchPRsStatus      int
 		prServiceError      error
+		issueServiceError   error
 		prs                 []*github.PullRequest
 		prsByRepo           map[string][]*github.PullRequest
 		reviewsByPRNumber   map[int][]*github.PullRequestReview
@@ -326,6 +327,14 @@ func TestScenarios(t *testing.T) {
 			prs:              getTestPRs(GetTestPRsOptions{}).PRs,
 			sendMessageError: errors.New("error in sending Slack message"),
 			expectedErrorMsg: "failed to send Slack message: error in sending Slack message",
+		},
+		{
+			name:              "timeline comments fetch error is handled gracefully",
+			config:            testhelpers.GetDefaultConfigMinimal(),
+			prs:               getTestPRs(GetTestPRsOptions{}).PRs,
+			issueServiceError: errors.New("error fetching timeline comments"),
+			expectedPRNumbers: getTestPRs(GetTestPRsOptions{}).PRNumbers,
+			expectedSummary:   "5 open PRs are waiting for attention 👀",
 		},
 		{
 			name:              "minimal config with 5 PRs",
@@ -643,6 +652,7 @@ func TestScenarios(t *testing.T) {
 				ListPRsResponseStatus: cmp.Or(tc.fetchPRsStatus, 200),
 				ReviewsByPRNumber:     tc.reviewsByPRNumber,
 				PRServiceError:        tc.prServiceError,
+				IssueServiceError:     tc.issueServiceError,
 			})
 			mockSlackAPI := mockslackclient.GetMockSlackAPI(tc.foundSlackChannels, tc.findChannelError, tc.sendMessageError, nil)
 			getSlackClient := mockslackclient.MakeSlackClientGetter(mockSlackAPI)
