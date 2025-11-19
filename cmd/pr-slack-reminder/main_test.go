@@ -31,7 +31,9 @@ type GetTestPROptions struct {
 	AuthorName  string
 	Labels      []string
 	AgeHours    float32
-	Draft       *bool // nil means unset, github.Ptr(true) means draft, github.Ptr(false) means not draft
+	Draft       *bool  // nil means unset, github.Ptr(true) means draft, github.Ptr(false) means not draft
+	State       string // "open", "closed"
+	Merged      bool   // true if PR is merged
 }
 
 var now = time.Now()
@@ -58,6 +60,9 @@ func getTestPR(options GetTestPROptions) *github.PullRequest {
 		),
 	)
 	prTime := now.Add(-time.Duration(ageMinutes) * time.Minute)
+
+	state := cmp.Or(options.State, "open")
+
 	return &github.PullRequest{
 		Number: &number,
 		Title:  &title,
@@ -68,6 +73,8 @@ func getTestPR(options GetTestPROptions) *github.PullRequest {
 		Labels:    githubLabels,
 		CreatedAt: &github.Timestamp{Time: prTime},
 		Draft:     options.Draft,
+		State:     &state,
+		Merged:    &options.Merged,
 	}
 }
 
@@ -855,7 +862,7 @@ func TestScenariosUpdateMode(t *testing.T) {
 			},
 		},
 		{
-			name:   "update mode with two PRs",
+			name:   "update mode with two PRs with reviewers",
 			config: testhelpers.GetDefaultConfigMinimal(),
 			configOverrides: &map[string]any{
 				config.InputRunMode: config.RunModeUpdate,
@@ -865,9 +872,18 @@ func TestScenariosUpdateMode(t *testing.T) {
 				1: getTestPR(GetTestPROptions{Number: 1, Title: "First PR", AuthorLogin: "alice"}),
 				2: getTestPR(GetTestPROptions{Number: 2, Title: "Second PR", AuthorLogin: "bob"}),
 			},
+			reviewsByPRNumber: map[int][]*github.PullRequestReview{
+				1: {
+					mockgithubclient.NewReview(1, "APPROVED", "reviewer1", "Reviewer One", "LGTM"),
+					mockgithubclient.NewReview(2, "APPROVED", "reviewer2", "Reviewer Two", "Looks good"),
+				},
+				2: {
+					mockgithubclient.NewReview(3, "COMMENTED", "reviewer3", "Reviewer Three", "Just a few questions..."),
+				},
+			},
 			expectedPRItemTexts: []string{
-				"First PR 5 hours ago by Alice",
-				"Second PR 5 hours ago by Bob",
+				"First PR 5 hours ago by Alice (✅ Reviewer One, Reviewer Two)",
+				"Second PR 5 hours ago by Bob (💬 Reviewer Three)",
 			},
 		},
 		{
@@ -920,12 +936,64 @@ func TestScenariosUpdateMode(t *testing.T) {
 			configOverrides: &map[string]any{
 				config.InputRunMode: config.RunModeUpdate,
 			},
-			mockState: testhelpers.AsPointer(getTestState(GetTestStateOptions{PRNumbers: []int{1}})),
+			mockState: testhelpers.AsPointer(getTestState(GetTestStateOptions{PRNumbers: []int{1, 2}})),
 			prByNumber: map[int]*github.PullRequest{
 				1: getTestPR(GetTestPROptions{Number: 1, Title: "First PR", AuthorLogin: "alice"}),
+				2: getTestPR(GetTestPROptions{Number: 2, Title: "Second PR", AuthorLogin: "bob"}),
 			},
 			updateMessageError: errors.New("slack update failed"),
 			expectedErrorMsg:   "failed to update Slack message: slack update failed",
+		},
+		{
+			name:   "update mode with merged and closed PRs shows appropriate status indicators",
+			config: testhelpers.GetDefaultConfigMinimal(),
+			configOverrides: &map[string]any{
+				config.InputRunMode: config.RunModeUpdate,
+			},
+			mockState: testhelpers.AsPointer(getTestState(GetTestStateOptions{PRNumbers: []int{1, 2, 3, 4}})),
+			prByNumber: map[int]*github.PullRequest{
+				1: getTestPR(GetTestPROptions{
+					Number:      1,
+					Title:       "Open PR with approvals",
+					AuthorLogin: "alice",
+					State:       "open",
+				}),
+				2: getTestPR(GetTestPROptions{
+					Number:      2,
+					Title:       "Merged PR with reviewer",
+					AuthorLogin: "bob",
+					State:       "closed",
+					Merged:      true,
+				}),
+				3: getTestPR(GetTestPROptions{
+					Number:      3,
+					Title:       "Closed PR without merge",
+					AuthorLogin: "charlie",
+					State:       "closed",
+					Merged:      false,
+				}),
+				4: getTestPR(GetTestPROptions{
+					Number:      4,
+					Title:       "Merged PR without reviewers",
+					AuthorLogin: "dave",
+					State:       "closed",
+					Merged:      true,
+				}),
+			},
+			reviewsByPRNumber: map[int][]*github.PullRequestReview{
+				1: {
+					mockgithubclient.NewReview(1, "APPROVED", "reviewer1", "Reviewer One", "LGTM"),
+				},
+				2: {
+					mockgithubclient.NewReview(2, "APPROVED", "reviewer2", "Reviewer Two", "Looks good"),
+				},
+			},
+			expectedPRItemTexts: []string{
+				"Open PR with approvals 5 hours ago by Alice (✅ Reviewer One)",
+				"Merged PR with reviewer 5 hours ago by Bob (✅ Reviewer Two) 🔀",
+				"~Closed PR without merge~ 5 hours ago by Charlie",
+				"Merged PR without reviewers 5 hours ago by Dave 🔀",
+			},
 		},
 	}
 
