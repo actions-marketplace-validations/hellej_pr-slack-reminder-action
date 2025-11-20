@@ -18,7 +18,7 @@ update run:
 - Load persisted state
 - Re-fetch only those PRs in state (skip discovering new ones)
 - Rebuild message (same deterministic PR ordering rules used in both modes)
-- Mark merged PRs 🔀, refresh ages, reviewers, commenters
+- Mark merged PRs 🚀, refresh ages, reviewers, commenters
 - Update existing Slack message in-place (chat.update)
 - Add/update footer with refreshed timestamp (UTC)
 
@@ -104,7 +104,7 @@ Potential future inputs (defer unless needed):
 ## Message Update Behavior
 - Recompute ages relative to current time
 - Preserve original formatting (prefixes, sections)
-- Add 🔀 indicator for merged PRs (suffix after reviewer info)
+- Add 🚀 indicator for merged PRs (suffix after reviewer info)
 - Reviewer/commenter lists refreshed
 - Footer replaced/added: `review info updated at HH:MM UTC`
 
@@ -114,7 +114,7 @@ Potential future inputs (defer unless needed):
 | State file missing in update | Fail (clear error) |
 | `fail-if-missing-state=false` | Log warning, exit success no-op |
 | Slack message deleted | chat.update fails → error (future: optionally re-post) |
-| PR merged | Show normally with 🔀 marker |
+| PR merged | Show normally with 🚀 marker |
 | PR closed (not merged) | Treat as still listed (no special marker MVP) |
 | PR not found / permission lost | Skip with warning (future: placeholder) |
 | State version != supported | Fail fast |
@@ -159,7 +159,7 @@ The implementation will strictly follow a Test-Driven Development approach. For 
     3. Simulate an `update` run.
     4. Assert that the GitHub client was called only for the PRs listed in the state file.
     5. Assert that the Slack client's `UpdateMessage` method was called with the correct channel ID and timestamp.
-    6. Assert that the generated message blocks contain the `🔀` marker for the merged PR and the "updated at" footer.
+    6. Assert that the generated message blocks contain the `🚀` marker for the merged PR and the "updated at" footer.
 - **Update Mode (Edge Cases)**:
     1. Test that an `update` run fails clearly when the state file is missing.
     2. Test that an `update` run fails if the state file has a schema version mismatch.
@@ -208,7 +208,7 @@ Follow these steps in order, ensuring tests are written before implementation at
         1. Call `state.Load()` and `state.Validate()`. Handle errors according to the plan (fail fast).
         2. Instead of discovering PRs, use the `PullRequestRef` list from the loaded state to fetch PR data directly. This will require a new or modified function in `githubclient`.
         3. Pass the fetched PRs through the existing `prparser` and `messagecontent` pipeline.
-        4. In `messagebuilder`, add logic to append the `🔀` marker to merged PRs and include the "updated at" footer.
+        4. In `messagebuilder`, add logic to append the `🚀` marker to merged PRs and include the "updated at" footer.
         5. Call the new `slackClient.UpdateMessage` method with the message details from the state and the newly generated blocks.
 - **`cmd/pr-slack-reminder/main_test.go`**:
     - Implement the integration tests for "Update Mode" (happy path and edge cases).
@@ -230,7 +230,7 @@ Follow these steps in order, ensuring tests are written before implementation at
 
 ## Future Enhancements (Not MVP)
 - Artifact persistence backend
-- Closed (not merged) indicator (🚫) vs merged (🔀)
+- Closed (not merged) indicator (🚫) vs merged (🚀)
 - Multiple tracked messages (namespaced state keys)
 
 ## Auth

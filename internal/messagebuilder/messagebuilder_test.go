@@ -358,7 +358,7 @@ func TestMergedAndClosedPRFormatting(t *testing.T) {
 
 			for _, element := range prSection.Elements {
 				if textElement, ok := element.(*slack.RichTextSectionTextElement); ok {
-					if textElement.Text == " 🔀" {
+					if textElement.Text == " 🚀" {
 						hasMergedIndicator = true
 					}
 					if textElement.Text == " (✅ " || textElement.Text == " (💬 " || textElement.Text == " (" {
@@ -374,10 +374,10 @@ func TestMergedAndClosedPRFormatting(t *testing.T) {
 				t.Error("Did not expect reviewer section but it was found")
 			}
 			if tc.expectedMergedIndicator && !hasMergedIndicator {
-				t.Error("Expected merged indicator (🔀) but it was not found")
+				t.Error("Expected merged indicator (🚀) but it was not found")
 			}
 			if !tc.expectedMergedIndicator && hasMergedIndicator {
-				t.Error("Did not expect merged indicator (🔀) but it was found")
+				t.Error("Did not expect merged indicator (🚀) but it was found")
 			}
 		})
 	}

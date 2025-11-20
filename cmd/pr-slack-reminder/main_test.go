@@ -990,9 +990,9 @@ func TestScenariosUpdateMode(t *testing.T) {
 			},
 			expectedPRItemTexts: []string{
 				"Open PR with approvals 5 hours ago by Alice (✅ Reviewer One)",
-				"Merged PR with reviewer 5 hours ago by Bob (✅ Reviewer Two) 🔀",
+				"Merged PR with reviewer 5 hours ago by Bob (✅ Reviewer Two) 🚀",
 				"~Closed PR without merge~ 5 hours ago by Charlie",
-				"Merged PR without reviewers 5 hours ago by Dave 🔀",
+				"Merged PR without reviewers 5 hours ago by Dave 🚀",
 			},
 		},
 	}

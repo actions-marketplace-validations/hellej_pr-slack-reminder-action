@@ -144,7 +144,7 @@ func buildPRBulletPointBlock(pr prparser.PR) slack.RichTextElement {
 
 	if pr.IsMerged() {
 		prItemElements = append(prItemElements,
-			slack.NewRichTextSectionTextElement(" 🔀", &slack.RichTextSectionTextStyle{}),
+			slack.NewRichTextSectionTextElement(" 🚀", &slack.RichTextSectionTextStyle{}),
 		)
 	}
 
