@@ -17,9 +17,11 @@ on:
         required: false
   schedule:
     - cron: '0 9 * * 0-6'  # at 09:00 every day
-  issue_comment:
+  pull_request:
+    types: [closed, ready_for_review]
   pull_request_review:
     types: [submitted]
+  issue_comment:
   push:
     branches: [main]
 
