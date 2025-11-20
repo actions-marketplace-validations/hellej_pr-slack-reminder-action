@@ -9,8 +9,7 @@ on:
         options:
           - post
           - update
-        default: post
-        required: false
+        required: true
       build-first:
         description: 'Build the project first'
         type: boolean
