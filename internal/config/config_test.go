@@ -870,7 +870,7 @@ func TestGetConfig_RunMode_ParsedCorrectly(t *testing.T) {
 			h.setupMinimalValidConfig()
 			h.setInput(config.InputRunMode, tc.inputVal)
 
-			// state-artifact-name is required when mode is update
+			// state-artifact-name is required when run-mode is update
 			if tc.inputVal == "update" {
 				h.setInput(config.InputStateArtifactName, TestStateArtifactName)
 			}

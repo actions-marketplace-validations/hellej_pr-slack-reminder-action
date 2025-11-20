@@ -3,7 +3,7 @@ name: PR Reminder
 on:
   workflow_dispatch:
     inputs:
-      mode:
+      run-mode:
         description: 'Run mode'
         type: choice
         options:
@@ -18,6 +18,11 @@ on:
         required: false
   schedule:
     - cron: '0 9 * * 0-6'  # at 09:00 every day
+  issue_comment:
+  pull_request_review:
+    types: [submitted]
+  push:
+    branches: [main]
 
 jobs:
   reminder:
@@ -37,7 +42,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           slack-bot-token: ${{ secrets.DEV_SLACK_TOKEN }}
-          mode: ${{ inputs.mode || 'post' }}
+          run-mode: ${{ inputs.run-mode || 'post' }}
           slack-channel-name: github
           github-user-slack-user-id-mapping: |
             hellej: U08SZJTJF0U

@@ -23,7 +23,7 @@ const (
 
 	InputGithubToken                 string = "github-token"
 	InputSlackBotToken               string = "slack-bot-token"
-	InputRunMode                     string = "mode"
+	InputRunMode                     string = "run-mode"
 	InputStateArtifactName           string = "state-artifact-name"
 	InputSlackChannelName            string = "slack-channel-name"
 	InputSlackChannelID              string = "slack-channel-id"

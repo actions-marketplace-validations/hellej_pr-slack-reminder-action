@@ -91,7 +91,7 @@ Abstraction: read/write plain JSON file at configured path; the workflow decides
 
 ## Inputs (Proposed)
 Minimal for MVP:
-- `mode` (post|update) (default: post)
+- `run-mode` (post|update) (default: post)
 - `state-file-path` (default: `.pr-slack-reminder/state.json`)
 
 Potential future inputs (defer unless needed):
@@ -135,9 +135,9 @@ Potential future inputs (defer unless needed):
 The implementation will strictly follow a Test-Driven Development approach. For each step, failing tests will be written first to define the required functionality, followed by the minimal implementation to make them pass.
 
 ### 1. Config & Input Handling (`config_test.go`)
-- Test that `mode` defaults to `post` when the input is not provided.
-- Test that `mode` is correctly parsed as `post` or `update`.
-- Test that an invalid `mode` value results in a validation error.
+- Test that `run-mode` defaults to `post` when the input is not provided.
+- Test that `run-mode` is correctly parsed as `post` or `update`.
+- Test that an invalid `run-mode` value results in a validation error.
 - Test that `state-file-path` is parsed correctly.
 - Test that `state-file-path` falls back to the documented default (`.pr-slack-reminder/state.json`).
 
