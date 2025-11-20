@@ -52,7 +52,7 @@ inputs: {
   main-list-heading: {
     description: 'Main heading of the message to send (`<pr_count>` gets replaced)',
     required: false,
-    default: 'There are <pr_count> open PRs 🚀',
+    default: 'There are <pr_count> open PRs 👀',
   },
   no-prs-message: {
     description: 'Message to send when there are no open PRs',
