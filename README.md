@@ -142,26 +142,27 @@ jobs:
             api-service: {"labels": ["ready-for-review"], "authors-ignore": ["intern-bot"]}
             mobile-app: {}
 ```
+
 (^ `mobile-app: {}` effectively removes all filtering for that repo -> all mobile-app PRs will be included)
 
 ## ➡️ Inputs
 
-| Name                                | Required | Description                                                                                                     |
-| ----------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------- |
-| `github-token`                      | ✅       | GitHub token for repository access<br>Example: `${{ secrets.GITHUB_TOKEN }}`                                    |
-| `slack-bot-token`                   | ✅       | Slack bot token for sending messages<br>Example: `${{ secrets.SLACK_BOT_TOKEN }}`                               |
-| `run-mode`                          | ❌       | Run mode: `post` (default) posts a new reminder; `update` refreshes an existing reminder                        |
-| `state-artifact-name`               | ❌       | Name of the artifact containing state from previous runs (required when run-mode is `update`)<br>Example: `pr-reminder-state` |
-| `slack-channel-name`                | ❌       | Slack channel name (use this OR `slack-channel-id`)<br>Example: `dev-team`                                      |
-| `slack-channel-id`                  | ❌       | Slack channel ID (use this OR `slack-channel-name`)<br>Example: `C1234567890`                                   |
-| `github-repositories`               | ❌       | Repositories to monitor (max 30) - defaults to current repo<br>Example:<br>`owner/repo1`<br>`owner/repo2`       |
-| `filters`                           | ❌       | Global filters (JSON)<br>Example:<br>`{"authors": ["alice"], "labels-ignore": ["wip"]}`                         |
-| `repository-filters`                | ❌       | Repository-specific filters<br>Example:<br>`repo1: {"labels": ["bug"]}`<br>`repo2: {"authors-ignore": ["bot"]}` |
-| `github-user-slack-user-id-mapping` | ❌       | Map of GitHub usernames to Slack user IDs<br>Example:<br>`alice: U1234567890`<br>`kronk: U2345678901`           |
-| `main-list-heading`                 | ❌       | Message heading (`<pr_count>` gets replaced)<br>Example: `There are <pr_count> open PRs 💫`                     |
-| `no-prs-message`                    | ❌       | Message when no PRs are found (if not set, no empty message gets sent)<br>Example: `All caught up! 🎉`          |
-| `old-pr-threshold-hours`            | ❌       | PR age in hours after which a PR is highlighted as old (with alarm emoji and bold age text)<br>Example: `48`    |
-| `group-by-repository`               | ❌       | Group PRs by repository with repository headings. When enabled (`true`), main-list-heading is ignored.          |
+| Name                                | Required | Description                                                                                                                                                                                                      |
+| ----------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `github-token`                      | ✅       | GitHub token for repository access<br>Example: `${{ secrets.GITHUB_TOKEN }}`                                                                                                                                     |
+| `slack-bot-token`                   | ✅       | Slack bot token for sending messages<br>Example: `${{ secrets.SLACK_BOT_TOKEN }}`                                                                                                                                |
+| `run-mode`                          | ❌       | Run mode: `post` (default) posts a new reminder; `update` refreshes an existing reminder                                                                                                                         |
+| `state-artifact-name`               | ❌       | Name of the artifact containing state from previous run (used when run-mode is `update`, defaults to `pr-slack-reminder-state`)                                                                                  |
+| `slack-channel-name`                | ❌       | Slack channel name (use this OR `slack-channel-id`)<br>Example: `dev-team`                                                                                                                                       |
+| `slack-channel-id`                  | ❌       | Slack channel ID (use this OR `slack-channel-name`)<br>Example: `C1234567890`                                                                                                                                    |
+| `github-repositories`               | ❌       | Repositories to monitor (max 30) - defaults to current repo<br>Example:<br>`owner/repo1`<br>`owner/repo2`                                                                                                        |
+| `filters`                           | ❌       | Global filters (JSON)<br>Example:<br>`{"authors": ["alice"], "labels-ignore": ["wip"]}`                                                                                                                          |
+| `repository-filters`                | ❌       | Repository-specific filters<br>Example:<br>`repo1: {"labels": ["bug"]}`<br>`repo2: {"authors-ignore": ["bot"]}`                                                                                                  |
+| `github-user-slack-user-id-mapping` | ❌       | Map of GitHub usernames to Slack user IDs<br>Example:<br>`alice: U1234567890`<br>`kronk: U2345678901`                                                                                                            |
+| `main-list-heading`                 | ❌       | Message heading (`<pr_count>` gets replaced)<br>Example: `There are <pr_count> open PRs 💫`                                                                                                                      |
+| `no-prs-message`                    | ❌       | Message when no PRs are found (if not set, no empty message gets sent)<br>Example: `All caught up! 🎉`                                                                                                           |
+| `old-pr-threshold-hours`            | ❌       | PR age in hours after which a PR is highlighted as old (with alarm emoji and bold age text)<br>Example: `48`                                                                                                     |
+| `group-by-repository`               | ❌       | Group PRs by repository with repository headings. When enabled (`true`), main-list-heading is ignored.                                                                                                           |
 | `pr-link-repo-prefixes`             | ❌       | Repository aliases to display as prefixes in PR link texts. Useful if group-by-repository is `false`.<br>Example:<br>`repo1: 'R1 / '`<br>`repo2: 'R2 / '`<br>(without quotes the trailing whitespace is omitted) |
 
 ### Filter Options
