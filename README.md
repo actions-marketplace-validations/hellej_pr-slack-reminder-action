@@ -107,7 +107,7 @@ jobs:
 ```
 (^ PRs from `mobile-app` repo won't be filtered by the global filters)
 
-#### 3. Advanced Setup with Filtering
+#### 3. Advanced Setup with Update Mode Enabled
 
 Setup where the **latest message is also updated when PRs get reviewed/merged.**
 
