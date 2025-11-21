@@ -26,6 +26,7 @@ You may not need this action; GitHub provides [built-in scheduled reminders for 
 **What's special about this action:**
 
 - Monitor up to 30 repositories
+- Option to refresh the latest PR reminder when PRs get reviewed or merged (with run-mode: `update`)
 - Highlight old PRs that need attention (with optional age threshold input)
 - Concise review status info for each PR with emojis (incl. approvers & commenters)
 - More customizable message content (e.g. custom heading and prefixes for PR links by repository)
@@ -109,7 +110,7 @@ jobs:
 
 #### 3. Advanced Setup with Update Mode Enabled
 
-Setup where the **latest message is also updated when PRs get reviewed/merged.**
+Setup where the latest message is also updated when PRs get reviewed/merged.
 
 ```yaml
 name: PR Reminder
