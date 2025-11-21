@@ -43,7 +43,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           slack-bot-token: ${{ secrets.DEV_SLACK_TOKEN }}
-          run-mode: ${{ github.event_name == 'schedule' || inputs.run-mode == 'post' && 'post' || 'update' }}
+          run-mode: ${{ (github.event_name == 'schedule' || inputs.run-mode == 'post') && 'post' || 'update' }}
           slack-channel-name: github
           github-user-slack-user-id-mapping: |
             hellej: U08SZJTJF0U
