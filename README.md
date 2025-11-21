@@ -65,9 +65,9 @@ jobs:
           slack-channel-name: "dev-team"
 ```
 
-#### 2. Multiple Repositories
+#### 2. Multiple Repositories & Filters
 
-Monitor several repositories with user mentions and custom messaging.
+Monitor several repositories with user mentions, filters and custom messaging.
 
 ```yaml
 name: PR Reminder
@@ -96,54 +96,55 @@ jobs:
           main-list-heading: "We have <pr_count> PRs waiting for review! 👀"
           no-prs-message: "🎉 All caught up! No PRs waiting for review."
           old-pr-threshold-hours: 48
-```
-
-#### 3. Advanced Setup with Filtering
-
-Full-featured setup with repository-specific filters and repository prefixes.
-
-```yaml
-name: PR Reminder
-
-on:
-  schedule:
-    - cron: "0 9 * * MON-FRI"
-  workflow_dispatch: # Allow manual triggers
-
-jobs:
-  remind:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: hellej/pr-slack-reminder-action@v1-beta
-        with:
-          github-token: ${{ secrets.MULTI_REPO_GITHUB_TOKEN }}
-          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
-          slack-channel-name: "code-reviews"
-          github-repositories: |
-            myorg/web-app
-            myorg/api-service
-            myorg/mobile-app
-          github-user-slack-user-id-mapping: |
-            alice: U1234567890
-            kronk: U2345678901
-          main-list-heading: "<pr_count> PRs need your attention!"
-          no-prs-message: "No PRs pending! Happy coding!"
-          old-pr-threshold-hours: 24
-          pr-link-repo-prefixes: |
-            web-app: 'WA / '
-            api-service: 'API / '
-            mobile-app: 'MA / '
           filters: |
             {
               "labels-ignore": ["draft", "wip"],
               "authors-ignore": ["dependabot[bot]"]
             }
           repository-filters: |
-            api-service: {"labels": ["ready-for-review"], "authors-ignore": ["intern-bot"]}
+            backend: {"labels": ["ready-for-review"], "authors-ignore": ["intern-bot"]}
             mobile-app: {}
 ```
+(^ PRs from `mobile-app` repo won't be filtered by the global filters)
 
-(^ `mobile-app: {}` effectively removes all filtering for that repo -> all mobile-app PRs will be included)
+#### 3. Advanced Setup with Filtering
+
+Setup where the **latest message is also updated when PRs get reviewed/merged.**
+
+```yaml
+name: PR Reminder
+
+on:
+  schedule:
+    - cron: "0 9 * * MON-FRI" # 9 AM on weekdays
+  push:
+    branches: [main]
+  pull_request:
+    types: [closed, ready_for_review]
+  pull_request_review:
+    types: [submitted]
+  issue_comment:
+
+jobs:
+  send-or-update-pr-reminder:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: hellej/pr-slack-reminder-action@v1-beta
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
+          slack-channel-name: "dev-team"
+          run-mode: ${{ github.event_name == 'schedule' && 'post' || 'update' }}
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: pr-slack-reminder-state
+          path: pr-slack-reminder-state.json
+          retention-days: 1
+```
 
 ## ➡️ Inputs
 
