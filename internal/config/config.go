@@ -21,8 +21,9 @@ const (
 	EnvSentSlackBlocksFilePath string = "SENT_SLACK_BLOCKS_FILE_PATH"
 	EnvStateFilePath           string = "STATE_FILE_PATH"
 
-	InputGithubToken                 string = "github-token"
 	InputSlackBotToken               string = "slack-bot-token"
+	InputGithubToken                 string = "github-token"
+	InputGithubTokenForState         string = "github-token-for-state"
 	InputRunMode                     string = "run-mode"
 	InputStateArtifactName           string = "state-artifact-name"
 	InputSlackChannelName            string = "slack-channel-name"
@@ -45,8 +46,9 @@ const (
 )
 
 type Config struct {
-	GithubToken   string
-	SlackBotToken string
+	SlackBotToken       string
+	GithubToken         string
+	GithubTokenForState string
 
 	RunMode                 RunMode
 	StateArtifactName       string
@@ -84,11 +86,14 @@ func (contentInputs ContentInputs) GetPRLinkRepoPrefix(repo models.Repository) s
 
 func (c Config) Print() {
 	copy := c
+	if copy.SlackBotToken != "" {
+		copy.SlackBotToken = "XXXXX"
+	}
 	if copy.GithubToken != "" {
 		copy.GithubToken = "XXXXX"
 	}
-	if copy.SlackBotToken != "" {
-		copy.SlackBotToken = "XXXXX"
+	if copy.GithubTokenForState != "" {
+		copy.GithubTokenForState = "XXXXX"
 	}
 	asJson, _ := json.MarshalIndent(copy, "", "  ")
 	log.Print("Configuration:")
@@ -96,8 +101,9 @@ func (c Config) Print() {
 }
 
 func GetConfig() (Config, error) {
-	githubToken, err1 := inputhelpers.GetInputRequired(InputGithubToken)
-	slackToken, err2 := inputhelpers.GetInputRequired(InputSlackBotToken)
+	slackToken, err1 := inputhelpers.GetInputRequired(InputSlackBotToken)
+	githubToken, err2 := inputhelpers.GetInputRequired(InputGithubToken)
+	githubTokenForState := inputhelpers.GetInput(InputGithubTokenForState)
 
 	runMode, err3 := getRunMode(InputRunMode)
 	stateArtifactName := inputhelpers.GetInput(InputStateArtifactName)
@@ -138,8 +144,9 @@ func GetConfig() (Config, error) {
 	}
 
 	config := Config{
-		GithubToken:             githubToken,
 		SlackBotToken:           slackToken,
+		GithubToken:             githubToken,
+		GithubTokenForState:     githubTokenForState,
 		RunMode:                 runMode,
 		StateArtifactName:       stateArtifactName,
 		StateFilePath:           stateFilePath,

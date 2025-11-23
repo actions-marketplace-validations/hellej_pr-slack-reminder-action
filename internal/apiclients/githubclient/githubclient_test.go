@@ -197,7 +197,7 @@ func (m *multiRepoIssuesService) ListComments(
 }
 
 func TestGetAuthenticatedClient(t *testing.T) {
-	client := githubclient.GetAuthenticatedClient("test-token")
+	client := githubclient.GetAuthenticatedClient("test-token", "another-token")
 	if client == nil {
 		t.Fatal("Expected non-nil client, got nil")
 	}

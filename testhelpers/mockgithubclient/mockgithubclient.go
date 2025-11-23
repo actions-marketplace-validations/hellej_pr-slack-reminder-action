@@ -30,12 +30,12 @@ type MockGitHubClientOptions struct {
 	DownloadArtifactError  error
 }
 
-func MakeMockGitHubClientGetter(opts MockGitHubClientOptions) func(token string) githubclient.Client {
+func MakeMockGitHubClientGetter(opts MockGitHubClientOptions) func(token, tokenForState string) githubclient.Client {
 	if opts.ListPRsResponseStatus == 0 {
 		opts.ListPRsResponseStatus = 200
 	}
 
-	return func(token string) githubclient.Client {
+	return func(token, tokenForState string) githubclient.Client {
 		mockPRService := &mockPullRequestService{
 			prsByNumber:        opts.PRsByNumber,
 			errorByPRNumber:    opts.ErrByPRNumber,

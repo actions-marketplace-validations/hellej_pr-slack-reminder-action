@@ -107,13 +107,23 @@ func NewClient(
 	}
 }
 
-func GetAuthenticatedClient(token string) Client {
+// if the optional tokenForState arg is provided, that will be used for ListArtifacts & DownloadArtifact
+// (the main token may not have "actions: read" permission to the current repository, while that is
+// necessary for the "update" run-mode where the action first needs to fetch the "state" of the previous
+// run)
+func GetAuthenticatedClient(token, tokenForState string) Client {
 	ghClient := github.NewClient(nil).WithAuthToken(token)
+
+	ghClientForState := ghClient
+	if tokenForState != "" {
+		ghClientForState = github.NewClient(nil).WithAuthToken(tokenForState)
+	}
+
 	return NewClient(
 		httpClient{},
 		ghClient.PullRequests,
 		ghClient.Issues,
-		ghClient.Actions,
+		ghClientForState.Actions,
 	)
 }
 

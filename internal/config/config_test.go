@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	TestGithubToken         = "gh_token_123"
 	TestSlackBotToken       = "xoxb-slack-token"
+	TestGithubToken         = "gh_token_123"
+	TestGithubTokenForState = "gh_token_456"
 	TestDefaultRunMode      = "post"
 	TestSlackChannelName    = "test-channel"
 	TestSlackChannelID      = "C1234567890"
@@ -148,6 +149,7 @@ func (h *ConfigTestHelpers) setupMinimalValidConfig(opts ...MinimalConfigOptions
 
 func (h *ConfigTestHelpers) setupFullValidConfig() {
 	h.setupMinimalValidConfig()
+	h.setInput(config.InputGithubTokenForState, TestGithubTokenForState)
 	h.setInput(config.InputSlackChannelID, TestSlackChannelID)
 	h.setInputInt(config.InputOldPRThresholdHours, TestOldPRThresholdHours)
 	h.setInput(config.InputNoPRsMessage, TestNoPRsMessage)
@@ -798,7 +800,7 @@ func TestConfigPrint(t *testing.T) {
 
 func TestConfigPrint_MasksTokens(t *testing.T) {
 	h := newConfigTestHelpers(t)
-	h.setupMinimalValidConfig(MinimalConfigOptions{})
+	h.setupFullValidConfig()
 
 	cfg, err := config.GetConfig()
 	if err != nil {
@@ -823,6 +825,9 @@ func TestConfigPrint_MasksTokens(t *testing.T) {
 
 	if strings.Contains(output, TestGithubToken) {
 		t.Error("GitHub token should be masked, but actual token found in output")
+	}
+	if strings.Contains(output, TestGithubTokenForState) {
+		t.Error("GitHub token for state should be masked, but actual token found in output")
 	}
 	if strings.Contains(output, TestSlackBotToken) {
 		t.Error("Slack bot token should be masked, but actual token found in output")
