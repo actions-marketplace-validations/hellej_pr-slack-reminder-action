@@ -4,7 +4,7 @@
 
 This GitHub Action sends a friendly Slack reminder about open Pull Requests. The Slack message contains a list of PRs with (optional) highlighting for the old ones.
 
-> ⚠️ **Beta version notice**: This action is currently in beta (`v1-beta`). While functional and tested, the API may change before the stable `v1` release planned for November 2025.
+> ⚠️ **Beta version notice**: This action is currently in beta (`v1-beta`). While functional and tested, the API may change before the stable `v1` release planned for January 2026.
 
 ### Example Output
 
