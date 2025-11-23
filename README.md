@@ -26,7 +26,7 @@ You may not need this action; GitHub provides [built-in scheduled reminders for 
 **What's special about this action:**
 
 - Monitor up to 30 repositories
-- Option to refresh the latest PR reminder when PRs get reviewed or merged (with run-mode: `update`)
+- Option to ["refresh" the latest PR reminder](#3-advanced-setup-with-update-mode-enabled) when PRs get reviewed or merged (with run-mode: `update`)
 - Highlight old PRs that need attention (with optional age threshold input)
 - Concise review status info for each PR with emojis (incl. approvers & commenters)
 - More customizable message content (e.g. custom heading and prefixes for PR links by repository)
@@ -110,7 +110,13 @@ jobs:
 
 #### 3. Advanced Setup with Update Mode Enabled
 
-Setup where the latest message is also updated when PRs get reviewed/merged.
+Setup where the latest message is also updated when PRs get reviewed/merged. 
+PRs that were merged since the original message are shown with 🚀 emoji suffix. 
+However, the updated message will not contain new PRs published since the original message. 
+
+Example:
+
+<img src="docs/examples/example_2.png" alt="Example Slack message" width="600" style="border: 1px solid #ddd; border-radius: 4px; padding: 8px;">
 
 ```yaml
 name: PR Reminder
@@ -231,7 +237,7 @@ jobs:
 
 ### Option 3: Personal Access Token (Alternative)
 
-To monitor multiple repositories, you'll need a Personal Access Token:
+To monitor multiple repositories, you may also use a Personal Access Token (PAT):
 
 1. **Go to GitHub Settings** → Developer settings → Personal access tokens → Fine-grained tokens
 2. **Click "Generate new token"** → Select the repositories of interest and at least read access to PRs
