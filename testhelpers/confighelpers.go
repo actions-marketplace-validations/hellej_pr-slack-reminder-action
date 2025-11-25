@@ -22,10 +22,7 @@ type TestConfig struct {
 	// RepositoryFilters as a JSON string
 	// e.g. "test-repo: {\"labels\": [\"feature\", \"fix\"]}; test-repo2: {\"authors-ignore\": [\"alice\"]}"
 	RepositoryFiltersRaw string
-	// PRLinkRepoPrefixes as a string mapping
-	// e.g. "test-repo: TR1/; test-repo2: TR2/"
-	PRLinkRepoPrefixesRaw string
-	GroupByRepository     bool
+	GroupByRepository    bool
 }
 
 func GetDefaultConfigFull() TestConfig {
@@ -52,11 +49,10 @@ func GetDefaultConfigFull() TestConfig {
 				OldPRThresholdHours:         oldPRsThresholdHours,
 			},
 		},
-		Repository:            "test-org/test-repo",
-		Repositories:          []string{"test-org/test-repo"},
-		GlobalFiltersRaw:      "{\"labels\": [\"feature\", \"fix\"], \"authors\": [\"alice\", \"stitch\"]}",
-		RepositoryFiltersRaw:  "test-repo: {\"labels-ignore\": [\"label-to-ignore\"], \"authors-ignore\": [\"author-to-ignore\"]}",
-		PRLinkRepoPrefixesRaw: "test-repo: some-repo-prefix/",
+		Repository:           "test-org/test-repo",
+		Repositories:         []string{"test-org/test-repo"},
+		GlobalFiltersRaw:     "{\"labels\": [\"feature\", \"fix\"], \"authors\": [\"alice\", \"stitch\"]}",
+		RepositoryFiltersRaw: "test-repo: {\"labels-ignore\": [\"label-to-ignore\"], \"authors-ignore\": [\"author-to-ignore\"]}",
 	}
 }
 
@@ -96,7 +92,6 @@ func setEnvFromConfig(t *testing.T, c TestConfig, overrides *map[string]any) {
 	setInputEnv(t, overrides, config.InputOldPRThresholdHours, c.ContentInputs.OldPRThresholdHours)
 	setInputEnv(t, overrides, config.InputGlobalFilters, c.GlobalFiltersRaw)
 	setInputEnv(t, overrides, config.InputRepositoryFilters, c.RepositoryFiltersRaw)
-	setInputEnv(t, overrides, config.InputPRLinkRepoPrefixes, c.PRLinkRepoPrefixesRaw)
 	setInputEnv(t, overrides, config.InputGroupByRepository, c.GroupByRepository)
 }
 

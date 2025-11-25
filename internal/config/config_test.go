@@ -27,8 +27,6 @@ const (
 	TestFallbackRepository  = "fallback-org/fallback-repo"
 	TestAliceSlackID        = "U1234567890"
 	TestBobSlackID          = "U2234567890"
-	TestRepoPrefix1         = "R1"
-	TestRepoPrefix2         = "R2"
 	TestMaskedToken         = "XXXXX"
 	TestStateArtifactName   = "test-state-artifact"
 )
@@ -163,10 +161,6 @@ func (h *ConfigTestHelpers) setupFullValidConfig() {
 	})
 	h.setInput(config.InputGlobalFilters, `{"authors": ["alice"], "labels": ["feature"]}`)
 	h.setInput(config.InputRepositoryFilters, `repo1: {"labels-ignore": ["wip"]}`)
-	h.setInputMapping(config.InputPRLinkRepoPrefixes, map[string]string{
-		"repo1": TestRepoPrefix1,
-		"repo2": TestRepoPrefix2,
-	})
 }
 
 func TestGetConfig_MinimalValid(t *testing.T) {
@@ -251,19 +245,6 @@ func TestGetConfig_FullValid(t *testing.T) {
 	for i, expectedRepo := range expectedRepos {
 		if cfg.Repositories[i].GetPath() != expectedRepo {
 			t.Errorf("Expected repository %d path '%s', got '%s'", i, expectedRepo, cfg.Repositories[i].GetPath())
-		}
-	}
-
-	expectedPrefixes := map[string]string{
-		TestRepository1: TestRepoPrefix1,
-		TestRepository2: TestRepoPrefix2,
-	}
-	for repoPath, expectedPrefix := range expectedPrefixes {
-		repo := h.createRepository(repoPath)
-		if prefix := cfg.ContentInputs.GetPRLinkRepoPrefix(repo); prefix == "" {
-			t.Errorf("Expected repository prefix for '%s' to exist", repo)
-		} else if prefix != expectedPrefix {
-			t.Errorf("Expected prefix '%s' for repo '%s', got '%s'", expectedPrefix, repo, prefix)
 		}
 	}
 
@@ -609,7 +590,7 @@ func TestGetConfig_RepositoryValidation(t *testing.T) {
 		expectedErrMsg string
 	}{
 		{
-			name: "valid - repository filters and prefixes match existing repositories",
+			name: "valid - repository filters match existing repositories",
 			setupConfig: func(h *ConfigTestHelpers) {
 				h.setupMinimalValidConfig()
 				h.setInputList(config.InputGithubRepositories, []string{"org/repo1", "org/repo2"})
@@ -617,15 +598,11 @@ func TestGetConfig_RepositoryValidation(t *testing.T) {
 					config.InputRepositoryFilters,
 					`repo1: {"authors": ["alice"]}; org/repo2: {"labels": ["bug"]}`,
 				)
-				h.setInputMapping(config.InputPRLinkRepoPrefixes, map[string]string{
-					"repo1": "🚀",
-					"repo2": "📦",
-				})
 			},
 			expectError: false,
 		},
 		{
-			name: "valid - empty filters and prefixes",
+			name: "valid - empty filters",
 			setupConfig: func(h *ConfigTestHelpers) {
 				h.setupMinimalValidConfig()
 			},
@@ -652,26 +629,11 @@ func TestGetConfig_RepositoryValidation(t *testing.T) {
 			expectedErrMsg: "repository-filters contains entry for 'repo2' which does not match any repository",
 		},
 		{
-			name: "invalid - prefix for non-existent repository",
-			setupConfig: func(h *ConfigTestHelpers) {
-				h.setupMinimalValidConfig()
-				h.setInputList(config.InputGithubRepositories, []string{"org/repo1"})
-				h.setInputMapping(config.InputPRLinkRepoPrefixes, map[string]string{
-					"repo2": "📦",
-				})
-			},
-			expectError:    true,
-			expectedErrMsg: "pr-link-repo-prefixes contains entry for 'repo2' which does not match any repository",
-		},
-		{
-			name: "invalid - multiple non-existent repository names in filters & prefixes",
+			name: "invalid - multiple non-existent repository names in filters",
 			setupConfig: func(h *ConfigTestHelpers) {
 				h.setupMinimalValidConfig()
 				h.setInputList(config.InputGithubRepositories, []string{"org/repo1"})
 				h.setInput(config.InputRepositoryFilters, `repo2: {"authors": ["alice"]}; repo3: {"labels": ["bug"]}`)
-				h.setInputMapping(config.InputPRLinkRepoPrefixes, map[string]string{
-					"repo4": "🔧",
-				})
 			},
 			expectError:    true,
 			expectedErrMsg: "contains entry for", // Map iteration order is not deterministic
@@ -685,18 +647,6 @@ func TestGetConfig_RepositoryValidation(t *testing.T) {
 			},
 			expectError:    true,
 			expectedErrMsg: "repository-filters contains ambiguous entry for 'same-repo' which matches multiple repositories (needs owner/repo format)",
-		},
-		{
-			name: "invalid - ambiguous identifier for repository in prefixes",
-			setupConfig: func(h *ConfigTestHelpers) {
-				h.setupMinimalValidConfig()
-				h.setInputList(config.InputGithubRepositories, []string{"org1/same-repo", "org2/same-repo"})
-				h.setInputMapping(config.InputPRLinkRepoPrefixes, map[string]string{
-					"same-repo": "🚀",
-				})
-			},
-			expectError:    true,
-			expectedErrMsg: "pr-link-repo-prefixes contains ambiguous entry for 'same-repo' which matches multiple repositories (needs owner/repo format)",
 		},
 		{
 			name: "invalid - exact duplicate repositories",
@@ -991,85 +941,6 @@ func TestGetConfig_StateFilePath_Custom(t *testing.T) {
 	}
 	if cfg.StateFilePath != custom {
 		t.Errorf("Expected custom StateFilePath '%s', got '%s'", custom, cfg.StateFilePath)
-	}
-}
-
-func TestContentInputs_GetPRLinkRepoPrefix(t *testing.T) {
-	testCases := []struct {
-		name           string
-		repositories   []string
-		prefixes       map[string]string
-		testRepository string
-		expectedPrefix string
-	}{
-		{
-			name:           "empty prefixes map",
-			repositories:   []string{"test-org/test-repo"},
-			prefixes:       map[string]string{},
-			testRepository: "test-org/test-repo",
-			expectedPrefix: "",
-		},
-		{
-			name:           "no match found",
-			repositories:   []string{"test-org/test-repo", "test-org/other-repo"},
-			prefixes:       map[string]string{"other-repo": "OR"},
-			testRepository: "test-org/test-repo",
-			expectedPrefix: "",
-		},
-		{
-			name:           "match by full path",
-			repositories:   []string{"test-org/test-repo"},
-			prefixes:       map[string]string{"test-org/test-repo": "TR"},
-			testRepository: "test-org/test-repo",
-			expectedPrefix: "TR",
-		},
-		{
-			name:           "match by repository name only",
-			repositories:   []string{"test-org/test-repo"},
-			prefixes:       map[string]string{"test-repo": "TR"},
-			testRepository: "test-org/test-repo",
-			expectedPrefix: "TR",
-		},
-		{
-			name:         "full path takes precedence over name",
-			repositories: []string{"test-org/test-repo"},
-			prefixes: map[string]string{
-				"test-repo":          "NAME_MATCH",
-				"test-org/test-repo": "FULL_PATH_MATCH",
-			},
-			testRepository: "test-org/test-repo",
-			expectedPrefix: "FULL_PATH_MATCH",
-		},
-		{
-			name:         "different organization same repo name - no ambiguous match",
-			repositories: []string{"test-org/test-repo", "other-org/different-repo"},
-			prefixes: map[string]string{
-				"other-org/different-repo": "OTHER_ORG",
-				"test-repo":                "NAME_MATCH",
-			},
-			testRepository: "test-org/test-repo",
-			expectedPrefix: "NAME_MATCH",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			h := newConfigTestHelpers(t)
-			h.setupMinimalValidConfig()
-			h.setInputList(config.InputGithubRepositories, tc.repositories)
-			h.setInputMapping(config.InputPRLinkRepoPrefixes, tc.prefixes)
-
-			cfg, err := config.GetConfig()
-			if err != nil {
-				t.Fatalf("Expected no error creating config, got: %v", err)
-			}
-
-			repo := h.createRepository(tc.testRepository)
-			actualPrefix := cfg.ContentInputs.GetPRLinkRepoPrefix(repo)
-			if actualPrefix != tc.expectedPrefix {
-				t.Errorf("Expected prefix '%s', got '%s'", tc.expectedPrefix, actualPrefix)
-			}
-		})
 	}
 }
 

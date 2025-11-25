@@ -141,12 +141,3 @@ func removeLeadingAndTrailingQuotes(s string) string {
 	}
 	return s
 }
-
-// removes leading and trailing quotes from all values in the provided map.
-func UnquoteValues(m map[string]string) map[string]string {
-	result := make(map[string]string, len(m))
-	for key, value := range m {
-		result[key] = removeLeadingAndTrailingQuotes(value)
-	}
-	return result
-}

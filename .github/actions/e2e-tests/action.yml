@@ -1,4 +1,4 @@
-Ename: 'Run E2E Tests'
+name: 'Run E2E Tests'
 description: 'Run end-to-end tests using the built action'
 
 inputs:
@@ -16,7 +16,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Basic E2E test
+    - name: Basic run
       uses: ./
       with:
         github-token: ${{ inputs.github-token }}
@@ -26,7 +26,7 @@ runs:
           hellej: U08SZJTJF0U
           bob: U08EVPGNWER
 
-    - name: Multi-repository E2E test
+    - name: Multi-repository run
       uses: ./
       with:
         github-token: ${{ inputs.github-token }}
@@ -40,11 +40,8 @@ runs:
           hellej: U08SZJTJF0U
           bob: U08EVPGNWER
         old-pr-threshold-hours: 48
-        pr-link-repo-prefixes: |
-          hellej/pr-slack-reminder-test-repo-1: 'TR1 / '
-          hellej/pr-slack-reminder-test-repo-2: test-repo-2/
 
-    - name: Advanced E2E test with filters and repo prefixes
+    - name: Run with filters
       uses: ./
       with:
         github-token: ${{ inputs.github-token }}

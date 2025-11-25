@@ -36,7 +36,6 @@ const (
 	InputNoPRsMessage                string = "no-prs-message"
 	InputOldPRThresholdHours         string = "old-pr-threshold-hours"
 	InputGroupByRepository           string = "group-by-repository"
-	InputPRLinkRepoPrefixes          string = "pr-link-repo-prefixes"
 
 	MaxRepositories int = 30
 
@@ -72,16 +71,6 @@ type ContentInputs struct {
 	NoPRsMessage                string
 	OldPRThresholdHours         int
 	GroupByRepository           bool
-	prLinkRepoPrefixes          map[string]string
-}
-
-func (contentInputs ContentInputs) GetPRLinkRepoPrefix(repo models.Repository) string {
-	for _, key := range []string{repo.GetPath(), repo.Name} {
-		if prefix, exists := contentInputs.prLinkRepoPrefixes[key]; exists {
-			return prefix
-		}
-	}
-	return ""
 }
 
 func (c Config) Print() {
@@ -124,10 +113,9 @@ func GetConfig() (Config, error) {
 	noPRsMessage := inputhelpers.GetInput(InputNoPRsMessage)
 	oldPRsThresholdHours, err9 := inputhelpers.GetInputInt(InputOldPRThresholdHours)
 	groupByRepository, err10 := inputhelpers.GetInputBool(InputGroupByRepository)
-	prLinkRepoPrefixes, err11 := inputhelpers.GetInputMapping(InputPRLinkRepoPrefixes)
 
 	if err := errors.Join(
-		err1, err2, err3, err4, err5, err6, err7, err8, err9, err10, err11,
+		err1, err2, err3, err4, err5, err6, err7, err8, err9, err10,
 	); err != nil {
 		return Config{}, err
 	}
@@ -163,7 +151,6 @@ func GetConfig() (Config, error) {
 			NoPRsMessage:                noPRsMessage,
 			OldPRThresholdHours:         oldPRsThresholdHours,
 			GroupByRepository:           groupByRepository,
-			prLinkRepoPrefixes:          inputhelpers.UnquoteValues(prLinkRepoPrefixes),
 		},
 	}
 
@@ -211,11 +198,6 @@ func (c Config) validateRepositoryNames() error {
 	}
 	if err := validateRepositoryReferences(
 		c.Repositories, c.RepositoryFilters, "repository-filters",
-	); err != nil {
-		return err
-	}
-	if err := validateRepositoryReferences(
-		c.Repositories, c.ContentInputs.prLinkRepoPrefixes, "pr-link-repo-prefixes",
 	); err != nil {
 		return err
 	}

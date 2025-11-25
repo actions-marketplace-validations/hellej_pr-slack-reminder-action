@@ -125,14 +125,9 @@ func buildPRBulletPointBlock(pr prparser.PR) slack.RichTextElement {
 
 	prItemElements := []slack.RichTextSectionElement{}
 
-	linkText := pr.GetTitle()
-	if pr.Prefix != "" {
-		linkText = pr.Prefix + pr.GetTitle()
-	}
-
 	linkStyle := &slack.RichTextSectionTextStyle{Bold: true, Strike: pr.IsClosedButNotMerged()}
 	prItemElements = append(prItemElements,
-		slack.NewRichTextSectionLinkElement(pr.GetHTMLURL(), linkText, linkStyle),
+		slack.NewRichTextSectionLinkElement(pr.GetHTMLURL(), pr.GetTitle(), linkStyle),
 	)
 	prItemElements = append(prItemElements, ageElements...)
 	prItemElements = append(prItemElements,
