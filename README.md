@@ -94,7 +94,7 @@ jobs:
             alice: U1234567890
             kronk: U2345678901
             charlie: U3456789012
-          main-list-heading: "We have <pr_count> PRs waiting for review! 👀"
+          pr-list-heading: "We have <pr_count> PRs waiting for review! 👀"
           no-prs-message: "🎉 All caught up! No PRs waiting for review."
           old-pr-threshold-hours: 48
           filters: |
@@ -168,10 +168,10 @@ jobs:
 | `filters`                           | ❌       | Global filters (JSON)<br>Example:<br>`{"authors": ["alice"], "labels-ignore": ["wip"]}`                                                                                                                          |
 | `repository-filters`                | ❌       | Repository-specific filters<br>Example:<br>`repo1: {"labels": ["bug"]}`<br>`repo2: {"authors-ignore": ["bot"]}`                                                                                                  |
 | `github-user-slack-user-id-mapping` | ❌       | Map of GitHub usernames to Slack user IDs<br>Example:<br>`alice: U1234567890`<br>`kronk: U2345678901`                                                                                                            |
-| `main-list-heading`                 | ❌       | Message heading (`<pr_count>` gets replaced)<br>Example: `There are <pr_count> open PRs 💫`                                                                                                                      |
+| `pr-list-heading`                 | ❌       | Message heading (`<pr_count>` gets replaced)<br>Example: `There are <pr_count> open PRs 💫`                                                                                                                      |
 | `no-prs-message`                    | ❌       | Message when no PRs are found (if not set, no empty message gets sent)<br>Example: `All caught up! 🎉`                                                                                                           |
 | `old-pr-threshold-hours`            | ❌       | PR age in hours after which a PR is highlighted as old (with alarm emoji and bold age text)<br>Example: `48`                                                                                                     |
-| `group-by-repository`               | ❌       | Group PRs by repository with repository headings. When enabled (`true`), main-list-heading is ignored.                                                                                                           |
+| `group-by-repository`               | ❌       | Group PRs by repository with repository headings. When enabled (`true`), pr-list-heading is ignored.                                                                                                           |
 
 ### Filter Options
 

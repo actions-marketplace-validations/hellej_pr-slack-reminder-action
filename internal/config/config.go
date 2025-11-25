@@ -32,7 +32,7 @@ const (
 	InputGlobalFilters               string = "filters"
 	InputRepositoryFilters           string = "repository-filters"
 	InputSlackUserIdByGitHubUsername string = "github-user-slack-user-id-mapping"
-	InputPRListHeading               string = "main-list-heading"
+	InputPRListHeading               string = "pr-list-heading"
 	InputNoPRsMessage                string = "no-prs-message"
 	InputOldPRThresholdHours         string = "old-pr-threshold-hours"
 	InputGroupByRepository           string = "group-by-repository"
@@ -109,7 +109,7 @@ func GetConfig() (Config, error) {
 	globalFilters, err6 := GetGlobalFiltersFromInput(InputGlobalFilters)
 	repositoryFilters, err7 := GetRepositoryFiltersFromInput(InputRepositoryFilters)
 	slackUserIdByGitHubUsername, err8 := inputhelpers.GetInputMapping(InputSlackUserIdByGitHubUsername)
-	mainListHeading := inputhelpers.GetInput(InputPRListHeading)
+	prListHeading := inputhelpers.GetInput(InputPRListHeading)
 	noPRsMessage := inputhelpers.GetInput(InputNoPRsMessage)
 	oldPRsThresholdHours, err9 := inputhelpers.GetInputInt(InputOldPRThresholdHours)
 	groupByRepository, err10 := inputhelpers.GetInputBool(InputGroupByRepository)
@@ -147,7 +147,7 @@ func GetConfig() (Config, error) {
 		RepositoryFilters:       repositoryFilters,
 		ContentInputs: ContentInputs{
 			SlackUserIdByGitHubUsername: slackUserIdByGitHubUsername,
-			PRListHeading:               mainListHeading,
+			PRListHeading:               prListHeading,
 			NoPRsMessage:                noPRsMessage,
 			OldPRThresholdHours:         oldPRsThresholdHours,
 			GroupByRepository:           groupByRepository,

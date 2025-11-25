@@ -109,7 +109,7 @@ type MinimalConfigOptions struct {
 	SkipGithubToken      bool // Skip setting github-token
 	SkipSlackBotToken    bool // Skip setting slack-bot-token
 	SkipSlackChannelName bool // Skip setting slack-channel-name
-	SkipPRListHeading    bool // Skip setting main-list-heading
+	SkipPRListHeading    bool // Skip setting pr-list-heading
 }
 
 func (h *ConfigTestHelpers) setupMinimalValidConfig(opts ...MinimalConfigOptions) {
@@ -299,7 +299,7 @@ func TestGetConfig_MissingRequiredInputs(t *testing.T) {
 			setupOptions: MinimalConfigOptions{
 				SkipPRListHeading: true,
 			},
-			expectedErrMsg: "main-list-heading is required when group-by-repository is false",
+			expectedErrMsg: "pr-list-heading is required when group-by-repository is false",
 		},
 		{
 			name: "missing slack channel",

@@ -605,16 +605,16 @@ func TestScenarios(t *testing.T) {
 			expectedHeadings:  []string{"Open PRs in org/repo1:", "Open PRs in org/repo2:"},
 		},
 		{
-			name:   "group by repository disabled with main list heading required",
+			name:   "group by repository disabled with PR list heading required",
 			config: testhelpers.GetDefaultConfigMinimal(),
 			configOverrides: &map[string]any{
 				config.InputGroupByRepository: false,
 				config.InputPRListHeading:     "", // Empty heading when grouping is disabled should cause error
 			},
-			expectedErrorMsg: "configuration error: main-list-heading is required when group-by-repository is false",
+			expectedErrorMsg: "configuration error: pr-list-heading is required when group-by-repository is false",
 		},
 		{
-			name:   "group by repository enabled ignores main list heading",
+			name:   "group by repository enabled ignores PR list heading",
 			config: testhelpers.GetDefaultConfigMinimal(),
 			configOverrides: &map[string]any{
 				config.InputGroupByRepository: true,
@@ -727,7 +727,7 @@ func TestScenarios(t *testing.T) {
 					}
 				}
 			}
-			// Only expect main list heading when not grouping by repository
+			// Only expect PR list heading when not grouping by repository
 			if len(expectedPRs) > 0 && !groupByRepository {
 				expectedHeading = strings.ReplaceAll(
 					tc.config.ContentInputs.PRListHeading, "<pr_count>", strconv.Itoa(len(expectedPRs)),
