@@ -135,6 +135,7 @@ type mockSlackAPI struct {
 	privateChannels      []slack.Channel
 	publicChannelsError  error
 	privateChannelsError error
+	deleteMessageError   error
 }
 
 func (m *mockSlackAPI) GetConversations(params *slack.GetConversationsParameters) ([]slack.Channel, string, error) {
@@ -162,6 +163,13 @@ func (m *mockSlackAPI) PostMessage(channelID string, options ...slack.MsgOption)
 
 func (m *mockSlackAPI) UpdateMessage(channelID string, timestamp string, options ...slack.MsgOption) (string, string, string, error) {
 	return channelID, timestamp, "updated_timestamp", nil
+}
+
+func (m *mockSlackAPI) DeleteMessage(channelID string, timestamp string) (string, string, error) {
+	if m.deleteMessageError != nil {
+		return "", "", m.deleteMessageError
+	}
+	return channelID, timestamp, nil
 }
 
 func TestSendMessage(t *testing.T) {
@@ -237,6 +245,60 @@ func TestUpdateMessage(t *testing.T) {
 			blocks := slack.NewBlockMessage()
 
 			_, err := client.UpdateMessage(tt.channelID, tt.messageTS, blocks, tt.summaryText)
+
+			if tt.expectedError != "" {
+				if err == nil {
+					t.Fatalf("Expected error %q, got nil", tt.expectedError)
+				}
+				if !strings.Contains(err.Error(), tt.expectedError) {
+					t.Fatalf("Expected error to contain %q, got %q", tt.expectedError, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("Expected no error, got %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestDeleteMessage(t *testing.T) {
+	tests := []struct {
+		name               string
+		channelID          string
+		messageTS          string
+		deleteMessageError error
+		expectedError      string
+	}{
+		{
+			name:      "successful message delete",
+			channelID: "C12345",
+			messageTS: "1234567890.123456",
+		},
+		{
+			name:               "delete message fails with error",
+			channelID:          "C12345",
+			messageTS:          "1234567890.123456",
+			deleteMessageError: errors.New("invalid_auth"),
+			expectedError:      "failed to delete Slack message",
+		},
+		{
+			name:               "message_not_found error is handled gracefully",
+			channelID:          "C12345",
+			messageTS:          "1234567890.123456",
+			deleteMessageError: errors.New("message_not_found"),
+			expectedError:      "", // Should not return error for message_not_found
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockAPI := &mockSlackAPI{
+				deleteMessageError: tt.deleteMessageError,
+			}
+			client := slackclient.NewClient(mockAPI)
+
+			err := client.DeleteMessage(tt.channelID, tt.messageTS)
 
 			if tt.expectedError != "" {
 				if err == nil {

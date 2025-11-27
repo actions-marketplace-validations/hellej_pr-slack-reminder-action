@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/hellej/pr-slack-reminder-action/internal/utilities"
 	"github.com/slack-go/slack"
@@ -24,6 +25,7 @@ type Client interface {
 	UpdateMessage(
 		channelID string, messageTS string, message slack.Message, summaryText string,
 	) (SentMessageInfo, error)
+	DeleteMessage(channelID string, messageTS string) error
 }
 
 func GetAuthenticatedClient(token string) Client {
@@ -39,6 +41,7 @@ type SlackAPI interface {
 	GetConversations(params *slack.GetConversationsParameters) ([]slack.Channel, string, error)
 	PostMessage(channelID string, options ...slack.MsgOption) (string, string, error)
 	UpdateMessage(channelID string, timestamp string, options ...slack.MsgOption) (string, string, string, error)
+	DeleteMessage(channelID string, timestamp string) (string, string, error)
 }
 
 type client struct {
@@ -146,6 +149,20 @@ func (c *client) UpdateMessage(
 		Timestamp:  messageTS,
 		JSONBlocks: parseSentJSONBlocks(message),
 	}, nil
+}
+
+func (c *client) DeleteMessage(channelID string, messageTS string) error {
+	log.Printf("Deleting message with timestamp %s from channel %s", messageTS, channelID)
+	_, _, err := c.slackAPI.DeleteMessage(channelID, messageTS)
+	if err != nil {
+		if strings.Contains(err.Error(), "message_not_found") {
+			log.Printf("Message already deleted or not found, ignoring error")
+			return nil
+		}
+		return fmt.Errorf("failed to delete Slack message: %v", err)
+	}
+	log.Printf("Deleted message from Slack channel: %s", channelID)
+	return nil
 }
 
 func parseSentJSONBlocks(message slack.Message) []string {

@@ -660,7 +660,11 @@ func TestScenarios(t *testing.T) {
 				PRServiceError:        tc.prServiceError,
 				IssueServiceError:     tc.issueServiceError,
 			})
-			mockSlackAPI := mockslackclient.GetMockSlackAPI(tc.foundSlackChannels, tc.findChannelError, tc.sendMessageError, nil)
+			mockSlackAPI := mockslackclient.GetMockSlackAPI(mockslackclient.MockSlackClientOptions{
+				SlackChannels:    tc.foundSlackChannels,
+				FindChannelError: tc.findChannelError,
+				PostMessageError: tc.sendMessageError,
+			})
 			getSlackClient := mockslackclient.MakeSlackClientGetter(mockSlackAPI)
 			err := main.Run(getGitHubClient, getSlackClient)
 
@@ -770,7 +774,7 @@ func TestPostModeStateSaving(t *testing.T) {
 	mockGitHubClientGetter := mockgithubclient.MakeMockGitHubClientGetter(mockgithubclient.MockGitHubClientOptions{
 		PRs: testPRs.PRs,
 	})
-	mockSlackAPI := mockslackclient.GetMockSlackAPI(nil, nil, nil, nil)
+	mockSlackAPI := mockslackclient.GetMockSlackAPI(mockslackclient.MockSlackClientOptions{})
 
 	err := main.Run(
 		mockGitHubClientGetter,
@@ -828,8 +832,10 @@ func TestScenariosUpdateMode(t *testing.T) {
 		listArtifactsError     error
 		downloadArtifactError  error
 		updateMessageError     error
+		deleteMessageError     error
 		expectedErrorMsg       string
 		expectedPRItemTexts    []string
+		expectMessageDeleted   bool
 	}{
 		{
 			name:   "unset required inputs",
@@ -848,7 +854,7 @@ func TestScenariosUpdateMode(t *testing.T) {
 			mockState: testhelpers.AsPointer(getTestState(GetTestStateOptions{PRNumbers: []int{}})),
 		},
 		{
-			name:   "update mode with all PRs filtered out exits gracefully",
+			name:   "update mode with all PRs filtered out deletes message",
 			config: testhelpers.GetDefaultConfigMinimal(),
 			configOverrides: &map[string]any{
 				config.InputRunMode:       config.RunModeUpdate,
@@ -859,6 +865,62 @@ func TestScenariosUpdateMode(t *testing.T) {
 				1: getTestPR(GetTestPROptions{Number: 1, Title: "First PR", AuthorLogin: "alice"}),
 				2: getTestPR(GetTestPROptions{Number: 2, Title: "Second PR", AuthorLogin: "bob"}),
 			},
+			expectMessageDeleted: true,
+		},
+		{
+			name:   "update mode with all PRs filtered out and no-prs-message updates message",
+			config: testhelpers.GetDefaultConfigMinimal(),
+			configOverrides: &map[string]any{
+				config.InputRunMode:       config.RunModeUpdate,
+				config.InputGlobalFilters: "{\"authors-ignore\": [\"alice\", \"bob\"]}",
+				config.InputNoPRsMessage:  "All PRs have been resolved! 🎉",
+			},
+			mockState: testhelpers.AsPointer(getTestState(GetTestStateOptions{PRNumbers: []int{1, 2}})),
+			prByNumber: map[int]*github.PullRequest{
+				1: getTestPR(GetTestPROptions{Number: 1, Title: "First PR", AuthorLogin: "alice"}),
+				2: getTestPR(GetTestPROptions{Number: 2, Title: "Second PR", AuthorLogin: "bob"}),
+			},
+		},
+		{
+			name:   "update mode with all PRs as drafts deletes message",
+			config: testhelpers.GetDefaultConfigMinimal(),
+			configOverrides: &map[string]any{
+				config.InputRunMode: config.RunModeUpdate,
+			},
+			mockState: testhelpers.AsPointer(getTestState(GetTestStateOptions{PRNumbers: []int{1, 2}})),
+			prByNumber: map[int]*github.PullRequest{
+				1: getTestPR(GetTestPROptions{Number: 1, Title: "Draft PR 1", AuthorLogin: "alice", Draft: github.Ptr(true)}),
+				2: getTestPR(GetTestPROptions{Number: 2, Title: "Draft PR 2", AuthorLogin: "bob", Draft: github.Ptr(true)}),
+			},
+			expectMessageDeleted: true,
+		},
+		{
+			name:   "update mode handles delete failure gracefully",
+			config: testhelpers.GetDefaultConfigMinimal(),
+			configOverrides: &map[string]any{
+				config.InputRunMode:       config.RunModeUpdate,
+				config.InputGlobalFilters: "{\"authors-ignore\": [\"alice\"]}",
+			},
+			mockState: testhelpers.AsPointer(getTestState(GetTestStateOptions{PRNumbers: []int{1}})),
+			prByNumber: map[int]*github.PullRequest{
+				1: getTestPR(GetTestPROptions{Number: 1, Title: "First PR", AuthorLogin: "alice"}),
+			},
+			deleteMessageError:   errors.New("slack delete failed"),
+			expectMessageDeleted: true,
+		},
+		{
+			name:   "update mode with message_not_found error exits gracefully",
+			config: testhelpers.GetDefaultConfigMinimal(),
+			configOverrides: &map[string]any{
+				config.InputRunMode:       config.RunModeUpdate,
+				config.InputGlobalFilters: "{\"authors-ignore\": [\"alice\"]}",
+			},
+			mockState: testhelpers.AsPointer(getTestState(GetTestStateOptions{PRNumbers: []int{1}})),
+			prByNumber: map[int]*github.PullRequest{
+				1: getTestPR(GetTestPROptions{Number: 1, Title: "First PR", AuthorLogin: "alice"}),
+			},
+			deleteMessageError:   errors.New("message_not_found"),
+			expectMessageDeleted: true,
 		},
 		{
 			name:   "update mode with two PRs with reviewers",
@@ -1008,12 +1070,10 @@ func TestScenariosUpdateMode(t *testing.T) {
 				ListArtifactsError:     tc.listArtifactsError,
 				DownloadArtifactError:  tc.downloadArtifactError,
 			})
-			mockSlackAPI := mockslackclient.GetMockSlackAPI(
-				nil,
-				nil,
-				nil,
-				tc.updateMessageError,
-			)
+			mockSlackAPI := mockslackclient.GetMockSlackAPI(mockslackclient.MockSlackClientOptions{
+				UpdateMessageError: tc.updateMessageError,
+				DeleteMessageError: tc.deleteMessageError,
+			})
 			getSlackClient := mockslackclient.MakeSlackClientGetter(mockSlackAPI)
 
 			err := main.Run(getGitHubClient, getSlackClient)
@@ -1031,6 +1091,28 @@ func TestScenariosUpdateMode(t *testing.T) {
 			if tc.expectedErrorMsg != "" {
 				return
 			}
+
+			if tc.expectMessageDeleted {
+				if mockSlackAPI.DeletedMessage.ChannelID == "" {
+					t.Error("Expected message to be deleted, but DeleteMessage was not called")
+				}
+				expectedChannelID := "C12345678"
+				expectedTimestamp := "1623850245.000200"
+				if mockSlackAPI.DeletedMessage.ChannelID != expectedChannelID {
+					t.Errorf("Expected deleted message channel ID to be %s, got %s",
+						expectedChannelID, mockSlackAPI.DeletedMessage.ChannelID)
+				}
+				if mockSlackAPI.DeletedMessage.Timestamp != expectedTimestamp {
+					t.Errorf("Expected deleted message timestamp to be %s, got %s",
+						expectedTimestamp, mockSlackAPI.DeletedMessage.Timestamp)
+				}
+				if mockSlackAPI.UpdatedMessage.Blocks.GetPRCount() != 0 {
+					t.Errorf("Expected no PRs in updated message when deleting, got %d",
+						mockSlackAPI.UpdatedMessage.Blocks.GetPRCount())
+				}
+				return
+			}
+
 			if len(tc.expectedPRItemTexts) != mockSlackAPI.UpdatedMessage.Blocks.GetPRCount() {
 				t.Errorf(
 					"Expected %v PRs to be included in the message (was %v)",

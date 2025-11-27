@@ -5,38 +5,32 @@ import (
 	"github.com/slack-go/slack"
 )
 
+type MockSlackClientOptions struct {
+	SlackChannels      []*SlackChannel
+	FindChannelError   error
+	PostMessageError   error
+	UpdateMessageError error
+	DeleteMessageError error
+}
+
 // creates the MockSlackAPI (for dependency injection) if nil is provided
 func MakeSlackClientGetter(slackAPI *MockSlackAPI) func(token string) slackclient.Client {
 	if slackAPI == nil {
-		slackAPI = GetMockSlackAPI(nil, nil, nil, nil)
+		slackAPI = GetMockSlackAPI(MockSlackClientOptions{})
 	}
 	return func(token string) slackclient.Client {
 		return slackclient.NewClient(slackAPI)
 	}
 }
 
-func GetMockSlackAPI(
-	slackChannels []*SlackChannel,
-	findChannelError error,
-	postMessageError error,
-	updateMessageError error,
-) *MockSlackAPI {
-	return GetMockSlackAPIWithUpdateError(slackChannels, findChannelError, postMessageError, updateMessageError)
-}
-
-func GetMockSlackAPIWithUpdateError(
-	slackChannels []*SlackChannel,
-	findChannelError error,
-	postMessageError error,
-	updateMessageError error,
-) *MockSlackAPI {
-	if slackChannels == nil {
-		slackChannels = []*SlackChannel{
+func GetMockSlackAPI(opts MockSlackClientOptions) *MockSlackAPI {
+	if opts.SlackChannels == nil {
+		opts.SlackChannels = []*SlackChannel{
 			{ID: "C12345678", Name: "some-channel-name"},
 		}
 	}
-	channels := make([]slack.Channel, len(slackChannels))
-	for i, channel := range slackChannels {
+	channels := make([]slack.Channel, len(opts.SlackChannels))
+	for i, channel := range opts.SlackChannels {
 		channels[i] = slack.Channel{
 			GroupConversation: slack.GroupConversation{
 				Name: channel.Name,
@@ -50,18 +44,23 @@ func GetMockSlackAPIWithUpdateError(
 		getConversationsResponse: GetConversationsResponse{
 			channels: channels,
 			cursor:   "",
-			err:      findChannelError,
+			err:      opts.FindChannelError,
 		},
 		postMessageResponse: PostMessageResponse{
 			Timestamp: "1234567890.123456",
 			Channel:   "C12345678",
-			Err:       postMessageError,
+			Err:       opts.PostMessageError,
 		},
 		updateMessageResponse: UpdateMessageResponse{
 			Channel:   "C12345678",
 			Timestamp: "1234567890.123456",
 			Text:      "updated text",
-			Err:       updateMessageError,
+			Err:       opts.UpdateMessageError,
+		},
+		deleteMessageResponse: DeleteMessageResponse{
+			Channel:   "C12345678",
+			Timestamp: "1234567890.123456",
+			Err:       opts.DeleteMessageError,
 		},
 	}
 }
@@ -70,8 +69,10 @@ type MockSlackAPI struct {
 	getConversationsResponse GetConversationsResponse
 	postMessageResponse      PostMessageResponse
 	updateMessageResponse    UpdateMessageResponse
+	deleteMessageResponse    DeleteMessageResponse
 	SentMessage              SentMessage
 	UpdatedMessage           UpdatedMessage
+	DeletedMessage           DeletedMessage
 }
 
 func (m *MockSlackAPI) GetConversations(params *slack.GetConversationsParameters) ([]slack.Channel, string, error) {
@@ -135,6 +136,13 @@ func (m *MockSlackAPI) UpdateMessage(
 	return channelID, timestamp, "updated_timestamp", m.updateMessageResponse.Err
 }
 
+func (m *MockSlackAPI) DeleteMessage(channelID string, timestamp string) (string, string, error) {
+	// Always record the delete attempt, even if it fails
+	m.DeletedMessage.ChannelID = channelID
+	m.DeletedMessage.Timestamp = timestamp
+	return m.deleteMessageResponse.Channel, m.deleteMessageResponse.Timestamp, m.deleteMessageResponse.Err
+}
+
 type SlackChannel struct {
 	ID   string
 	Name string
@@ -159,6 +167,12 @@ type UpdateMessageResponse struct {
 	Err       error
 }
 
+type DeleteMessageResponse struct {
+	Channel   string
+	Timestamp string
+	Err       error
+}
+
 // To allow storing and asserting the request in tests
 type SentMessage struct {
 	Request   string
@@ -172,6 +186,11 @@ type UpdatedMessage struct {
 	Timestamp string
 	Blocks    BlocksWrapper
 	Text      string
+}
+
+type DeletedMessage struct {
+	ChannelID string
+	Timestamp string
 }
 
 // GetLastUpdateMessage returns the details of the last message update call

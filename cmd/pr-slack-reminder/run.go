@@ -112,10 +112,23 @@ func runUpdateMode(
 
 	parsedPRs := prparser.ParsePRs(prs, cfg.ContentInputs)
 	content := messagecontent.GetContent(parsedPRs, cfg.ContentInputs)
+
 	if !content.HasPRs() && content.SummaryText == "" {
-		log.Println("No PRs found and no message configured for this case, exiting")
+		log.Println("All PRs from state have been filtered out or closed")
+		log.Println("Deleting Slack message as no-prs-message input is not set")
+		if err := slackClient.DeleteMessage(
+			loadedState.SlackMessage.ChannelID,
+			loadedState.SlackMessage.MessageTS,
+		); err != nil {
+			log.Printf("Warning: failed to delete message: %v", err)
+		}
 		return nil
 	}
+	if !content.HasPRs() && content.SummaryText != "" {
+		log.Printf("All PRs from state have been filtered out or closed")
+		log.Printf("Updating Slack message with no-prs-message: %s", content.SummaryText)
+	}
+
 	message, summaryText := messagebuilder.BuildMessage(content)
 
 	sentMessageInfo, err := slackClient.UpdateMessage(
