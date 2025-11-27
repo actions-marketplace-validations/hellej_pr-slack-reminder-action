@@ -19,4 +19,4 @@ runs:
       shell: bash
       run: |
         echo "SEMVER input: ${{ inputs.semver }}"
-        make release SEMVER="${{ inputs.semver }}"
+        make release-tag SEMVER="${{ inputs.semver }}"

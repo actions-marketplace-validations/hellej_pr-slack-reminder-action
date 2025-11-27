@@ -67,9 +67,12 @@ build:
 	make build-linux-arm64
 	make update-invoke-binary-targets
 
-release:
+release-tag:
 	@if [ -z "$(SEMVER)" ]; then \
 		echo "Usage: make release SEMVER=[patch|minor|major]"; \
 		exit 1; \
 	fi; \
 	./create-release-tag.sh $(SEMVER)
+
+draft-release:
+	./create-draft-release.sh
