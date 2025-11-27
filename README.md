@@ -106,13 +106,14 @@ jobs:
             backend: {"labels": ["ready-for-review"], "authors-ignore": ["intern-bot"]}
             mobile-app: {}
 ```
+
 (^ PRs from `mobile-app` repo won't be filtered by the global filters)
 
 #### 3. Advanced Setup with Update Mode Enabled
 
-Setup where the latest message is also updated when PRs get reviewed/merged. 
-PRs that were merged since the original message are shown with 🚀 emoji suffix. 
-However, the updated message will not contain new PRs published since the original message. 
+Setup where the latest message is also updated when PRs get reviewed/merged.
+PRs that were merged since the original message are shown with 🚀 emoji suffix.
+However, the updated message will not contain new PRs published since the original message.
 
 Example:
 
@@ -155,23 +156,23 @@ jobs:
 
 ## ➡️ Inputs
 
-| Name                                | Required | Description                                                                                                                                                                                                      |
-| ----------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `slack-bot-token`                   | ✅       | Slack bot token for sending messages<br>Example: `${{ secrets.SLACK_BOT_TOKEN }}`                                                                                                                                |
-| `github-token`                      | ✅       | GitHub token for repository access<br>Example: `${{ secrets.GITHUB_TOKEN }}`                                                                                                                                     |
-| `github-token-for-state`            | ❌       | GitHub token that has read access to artifacts of the current repository (i.e. actions: read). Only needed if the run-mode is `update` and if the default github-token misses permissions.                                                                                                                                     |
-| `run-mode`                          | ❌       | Run mode: `post` (default) posts a new reminder; `update` refreshes an existing reminder                                                                                                                         |
-| `state-artifact-name`               | ❌       | Name of the artifact containing state from previous run (used when run-mode is `update`, defaults to `pr-slack-reminder-state`)                                                                                  |
-| `slack-channel-name`                | ❌       | Slack channel name (use this OR `slack-channel-id`)<br>Example: `dev-team`                                                                                                                                       |
-| `slack-channel-id`                  | ❌       | Slack channel ID (use this OR `slack-channel-name`)<br>Example: `C1234567890`                                                                                                                                    |
-| `github-repositories`               | ❌       | Repositories to monitor (max 30) - defaults to current repo<br>Example:<br>`owner/repo1`<br>`owner/repo2`                                                                                                        |
-| `filters`                           | ❌       | Global filters (JSON)<br>Example:<br>`{"authors": ["alice"], "labels-ignore": ["wip"]}`                                                                                                                          |
-| `repository-filters`                | ❌       | Repository-specific filters<br>Example:<br>`repo1: {"labels": ["bug"]}`<br>`repo2: {"authors-ignore": ["bot"]}`                                                                                                  |
-| `github-user-slack-user-id-mapping` | ❌       | Map of GitHub usernames to Slack user IDs<br>Example:<br>`alice: U1234567890`<br>`kronk: U2345678901`                                                                                                            |
-| `pr-list-heading`                 | ❌       | Message heading (`<pr_count>` gets replaced)<br>Example: `There are <pr_count> open PRs 💫`                                                                                                                      |
-| `no-prs-message`                    | ❌       | Message when no PRs are found (if not set, no empty message gets sent)<br>Example: `All caught up! 🎉`                                                                                                           |
-| `old-pr-threshold-hours`            | ❌       | PR age in hours after which a PR is highlighted as old (with alarm emoji and bold age text)<br>Example: `48`                                                                                                     |
-| `group-by-repository`               | ❌       | Group PRs by repository with repository headings. When enabled (`true`), pr-list-heading is ignored.                                                                                                           |
+| Name                                | Required | Description                                                                                                                                                                                |
+| ----------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `slack-bot-token`                   | ✅       | Slack bot token for sending messages<br>Example: `${{ secrets.SLACK_BOT_TOKEN }}`                                                                                                          |
+| `github-token`                      | ✅       | GitHub token for repository access<br>Example: `${{ secrets.GITHUB_TOKEN }}`                                                                                                               |
+| `github-token-for-state`            | ❌       | GitHub token that has read access to artifacts of the current repository (i.e. actions: read). Only needed if the run-mode is `update` and if the default github-token misses permissions. |
+| `run-mode`                          | ❌       | Run mode: `post` (default) posts a new reminder; `update` refreshes an existing reminder                                                                                                   |
+| `state-artifact-name`               | ❌       | Name of the artifact containing state from previous run (used when `run-mode` is `update`)<br>Default: `pr-slack-reminder-state`                                                             |
+| `slack-channel-name`                | ❌       | Slack channel name (use this OR `slack-channel-id`)<br>Example: `dev-team`                                                                                                                 |
+| `slack-channel-id`                  | ❌       | Slack channel ID (use this OR `slack-channel-name`)<br>Example: `C1234567890`                                                                                                              |
+| `github-repositories`               | ❌       | Repositories to monitor (max 30) - defaults to current repo<br>Example:<br>`owner/repo1`<br>`owner/repo2`                                                                                  |
+| `filters`                           | ❌       | Global filters (JSON)<br>Example:<br>`{"authors": ["alice"], "labels-ignore": ["wip"]}`                                                                                                    |
+| `repository-filters`                | ❌       | Repository-specific filters<br>Example:<br>`repo1: {"labels": ["bug"]}`<br>`repo2: {"authors-ignore": ["bot"]}`                                                                            |
+| `github-user-slack-user-id-mapping` | ❌       | Map of GitHub usernames to Slack user IDs<br>Example:<br>`alice: U1234567890`<br>`kronk: U2345678901`                                                                                      |
+| `pr-list-heading`                   | ❌       | Message heading (`<pr_count>` gets replaced)<br>Default: `There are <pr_count> open PRs 👀`                                                                                                |
+| `no-prs-message`                    | ❌       | Message when no PRs are found (if not set, no empty message gets sent)<br>Example: `All caught up! 🎉`                                                                                     |
+| `old-pr-threshold-hours`            | ❌       | PR age in hours after which a PR is highlighted as old with alarm emoji and bold age text (defaults to `96`)                                                                               |
+| `group-by-repository`               | ❌       | Group PRs by repository with repository headings (defaults to `false`). When enabled, `pr-list-heading` is ignored.                                                                        |
 
 ### Filter Options
 
