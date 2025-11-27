@@ -17,7 +17,7 @@ You may not need this action; GitHub provides [built-in scheduled reminders for 
 **When to use GitHub's built-in reminders:**
 
 - Your team structure aligns well with GitHub teams
-- The CODEOWNERS files of your repositories accurately match your team structure (-> reviews are automatically requested from the right teams)
+- The CODEOWNERS files of your repositories accurately match your team structure (-> reviews are automatically requested from the right people)
 - You're okay with the 5 repository limit per reminder
 - You don't need custom message content or formatting
 - You don't need different filtering options for each repository
@@ -162,7 +162,7 @@ jobs:
 | `github-token`                      | ✅       | GitHub token for repository access<br>Example: `${{ secrets.GITHUB_TOKEN }}`                                                                                                               |
 | `github-token-for-state`            | ❌       | GitHub token that has read access to artifacts of the current repository (i.e. actions: read). Only needed if the run-mode is `update` and if the default github-token misses permissions. |
 | `run-mode`                          | ❌       | Run mode: `post` (default) posts a new reminder; `update` refreshes an existing reminder                                                                                                   |
-| `state-artifact-name`               | ❌       | Name of the artifact containing state from previous run (used when `run-mode` is `update`)<br>Default: `pr-slack-reminder-state`                                                             |
+| `state-artifact-name`               | ❌       | Name of the artifact containing state from previous run (used when `run-mode` is `update`)<br>Default: `pr-slack-reminder-state`                                                           |
 | `slack-channel-name`                | ❌       | Slack channel name (use this OR `slack-channel-id`)<br>Example: `dev-team`                                                                                                                 |
 | `slack-channel-id`                  | ❌       | Slack channel ID (use this OR `slack-channel-name`)<br>Example: `C1234567890`                                                                                                              |
 | `github-repositories`               | ❌       | Repositories to monitor (max 30) - defaults to current repo<br>Example:<br>`owner/repo1`<br>`owner/repo2`                                                                                  |
