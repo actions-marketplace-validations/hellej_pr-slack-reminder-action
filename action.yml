@@ -65,6 +65,7 @@ inputs: {
   old-pr-threshold-hours: {
     description: 'PR age in hours after which a PR is highlighted as old (with alarm emoji and bold age text)',
     required: false,
+    default: '96',
   },
   group-by-repository: {
     description: 'Group PRs by repository with repository headings. When enabled, pr-list-heading is ignored.',
