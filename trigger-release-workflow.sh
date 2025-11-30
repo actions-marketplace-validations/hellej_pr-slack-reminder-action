@@ -27,8 +27,8 @@ echo "Repository: $REPO"
 echo ""
 
 echo "Fetching latest changes from origin..."
-git fetch origin main
-git fetch --tags --prune-tags --force origin
+git fetch origin main --quiet
+git fetch --tags --prune-tags --force origin --quiet
 
 LOCAL_MAIN=$(git rev-parse main 2>/dev/null || echo "")
 REMOTE_MAIN=$(git rev-parse origin/main 2>/dev/null || echo "")
@@ -101,9 +101,18 @@ if [[ "$SEMVER" != "patch" && "$SEMVER" != "minor" && "$SEMVER" != "major" ]]; t
 fi
 
 echo ""
-echo "Triggering release workflow with semver=$SEMVER..."
+read -p "Commit the built binary to repository (for release)? (y/n): " COMMIT_BINARY_CHOICE
 
-gh workflow run release.yml -f semver="$SEMVER" --repo "$REPO"
+if [[ "$COMMIT_BINARY_CHOICE" == "y" ]]; then
+    COMMIT_BINARY="true"
+else
+    COMMIT_BINARY="false"
+fi
+
+echo ""
+echo "Triggering release workflow with semver=$SEMVER, commit-binary=$COMMIT_BINARY..."
+
+gh workflow run release.yml -f semver="$SEMVER" -f commit-binary="$COMMIT_BINARY" --repo "$REPO"
 
 if [[ $? -ne 0 ]]; then
     echo "Error: Failed to trigger workflow"

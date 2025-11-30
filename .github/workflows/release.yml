@@ -12,6 +12,11 @@ on:
           - patch
           - minor
           - major
+      commit-binary:
+        description: 'Whether to commit the built binary to the repository'
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   contents: write
@@ -41,7 +46,7 @@ jobs:
       - name: Build application
         uses: ./.github/actions/build
         with:
-          commit-binary: true
+          commit-binary: ${{ inputs.commit-binary }}
 
   e2e-tests:
     name: E2E Tests
