@@ -84,4 +84,6 @@ jobs:
 
       - name: Create draft release
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: make draft-release

@@ -69,10 +69,10 @@ while IFS='|' read -r FULL_HASH AUTHOR_NAME COMMIT_MSG; do
         GH_USERNAME=$(gh api "repos/$REPO/commits/$FULL_HASH" --jq '.author.login' 2>/dev/null || echo "")
         
         if [[ -z "$GH_USERNAME" ]]; then
-            echo "Error: Could not resolve GitHub username for commit: $FULL_HASH (author: $AUTHOR_NAME)"
-            exit 1
+            AUTHOR_ATTRIBUTION="$AUTHOR_NAME"
+        else
+            AUTHOR_ATTRIBUTION="@$GH_USERNAME"
         fi
-        AUTHOR_ATTRIBUTION="@$GH_USERNAME"
     fi
     
     COMMIT_URL="https://github.com/$REPO/commit/$FULL_HASH"
