@@ -96,7 +96,9 @@ jobs:
           RELEASE_OUTPUT=$(make draft-release)
           echo "$RELEASE_OUTPUT"
           RELEASE_URL=$(echo "$RELEASE_OUTPUT" | grep "Release URL:" | awk '{print $NF}')
+          VERSION=$(echo "$RELEASE_OUTPUT" | grep "Latest tag:" | awk '{print $NF}')
           echo "release-url=$RELEASE_URL" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Notify Slack
         uses: slackapi/slack-github-action@v2.1.1
@@ -110,4 +112,4 @@ jobs:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: ":rocket: New release draft created!\n<${{ steps.create-release.outputs.release-url }}|View Release>"
+                  text: "New <${{ steps.create-release.outputs.release-url }}|draft release> created for *${{ steps.create-release.outputs.version }}*! :rocket:"
