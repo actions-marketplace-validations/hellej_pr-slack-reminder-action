@@ -88,7 +88,26 @@ jobs:
           make release-tag SEMVER="${{ inputs.semver }}"
 
       - name: Create draft release
+        id: create-release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: make draft-release
+        run: |
+          RELEASE_OUTPUT=$(make draft-release)
+          echo "$RELEASE_OUTPUT"
+          RELEASE_URL=$(echo "$RELEASE_OUTPUT" | grep "Release URL:" | awk '{print $NF}')
+          echo "release-url=$RELEASE_URL" >> $GITHUB_OUTPUT
+
+      - name: Notify Slack
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          method: chat.postMessage
+          token: ${{ secrets.DEV_SLACK_TOKEN }}
+          payload: |
+            channel: C0A0ES10NDR
+            text: "New release draft created! 🚀"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: ":rocket: New release draft created!\n<${{ steps.create-release.outputs.release-url }}|View Release>"
