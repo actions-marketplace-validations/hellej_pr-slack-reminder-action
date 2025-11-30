@@ -5,8 +5,8 @@ on:
     inputs:
       semver:
         description: 'Whether to bump major, minor, or patch version'
-        default: minor
         required: true
+        default: minor
         type: choice
         options:
           - patch

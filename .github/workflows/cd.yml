@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       semver:
-        description: 'Version bump (select to create release)'
+        description: 'Whether to bump major, minor, or patch version'
         required: true
         default: minor
         type: choice
