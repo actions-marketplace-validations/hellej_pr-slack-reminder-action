@@ -26,6 +26,29 @@ fi
 echo "Repository: $REPO"
 echo ""
 
+echo "Fetching latest changes from origin..."
+git fetch origin main
+git fetch --tags --prune-tags --force origin
+
+LOCAL_MAIN=$(git rev-parse main 2>/dev/null || echo "")
+REMOTE_MAIN=$(git rev-parse origin/main 2>/dev/null || echo "")
+
+if [[ -z "$LOCAL_MAIN" || -z "$REMOTE_MAIN" ]]; then
+    echo "Error: Could not resolve local or remote main branch"
+    exit 1
+fi
+
+if [[ "$LOCAL_MAIN" != "$REMOTE_MAIN" ]]; then
+    echo "Error: Local main branch is not in sync with origin/main"
+    echo "Local:  $LOCAL_MAIN"
+    echo "Remote: $REMOTE_MAIN"
+    echo "Run: git pull origin main"
+    exit 1
+fi
+
+echo "✓ Local main is in sync with origin/main"
+echo ""
+
 get_latest_tag() {
     git ls-remote --tags origin | awk '{print $2}' | grep -o 'refs/tags/v[0-9]*\.[0-9]*\.[0-9]*$' | sed 's_refs/tags/v__g' | sort -V | tail -n 1 | awk '{print "v"$1}'
 }
@@ -42,7 +65,7 @@ TAG_DATE=$(git log -1 --format=%ai "$LATEST_TAG" 2>/dev/null || echo "unknown")
 echo "Latest release: $LATEST_TAG ($TAG_DATE)"
 echo ""
 
-COMMIT_COUNT=$(git rev-list --count "$LATEST_TAG..HEAD" 2>/dev/null || echo "0")
+COMMIT_COUNT=$(git rev-list --count "$LATEST_TAG..origin/main" 2>/dev/null || echo "0")
 
 if [[ "$COMMIT_COUNT" -eq 0 ]]; then
     echo "⚠️  No commits to release since $LATEST_TAG"
@@ -55,7 +78,7 @@ if [[ "$COMMIT_COUNT" -eq 0 ]]; then
 else
     echo "Commits since $LATEST_TAG ($COMMIT_COUNT commits):"
     echo ""
-    git --no-pager log "$LATEST_TAG..HEAD" --format="%ai %h %s (%an)"
+    git --no-pager log "$LATEST_TAG..origin/main" --format="%ai %h %s (%an)"
     echo ""
     read -p "Proceed with release? (y/n): " PROCEED
     if [[ "$PROCEED" != "y" ]]; then
