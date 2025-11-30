@@ -76,3 +76,6 @@ release-tag:
 
 draft-release:
 	./create-draft-release.sh
+
+release-workflow:
+	./trigger-release-workflow.sh
