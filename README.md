@@ -182,6 +182,7 @@ Both `filters` and `repository-filters` support:
 - `authors-ignore` - Exclude PRs by these users
 - `labels` - Only include PRs with these labels
 - `labels-ignore` - Exclude PRs with these (overrides the above)
+- `ignored-terms` - Exclude PRs whose title contains any of these terms
 
 ⚠️ **Note**: You cannot use both `authors` and `authors-ignore` in the same filter.
 
