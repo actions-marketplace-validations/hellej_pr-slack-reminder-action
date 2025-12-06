@@ -47,6 +47,13 @@ func TestGetGlobalFiltersFromInput_Valid(t *testing.T) {
 			},
 		},
 		{
+			name:  "ignored-terms only",
+			input: `{"ignored-terms": ["Release v1.0", "Automated Update"]}`,
+			expectedFilter: config.Filters{
+				IgnoredTerms: []string{"Release v1.0", "Automated Update"},
+			},
+		},
+		{
 			name:  "all fields",
 			input: `{"authors": ["alice"], "labels": ["feature"], "labels-ignore": ["wip"]}`,
 			expectedFilter: config.Filters{
@@ -102,6 +109,15 @@ func TestGetGlobalFiltersFromInput_Valid(t *testing.T) {
 					t.Errorf("Expected labels-ignore[%d] '%s', got '%s'", i, label, filters.LabelsIgnore[i])
 				}
 			}
+
+			if len(filters.IgnoredTerms) != len(tc.expectedFilter.IgnoredTerms) {
+				t.Errorf("Expected ignored-terms length %d, got %d", len(tc.expectedFilter.IgnoredTerms), len(filters.IgnoredTerms))
+			}
+			for i, term := range tc.expectedFilter.IgnoredTerms {
+				if i >= len(filters.IgnoredTerms) || filters.IgnoredTerms[i] != term {
+					t.Errorf("Expected ignored-terms[%d] '%s', got '%s'", i, term, filters.IgnoredTerms[i])
+				}
+			}
 		})
 	}
 }
@@ -131,6 +147,11 @@ func TestGetGlobalFiltersFromInput_Invalid(t *testing.T) {
 			name:           "conflicting labels",
 			input:          `{"labels": ["feature"], "labels-ignore": ["feature"]}`,
 			expectedErrMsg: "labels filter cannot contain labels that are in labels-ignore filter",
+		},
+		{
+			name:           "empty string in ignored-terms",
+			input:          `{"ignored-terms": ["valid term", ""]}`,
+			expectedErrMsg: "ignored-terms cannot contain empty strings",
 		},
 	}
 
@@ -297,6 +318,13 @@ func TestFiltersValidate(t *testing.T) {
 			shouldBeValid: true,
 		},
 		{
+			name: "ignored-terms only",
+			filter: config.Filters{
+				IgnoredTerms: []string{"Release v1.0", "Automated Update"},
+			},
+			shouldBeValid: true,
+		},
+		{
 			name: "conflicting authors",
 			filter: config.Filters{
 				Authors:       []string{"alice"},
@@ -322,7 +350,7 @@ func TestFiltersValidate(t *testing.T) {
 
 			var jsonStr string
 			if len(tc.filter.Authors) > 0 || len(tc.filter.AuthorsIgnore) > 0 ||
-				len(tc.filter.Labels) > 0 || len(tc.filter.LabelsIgnore) > 0 {
+				len(tc.filter.Labels) > 0 || len(tc.filter.LabelsIgnore) > 0 || len(tc.filter.IgnoredTerms) > 0 {
 				parts := []string{}
 				if len(tc.filter.Authors) > 0 {
 					parts = append(parts, `"authors": ["`+strings.Join(tc.filter.Authors, `", "`)+`"]`)
@@ -335,6 +363,9 @@ func TestFiltersValidate(t *testing.T) {
 				}
 				if len(tc.filter.LabelsIgnore) > 0 {
 					parts = append(parts, `"labels-ignore": ["`+strings.Join(tc.filter.LabelsIgnore, `", "`)+`"]`)
+				}
+				if len(tc.filter.IgnoredTerms) > 0 {
+					parts = append(parts, `"ignored-terms": ["`+strings.Join(tc.filter.IgnoredTerms, `", "`)+`"]`)
 				}
 				jsonStr = "{" + strings.Join(parts, ", ") + "}"
 			} else {

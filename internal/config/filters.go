@@ -14,6 +14,7 @@ type Filters struct {
 	AuthorsIgnore []string `json:"authors-ignore,omitempty"`
 	Labels        []string `json:"labels,omitempty"`
 	LabelsIgnore  []string `json:"labels-ignore,omitempty"`
+	IgnoredTerms  []string `json:"ignored-terms,omitempty"`
 }
 
 func GetGlobalFiltersFromInput(input string) (Filters, error) {
@@ -75,5 +76,10 @@ func (f Filters) validate() error {
 	}) {
 		return fmt.Errorf("labels filter cannot contain labels that are in labels-ignore filter")
 	}
+
+	if slices.Contains(f.IgnoredTerms, "") {
+		return fmt.Errorf("ignored-terms cannot contain empty strings")
+	}
+
 	return nil
 }
