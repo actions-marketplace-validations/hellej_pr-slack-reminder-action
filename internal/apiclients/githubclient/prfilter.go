@@ -16,9 +16,9 @@ func includePR(pr *github.PullRequest, filters config.Filters) bool {
 		}
 	}
 
-	if len(filters.LabelsIgnore) > 0 {
+	if len(filters.IgnoredLabels) > 0 {
 		if slices.ContainsFunc(pr.Labels, func(l *github.Label) bool {
-			return slices.Contains(filters.LabelsIgnore, l.GetName())
+			return slices.Contains(filters.IgnoredLabels, l.GetName())
 		}) {
 			return false
 		}

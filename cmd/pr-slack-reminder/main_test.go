@@ -275,10 +275,10 @@ func TestScenarios(t *testing.T) {
 			expectedErrorMsg: "configuration error: error reading input filters: invalid filters: {\"authors\": [\"alice\"], \"authors-ignore\": [\"bob\"]}, error: cannot use both authors and authors-ignore filters at the same time",
 		},
 		{
-			name:             "invalid global filters input: conflicting labels and labels-ignore",
+			name:             "invalid global filters input: conflicting labels and ignored-labels",
 			config:           testhelpers.GetDefaultConfigMinimal(),
-			configOverrides:  &map[string]any{config.InputGlobalFilters: "{\"labels\": [\"infra\"], \"labels-ignore\": [\"infra\"]}"},
-			expectedErrorMsg: "configuration error: error reading input filters: invalid filters: {\"labels\": [\"infra\"], \"labels-ignore\": [\"infra\"]}, error: labels filter cannot contain labels that are in labels-ignore filter",
+			configOverrides:  &map[string]any{config.InputGlobalFilters: "{\"labels\": [\"infra\"], \"ignored-labels\": [\"infra\"]}"},
+			expectedErrorMsg: "configuration error: error reading input filters: invalid filters: {\"labels\": [\"infra\"], \"ignored-labels\": [\"infra\"]}, error: labels filter cannot contain labels that are in ignored-labels filter",
 		},
 		{
 			name:             "invalid repository filters input: invalid mapping",
@@ -287,10 +287,10 @@ func TestScenarios(t *testing.T) {
 			expectedErrorMsg: "configuration error: error reading input repository-filters: invalid mapping format for repository-filters: 'asdf'",
 		},
 		{
-			name:             "invalid repository filters input: conflicting labels and labels-ignore",
+			name:             "invalid repository filters input: conflicting labels and ignored-labels",
 			config:           testhelpers.GetDefaultConfigMinimal(),
-			configOverrides:  &map[string]any{config.InputRepositoryFilters: "\"test-repo\": {\"labels\": [\"infra\"], \"labels-ignore\": [\"infra\"]}"},
-			expectedErrorMsg: "configuration error: error parsing filters for repository \"test-repo\": invalid filters: {\"labels\": [\"infra\"], \"labels-ignore\": [\"infra\"]}, error: labels filter cannot contain labels that are in labels-ignore filter",
+			configOverrides:  &map[string]any{config.InputRepositoryFilters: "\"test-repo\": {\"labels\": [\"infra\"], \"ignored-labels\": [\"infra\"]}"},
+			expectedErrorMsg: "configuration error: error parsing filters for repository \"test-repo\": invalid filters: {\"labels\": [\"infra\"], \"ignored-labels\": [\"infra\"]}, error: labels filter cannot contain labels that are in ignored-labels filter",
 		},
 		{
 			name:            "no PRs found without message",
@@ -360,7 +360,7 @@ func TestScenarios(t *testing.T) {
 		{
 			name:            "all PRs filtered out by labels (by exclusion)",
 			config:          testhelpers.GetDefaultConfigMinimal(),
-			configOverrides: &map[string]any{config.InputGlobalFilters: "{\"labels-ignore\": [\"label-to-ignore\"]}"},
+			configOverrides: &map[string]any{config.InputGlobalFilters: "{\"ignored-labels\": [\"label-to-ignore\"]}"},
 			prs:             getTestPRs(GetTestPRsOptions{Labels: []string{"label-to-ignore"}}).PRs,
 			expectedSummary: "", // no message should be sent
 		},

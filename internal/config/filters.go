@@ -13,7 +13,7 @@ type Filters struct {
 	Authors       []string `json:"authors,omitempty"`
 	AuthorsIgnore []string `json:"authors-ignore,omitempty"`
 	Labels        []string `json:"labels,omitempty"`
-	LabelsIgnore  []string `json:"labels-ignore,omitempty"`
+	IgnoredLabels []string `json:"ignored-labels,omitempty"`
 	IgnoredTerms  []string `json:"ignored-terms,omitempty"`
 }
 
@@ -72,9 +72,9 @@ func (f Filters) validate() error {
 	}
 
 	if slices.ContainsFunc(f.Labels, func(label string) bool {
-		return slices.Contains(f.LabelsIgnore, label)
+		return slices.Contains(f.IgnoredLabels, label)
 	}) {
-		return fmt.Errorf("labels filter cannot contain labels that are in labels-ignore filter")
+		return fmt.Errorf("labels filter cannot contain labels that are in ignored-labels filter")
 	}
 
 	if slices.Contains(f.IgnoredTerms, "") {

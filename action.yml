@@ -42,7 +42,7 @@ inputs: {
     required: false,
   },
   filters: {
-    description: 'Global filters (e.g. {"authors": ["alice", "bob"], "labels": ["bug", "enhancement"], "labels-ignore": ["wip"], "ignored-terms": ["WIP"]})',
+    description: 'Global filters (e.g. {"authors": ["alice", "bob"], "labels": ["bug", "enhancement"], "ignored-labels": ["wip"], "ignored-terms": ["WIP"]})',
     required: false,
   },
   repository-filters: {

@@ -40,10 +40,10 @@ func TestGetGlobalFiltersFromInput_Valid(t *testing.T) {
 			},
 		},
 		{
-			name:  "labels-ignore only",
-			input: `{"labels-ignore": ["wip", "draft"]}`,
+			name:  "ignored-labels only",
+			input: `{"ignored-labels": ["wip", "draft"]}`,
 			expectedFilter: config.Filters{
-				LabelsIgnore: []string{"wip", "draft"},
+				IgnoredLabels: []string{"wip", "draft"},
 			},
 		},
 		{
@@ -55,11 +55,11 @@ func TestGetGlobalFiltersFromInput_Valid(t *testing.T) {
 		},
 		{
 			name:  "all fields",
-			input: `{"authors": ["alice"], "labels": ["feature"], "labels-ignore": ["wip"]}`,
+			input: `{"authors": ["alice"], "labels": ["feature"], "ignored-labels": ["wip"]}`,
 			expectedFilter: config.Filters{
-				Authors:      []string{"alice"},
-				Labels:       []string{"feature"},
-				LabelsIgnore: []string{"wip"},
+				Authors:       []string{"alice"},
+				Labels:        []string{"feature"},
+				IgnoredLabels: []string{"wip"},
 			},
 		},
 	}
@@ -101,12 +101,12 @@ func TestGetGlobalFiltersFromInput_Valid(t *testing.T) {
 				}
 			}
 
-			if len(filters.LabelsIgnore) != len(tc.expectedFilter.LabelsIgnore) {
-				t.Errorf("Expected labels-ignore length %d, got %d", len(tc.expectedFilter.LabelsIgnore), len(filters.LabelsIgnore))
+			if len(filters.IgnoredLabels) != len(tc.expectedFilter.IgnoredLabels) {
+				t.Errorf("Expected ignored-labels length %d, got %d", len(tc.expectedFilter.IgnoredLabels), len(filters.IgnoredLabels))
 			}
-			for i, label := range tc.expectedFilter.LabelsIgnore {
-				if i >= len(filters.LabelsIgnore) || filters.LabelsIgnore[i] != label {
-					t.Errorf("Expected labels-ignore[%d] '%s', got '%s'", i, label, filters.LabelsIgnore[i])
+			for i, label := range tc.expectedFilter.IgnoredLabels {
+				if i >= len(filters.IgnoredLabels) || filters.IgnoredLabels[i] != label {
+					t.Errorf("Expected ignored-labels[%d] '%s', got '%s'", i, label, filters.IgnoredLabels[i])
 				}
 			}
 
@@ -145,8 +145,8 @@ func TestGetGlobalFiltersFromInput_Invalid(t *testing.T) {
 		},
 		{
 			name:           "conflicting labels",
-			input:          `{"labels": ["feature"], "labels-ignore": ["feature"]}`,
-			expectedErrMsg: "labels filter cannot contain labels that are in labels-ignore filter",
+			input:          `{"labels": ["feature"], "ignored-labels": ["feature"]}`,
+			expectedErrMsg: "labels filter cannot contain labels that are in ignored-labels filter",
 		},
 		{
 			name:           "empty string in ignored-terms",
@@ -193,13 +193,13 @@ func TestGetRepositoryFiltersFromInput_Valid(t *testing.T) {
 		},
 		{
 			name:  "multiple repository filters",
-			input: `repo1: {"authors": ["alice"]}; repo2: {"labels-ignore": ["wip"]}`,
+			input: `repo1: {"authors": ["alice"]}; repo2: {"ignored-labels": ["wip"]}`,
 			expectedFilters: map[string]config.Filters{
 				"repo1": {
 					Authors: []string{"alice"},
 				},
 				"repo2": {
-					LabelsIgnore: []string{"wip"},
+					IgnoredLabels: []string{"wip"},
 				},
 			},
 		},
@@ -236,8 +236,8 @@ func TestGetRepositoryFiltersFromInput_Valid(t *testing.T) {
 				if len(actualFilter.Authors) != len(expectedFilter.Authors) {
 					t.Errorf("Repository '%s': expected authors length %d, got %d", repo, len(expectedFilter.Authors), len(actualFilter.Authors))
 				}
-				if len(actualFilter.LabelsIgnore) != len(expectedFilter.LabelsIgnore) {
-					t.Errorf("Repository '%s': expected labels-ignore length %d, got %d", repo, len(expectedFilter.LabelsIgnore), len(actualFilter.LabelsIgnore))
+				if len(actualFilter.IgnoredLabels) != len(expectedFilter.IgnoredLabels) {
+					t.Errorf("Repository '%s': expected ignored-labels length %d, got %d", repo, len(expectedFilter.IgnoredLabels), len(actualFilter.IgnoredLabels))
 				}
 			}
 		})
@@ -310,10 +310,10 @@ func TestFiltersValidate(t *testing.T) {
 			shouldBeValid: true,
 		},
 		{
-			name: "labels and labels-ignore without overlap",
+			name: "labels and ignored-labels without overlap",
 			filter: config.Filters{
-				Labels:       []string{"feature"},
-				LabelsIgnore: []string{"wip"},
+				Labels:        []string{"feature"},
+				IgnoredLabels: []string{"wip"},
 			},
 			shouldBeValid: true,
 		},
@@ -336,11 +336,11 @@ func TestFiltersValidate(t *testing.T) {
 		{
 			name: "overlapping labels",
 			filter: config.Filters{
-				Labels:       []string{"feature", "bug"},
-				LabelsIgnore: []string{"feature", "wip"},
+				Labels:        []string{"feature", "bug"},
+				IgnoredLabels: []string{"feature", "wip"},
 			},
 			shouldBeValid:  false,
-			expectedErrMsg: "labels filter cannot contain labels that are in labels-ignore filter",
+			expectedErrMsg: "labels filter cannot contain labels that are in ignored-labels filter",
 		},
 	}
 
@@ -350,7 +350,7 @@ func TestFiltersValidate(t *testing.T) {
 
 			var jsonStr string
 			if len(tc.filter.Authors) > 0 || len(tc.filter.AuthorsIgnore) > 0 ||
-				len(tc.filter.Labels) > 0 || len(tc.filter.LabelsIgnore) > 0 || len(tc.filter.IgnoredTerms) > 0 {
+				len(tc.filter.Labels) > 0 || len(tc.filter.IgnoredLabels) > 0 || len(tc.filter.IgnoredTerms) > 0 {
 				parts := []string{}
 				if len(tc.filter.Authors) > 0 {
 					parts = append(parts, `"authors": ["`+strings.Join(tc.filter.Authors, `", "`)+`"]`)
@@ -361,8 +361,8 @@ func TestFiltersValidate(t *testing.T) {
 				if len(tc.filter.Labels) > 0 {
 					parts = append(parts, `"labels": ["`+strings.Join(tc.filter.Labels, `", "`)+`"]`)
 				}
-				if len(tc.filter.LabelsIgnore) > 0 {
-					parts = append(parts, `"labels-ignore": ["`+strings.Join(tc.filter.LabelsIgnore, `", "`)+`"]`)
+				if len(tc.filter.IgnoredLabels) > 0 {
+					parts = append(parts, `"ignored-labels": ["`+strings.Join(tc.filter.IgnoredLabels, `", "`)+`"]`)
 				}
 				if len(tc.filter.IgnoredTerms) > 0 {
 					parts = append(parts, `"ignored-terms": ["`+strings.Join(tc.filter.IgnoredTerms, `", "`)+`"]`)

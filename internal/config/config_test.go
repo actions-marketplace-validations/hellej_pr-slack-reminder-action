@@ -160,7 +160,7 @@ func (h *ConfigTestHelpers) setupFullValidConfig() {
 		TestRepository2,
 	})
 	h.setInput(config.InputGlobalFilters, `{"authors": ["alice"], "labels": ["feature"]}`)
-	h.setInput(config.InputRepositoryFilters, `repo1: {"labels-ignore": ["wip"]}`)
+	h.setInput(config.InputRepositoryFilters, `repo1: {"ignored-labels": ["wip"]}`)
 }
 
 func TestGetConfig_MinimalValid(t *testing.T) {
@@ -262,8 +262,8 @@ func TestGetConfig_FullValid(t *testing.T) {
 	if !exists {
 		t.Fatalf("Expected repository filters for 'repo1' to exist")
 	}
-	if len(repo1Filters.LabelsIgnore) != 1 || repo1Filters.LabelsIgnore[0] != "wip" {
-		t.Errorf("Expected repo1 labels-ignore filter ['wip'], got %v", repo1Filters.LabelsIgnore)
+	if len(repo1Filters.IgnoredLabels) != 1 || repo1Filters.IgnoredLabels[0] != "wip" {
+		t.Errorf("Expected repo1 ignored-labels filter ['wip'], got %v", repo1Filters.IgnoredLabels)
 	}
 }
 
@@ -471,9 +471,9 @@ func TestGetConfig_InvalidFilters(t *testing.T) {
 		{
 			name: "conflicting global labels filters",
 			setupFilters: func(h *ConfigTestHelpers) {
-				h.setInput(config.InputGlobalFilters, `{"labels": ["feature"], "labels-ignore": ["feature"]}`)
+				h.setInput(config.InputGlobalFilters, `{"labels": ["feature"], "ignored-labels": ["feature"]}`)
 			},
-			expectedErrMsg: "labels filter cannot contain labels that are in labels-ignore filter",
+			expectedErrMsg: "labels filter cannot contain labels that are in ignored-labels filter",
 		},
 		{
 			name: "invalid repository filters format",
