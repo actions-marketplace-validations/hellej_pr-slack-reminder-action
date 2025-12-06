@@ -24,8 +24,8 @@ func includePR(pr *github.PullRequest, filters config.Filters) bool {
 		}
 	}
 
-	if len(filters.AuthorsIgnore) > 0 {
-		if slices.Contains(filters.AuthorsIgnore, pr.GetUser().GetLogin()) {
+	if len(filters.IgnoredAuthors) > 0 {
+		if slices.Contains(filters.IgnoredAuthors, pr.GetUser().GetLogin()) {
 			return false
 		}
 	}

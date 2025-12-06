@@ -26,10 +26,10 @@ func TestGetGlobalFiltersFromInput_Valid(t *testing.T) {
 			},
 		},
 		{
-			name:  "authors-ignore only",
-			input: `{"authors-ignore": ["charlie"]}`,
+			name:  "ignored-authors only",
+			input: `{"ignored-authors": ["charlie"]}`,
 			expectedFilter: config.Filters{
-				AuthorsIgnore: []string{"charlie"},
+				IgnoredAuthors: []string{"charlie"},
 			},
 		},
 		{
@@ -83,12 +83,12 @@ func TestGetGlobalFiltersFromInput_Valid(t *testing.T) {
 				}
 			}
 
-			if len(filters.AuthorsIgnore) != len(tc.expectedFilter.AuthorsIgnore) {
-				t.Errorf("Expected authors-ignore length %d, got %d", len(tc.expectedFilter.AuthorsIgnore), len(filters.AuthorsIgnore))
+			if len(filters.IgnoredAuthors) != len(tc.expectedFilter.IgnoredAuthors) {
+				t.Errorf("Expected ignored-authors length %d, got %d", len(tc.expectedFilter.IgnoredAuthors), len(filters.IgnoredAuthors))
 			}
-			for i, author := range tc.expectedFilter.AuthorsIgnore {
-				if i >= len(filters.AuthorsIgnore) || filters.AuthorsIgnore[i] != author {
-					t.Errorf("Expected authors-ignore[%d] '%s', got '%s'", i, author, filters.AuthorsIgnore[i])
+			for i, author := range tc.expectedFilter.IgnoredAuthors {
+				if i >= len(filters.IgnoredAuthors) || filters.IgnoredAuthors[i] != author {
+					t.Errorf("Expected ignored-authors[%d] '%s', got '%s'", i, author, filters.IgnoredAuthors[i])
 				}
 			}
 
@@ -140,8 +140,8 @@ func TestGetGlobalFiltersFromInput_Invalid(t *testing.T) {
 		},
 		{
 			name:           "conflicting authors",
-			input:          `{"authors": ["alice"], "authors-ignore": ["bob"]}`,
-			expectedErrMsg: "cannot use both authors and authors-ignore filters at the same time",
+			input:          `{"authors": ["alice"], "ignored-authors": ["bob"]}`,
+			expectedErrMsg: "cannot use both authors and ignored-authors filters at the same time",
 		},
 		{
 			name:           "conflicting labels",
@@ -262,7 +262,7 @@ func TestGetRepositoryFiltersFromInput_Invalid(t *testing.T) {
 		},
 		{
 			name:           "conflicting filters in repository",
-			input:          `repo1: {"authors": ["alice"], "authors-ignore": ["bob"]}`,
+			input:          `repo1: {"authors": ["alice"], "ignored-authors": ["bob"]}`,
 			expectedErrMsg: "error parsing filters for repository repo1",
 		},
 	}
@@ -303,9 +303,9 @@ func TestFiltersValidate(t *testing.T) {
 			shouldBeValid: true,
 		},
 		{
-			name: "authors-ignore only",
+			name: "ignored-authors only",
 			filter: config.Filters{
-				AuthorsIgnore: []string{"charlie"},
+				IgnoredAuthors: []string{"charlie"},
 			},
 			shouldBeValid: true,
 		},
@@ -327,11 +327,11 @@ func TestFiltersValidate(t *testing.T) {
 		{
 			name: "conflicting authors",
 			filter: config.Filters{
-				Authors:       []string{"alice"},
-				AuthorsIgnore: []string{"bob"},
+				Authors:        []string{"alice"},
+				IgnoredAuthors: []string{"bob"},
 			},
 			shouldBeValid:  false,
-			expectedErrMsg: "cannot use both authors and authors-ignore filters at the same time",
+			expectedErrMsg: "cannot use both authors and ignored-authors filters at the same time",
 		},
 		{
 			name: "overlapping labels",
@@ -349,14 +349,14 @@ func TestFiltersValidate(t *testing.T) {
 			h := newConfigTestHelpers(t)
 
 			var jsonStr string
-			if len(tc.filter.Authors) > 0 || len(tc.filter.AuthorsIgnore) > 0 ||
+			if len(tc.filter.Authors) > 0 || len(tc.filter.IgnoredAuthors) > 0 ||
 				len(tc.filter.Labels) > 0 || len(tc.filter.IgnoredLabels) > 0 || len(tc.filter.IgnoredTerms) > 0 {
 				parts := []string{}
 				if len(tc.filter.Authors) > 0 {
 					parts = append(parts, `"authors": ["`+strings.Join(tc.filter.Authors, `", "`)+`"]`)
 				}
-				if len(tc.filter.AuthorsIgnore) > 0 {
-					parts = append(parts, `"authors-ignore": ["`+strings.Join(tc.filter.AuthorsIgnore, `", "`)+`"]`)
+				if len(tc.filter.IgnoredAuthors) > 0 {
+					parts = append(parts, `"ignored-authors": ["`+strings.Join(tc.filter.IgnoredAuthors, `", "`)+`"]`)
 				}
 				if len(tc.filter.Labels) > 0 {
 					parts = append(parts, `"labels": ["`+strings.Join(tc.filter.Labels, `", "`)+`"]`)

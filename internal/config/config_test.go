@@ -464,9 +464,9 @@ func TestGetConfig_InvalidFilters(t *testing.T) {
 		{
 			name: "conflicting global authors filters",
 			setupFilters: func(h *ConfigTestHelpers) {
-				h.setInput(config.InputGlobalFilters, `{"authors": ["alice"], "authors-ignore": ["bob"]}`)
+				h.setInput(config.InputGlobalFilters, `{"authors": ["alice"], "ignored-authors": ["bob"]}`)
 			},
-			expectedErrMsg: "cannot use both authors and authors-ignore filters at the same time",
+			expectedErrMsg: "cannot use both authors and ignored-authors filters at the same time",
 		},
 		{
 			name: "conflicting global labels filters",

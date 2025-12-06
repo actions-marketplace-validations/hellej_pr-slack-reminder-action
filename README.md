@@ -100,10 +100,10 @@ jobs:
           filters: |
             {
               "ignored-labels": ["draft", "wip"],
-              "authors-ignore": ["dependabot[bot]"]
+              "ignored-authors": ["dependabot[bot]"]
             }
           repository-filters: |
-            backend: {"labels": ["ready-for-review"], "authors-ignore": ["intern-bot"]}
+            backend: {"labels": ["ready-for-review"], "ignored-authors": ["intern-bot"]}
             mobile-app: {}
 ```
 
@@ -167,7 +167,7 @@ jobs:
 | `slack-channel-id`                  | ❌       | Slack channel ID (use this OR `slack-channel-name`)<br>Example: `C1234567890`                                                                                                              |
 | `github-repositories`               | ❌       | Repositories to monitor (max 30) - defaults to current repo<br>Example:<br>`owner/repo1`<br>`owner/repo2`                                                                                  |
 | `filters`                           | ❌       | Global filters (JSON)<br>Example:<br>`{"authors": ["alice"], "ignored-labels": ["wip"]}`                                                                                                    |
-| `repository-filters`                | ❌       | Repository-specific filters<br>Example:<br>`repo1: {"labels": ["bug"]}`<br>`repo2: {"authors-ignore": ["bot"]}`                                                                            |
+| `repository-filters`                | ❌       | Repository-specific filters<br>Example:<br>`repo1: {"labels": ["bug"]}`<br>`repo2: {"ignored-authors": ["bot"]}`                                                                            |
 | `github-user-slack-user-id-mapping` | ❌       | Map of GitHub usernames to Slack user IDs<br>Example:<br>`alice: U1234567890`<br>`kronk: U2345678901`                                                                                      |
 | `pr-list-heading`                   | ❌       | Message heading (`<pr_count>` gets replaced)<br>Default: `There are <pr_count> open PRs 👀`                                                                                                |
 | `no-prs-message`                    | ❌       | Message when no PRs are found (if not set, no empty message gets sent)<br>Example: `All caught up! 🎉`                                                                                     |
@@ -179,12 +179,12 @@ jobs:
 Both `filters` and `repository-filters` support:
 
 - `authors` - Only include PRs by these users
-- `authors-ignore` - Exclude PRs by these users
+- `ignored-authors` - Exclude PRs by these users
 - `labels` - Only include PRs with these labels
 - `ignored-labels` - Exclude PRs with these (overrides the above)
 - `ignored-terms` - Exclude PRs whose title contains any of these terms
 
-⚠️ **Note**: You cannot use both `authors` and `authors-ignore` in the same filter.
+⚠️ **Note**: You cannot use both `authors` and `ignored-authors` in the same filter.
 
 ## 🔑 GitHub Token Setup
 

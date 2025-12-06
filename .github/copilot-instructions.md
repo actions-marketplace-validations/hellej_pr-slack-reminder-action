@@ -81,7 +81,7 @@ This is a GitHub Action written in Go that fetches PRs from GitHub repositories 
 ### Error Handling
 
 - Config validation uses `selectNonNilError()` to return first encountered error
-- Filters validate mutual exclusivity (e.g., can't use both `authors` and `authors-ignore`)
+- Filters validate mutual exclusivity (e.g., can't use both `authors` and `ignored-authors`)
 - Missing required inputs fail fast with descriptive error messages
 
 ### PR Participant Collection

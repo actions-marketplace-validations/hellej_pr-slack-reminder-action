@@ -10,11 +10,11 @@ import (
 )
 
 type Filters struct {
-	Authors       []string `json:"authors,omitempty"`
-	AuthorsIgnore []string `json:"authors-ignore,omitempty"`
-	Labels        []string `json:"labels,omitempty"`
-	IgnoredLabels []string `json:"ignored-labels,omitempty"`
-	IgnoredTerms  []string `json:"ignored-terms,omitempty"`
+	Authors        []string `json:"authors,omitempty"`
+	IgnoredAuthors []string `json:"ignored-authors,omitempty"`
+	Labels         []string `json:"labels,omitempty"`
+	IgnoredLabels  []string `json:"ignored-labels,omitempty"`
+	IgnoredTerms   []string `json:"ignored-terms,omitempty"`
 }
 
 func GetGlobalFiltersFromInput(input string) (Filters, error) {
@@ -67,8 +67,8 @@ func parseFilters(rawFilters string) (Filters, error) {
 }
 
 func (f Filters) validate() error {
-	if len(f.Authors) > 0 && len(f.AuthorsIgnore) > 0 {
-		return fmt.Errorf("cannot use both authors and authors-ignore filters at the same time")
+	if len(f.Authors) > 0 && len(f.IgnoredAuthors) > 0 {
+		return fmt.Errorf("cannot use both authors and ignored-authors filters at the same time")
 	}
 
 	if slices.ContainsFunc(f.Labels, func(label string) bool {

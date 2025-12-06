@@ -46,7 +46,7 @@ inputs: {
     required: false,
   },
   repository-filters: {
-    description: 'Repository-specific filters (e.g., "repo1: {"authors-ignore": ["alice"]}; repo2: {"labels": ["bug"]})',
+    description: 'Repository-specific filters (e.g., "repo1: {"ignored-authors": ["alice"]}; repo2: {"labels": ["bug"]})',
     required: false,
   },
   github-user-slack-user-id-mapping: {
