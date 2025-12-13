@@ -79,7 +79,7 @@ while IFS='|' read -r FULL_HASH AUTHOR_NAME COMMIT_MSG; do
     COMMIT_LINE="- $COMMIT_MSG_SINGLE_LINE ([$SHORT_HASH]($COMMIT_URL)) $AUTHOR_ATTRIBUTION"
     
     RELEASE_NOTES="$RELEASE_NOTES$COMMIT_LINE"$'\n'
-done < <(git log "$PREVIOUS_TAG..$LATEST_TAG" --format="%H|%an|%s%n%b")
+done < <(git log "$PREVIOUS_TAG..$LATEST_TAG" --format="%H|%an|%s")
 
 RELEASE_NOTES="${RELEASE_NOTES%$'\n'}"
 
