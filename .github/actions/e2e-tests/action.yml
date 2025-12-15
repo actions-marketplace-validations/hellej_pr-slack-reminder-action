@@ -55,8 +55,8 @@ runs:
         group-by-repository: true
         filters: |
           {
-            "labels-ignore": ["ignore-reminder"]
+            "ignored-labels": ["ignore-reminder"]
           }
         repository-filters: |
-          hellej/pr-slack-reminder-test-repo-1: {"authors-ignore": ["alice"]}
+          hellej/pr-slack-reminder-test-repo-1: {"ignored-authors": ["alice"]}
           hellej/pr-slack-reminder-test-repo-2: {}

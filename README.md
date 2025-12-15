@@ -99,11 +99,11 @@ jobs:
           old-pr-threshold-hours: 48
           filters: |
             {
-              "labels-ignore": ["draft", "wip"],
-              "authors-ignore": ["dependabot[bot]"]
+              "ignored-labels": ["draft", "wip"],
+              "ignored-authors": ["dependabot[bot]"]
             }
           repository-filters: |
-            backend: {"labels": ["ready-for-review"], "authors-ignore": ["intern-bot"]}
+            backend: {"labels": ["ready-for-review"], "ignored-authors": ["intern-bot"]}
             mobile-app: {}
 ```
 
@@ -163,11 +163,11 @@ jobs:
 | `github-token-for-state`            | ❌       | GitHub token that has read access to artifacts of the current repository (i.e. actions: read). Only needed if the run-mode is `update` and if the default github-token misses permissions. |
 | `run-mode`                          | ❌       | Run mode: `post` (default) posts a new reminder; `update` refreshes an existing reminder                                                                                                   |
 | `state-artifact-name`               | ❌       | Name of the artifact containing state from previous run (used when `run-mode` is `update`)<br>Default: `pr-slack-reminder-state`                                                           |
-| `slack-channel-name`                | ❌       | Slack channel name (use this OR `slack-channel-id`)<br>Example: `dev-team`                                                                                                                 |
+| `slack-channel-name`                | ❌       | Slack channel name (use this OR `slack-channel-id`)                                                                                                                                        |
 | `slack-channel-id`                  | ❌       | Slack channel ID (use this OR `slack-channel-name`)<br>Example: `C1234567890`                                                                                                              |
 | `github-repositories`               | ❌       | Repositories to monitor (max 30) - defaults to current repo<br>Example:<br>`owner/repo1`<br>`owner/repo2`                                                                                  |
-| `filters`                           | ❌       | Global filters (JSON)<br>Example:<br>`{"authors": ["alice"], "labels-ignore": ["wip"]}`                                                                                                    |
-| `repository-filters`                | ❌       | Repository-specific filters<br>Example:<br>`repo1: {"labels": ["bug"]}`<br>`repo2: {"authors-ignore": ["bot"]}`                                                                            |
+| `filters`                           | ❌       | Global filters (JSON)<br>Example:<br>`{"authors": ["alice"], "ignored-labels": ["wip"]}`                                                                                                   |
+| `repository-filters`                | ❌       | Repository-specific filters<br>Example:<br>`repo1: {"labels": ["bug"]}`<br>`repo2: {"ignored-authors": ["bot"]}`                                                                           |
 | `github-user-slack-user-id-mapping` | ❌       | Map of GitHub usernames to Slack user IDs<br>Example:<br>`alice: U1234567890`<br>`kronk: U2345678901`                                                                                      |
 | `pr-list-heading`                   | ❌       | Message heading (`<pr_count>` gets replaced)<br>Default: `There are <pr_count> open PRs 👀`                                                                                                |
 | `no-prs-message`                    | ❌       | Message when no PRs are found (if not set, no empty message gets sent)<br>Example: `All caught up! 🎉`                                                                                     |
@@ -179,11 +179,12 @@ jobs:
 Both `filters` and `repository-filters` support:
 
 - `authors` - Only include PRs by these users
-- `authors-ignore` - Exclude PRs by these users
+- `ignored-authors` - Exclude PRs by these users
 - `labels` - Only include PRs with these labels
-- `labels-ignore` - Exclude PRs with these (overrides the above)
+- `ignored-labels` - Exclude PRs with these (overrides the above)
+- `ignored-terms` - Exclude PRs whose title contains any of these terms
 
-⚠️ **Note**: You cannot use both `authors` and `authors-ignore` in the same filter.
+⚠️ **Note**: You cannot use both `authors` and `ignored-authors` in the same filter.
 
 ## 🔑 GitHub Token Setup
 
@@ -220,7 +221,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: generate-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}

@@ -20,7 +20,7 @@ type TestConfig struct {
 	// GlobalFilters as a JSON string (instead of config.Filters struct)
 	GlobalFiltersRaw string
 	// RepositoryFilters as a JSON string
-	// e.g. "test-repo: {\"labels\": [\"feature\", \"fix\"]}; test-repo2: {\"authors-ignore\": [\"alice\"]}"
+	// e.g. "test-repo: {\"labels\": [\"feature\", \"fix\"]}; test-repo2: {\"ignored-authors\": [\"alice\"]}"
 	RepositoryFiltersRaw string
 	GroupByRepository    bool
 }
@@ -52,7 +52,7 @@ func GetDefaultConfigFull() TestConfig {
 		Repository:           "test-org/test-repo",
 		Repositories:         []string{"test-org/test-repo"},
 		GlobalFiltersRaw:     "{\"labels\": [\"feature\", \"fix\"], \"authors\": [\"alice\", \"stitch\"]}",
-		RepositoryFiltersRaw: "test-repo: {\"labels-ignore\": [\"label-to-ignore\"], \"authors-ignore\": [\"author-to-ignore\"]}",
+		RepositoryFiltersRaw: "test-repo: {\"ignored-labels\": [\"label-to-ignore\"], \"ignored-authors\": [\"author-to-ignore\"]}",
 	}
 }
 

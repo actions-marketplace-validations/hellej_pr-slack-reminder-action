@@ -271,14 +271,14 @@ func TestScenarios(t *testing.T) {
 		{
 			name:             "invalid global filters input 2",
 			config:           testhelpers.GetDefaultConfigMinimal(),
-			configOverrides:  &map[string]any{config.InputGlobalFilters: "{\"authors\": [\"alice\"], \"authors-ignore\": [\"bob\"]}"},
-			expectedErrorMsg: "configuration error: error reading input filters: invalid filters: {\"authors\": [\"alice\"], \"authors-ignore\": [\"bob\"]}, error: cannot use both authors and authors-ignore filters at the same time",
+			configOverrides:  &map[string]any{config.InputGlobalFilters: "{\"authors\": [\"alice\"], \"ignored-authors\": [\"bob\"]}"},
+			expectedErrorMsg: "configuration error: error reading input filters: invalid filters: {\"authors\": [\"alice\"], \"ignored-authors\": [\"bob\"]}, error: cannot use both authors and ignored-authors filters at the same time",
 		},
 		{
-			name:             "invalid global filters input: conflicting labels and labels-ignore",
+			name:             "invalid global filters input: conflicting labels and ignored-labels",
 			config:           testhelpers.GetDefaultConfigMinimal(),
-			configOverrides:  &map[string]any{config.InputGlobalFilters: "{\"labels\": [\"infra\"], \"labels-ignore\": [\"infra\"]}"},
-			expectedErrorMsg: "configuration error: error reading input filters: invalid filters: {\"labels\": [\"infra\"], \"labels-ignore\": [\"infra\"]}, error: labels filter cannot contain labels that are in labels-ignore filter",
+			configOverrides:  &map[string]any{config.InputGlobalFilters: "{\"labels\": [\"infra\"], \"ignored-labels\": [\"infra\"]}"},
+			expectedErrorMsg: "configuration error: error reading input filters: invalid filters: {\"labels\": [\"infra\"], \"ignored-labels\": [\"infra\"]}, error: labels filter cannot contain labels that are in ignored-labels filter",
 		},
 		{
 			name:             "invalid repository filters input: invalid mapping",
@@ -287,10 +287,10 @@ func TestScenarios(t *testing.T) {
 			expectedErrorMsg: "configuration error: error reading input repository-filters: invalid mapping format for repository-filters: 'asdf'",
 		},
 		{
-			name:             "invalid repository filters input: conflicting labels and labels-ignore",
+			name:             "invalid repository filters input: conflicting labels and ignored-labels",
 			config:           testhelpers.GetDefaultConfigMinimal(),
-			configOverrides:  &map[string]any{config.InputRepositoryFilters: "\"test-repo\": {\"labels\": [\"infra\"], \"labels-ignore\": [\"infra\"]}"},
-			expectedErrorMsg: "configuration error: error parsing filters for repository \"test-repo\": invalid filters: {\"labels\": [\"infra\"], \"labels-ignore\": [\"infra\"]}, error: labels filter cannot contain labels that are in labels-ignore filter",
+			configOverrides:  &map[string]any{config.InputRepositoryFilters: "\"test-repo\": {\"labels\": [\"infra\"], \"ignored-labels\": [\"infra\"]}"},
+			expectedErrorMsg: "configuration error: error parsing filters for repository \"test-repo\": invalid filters: {\"labels\": [\"infra\"], \"ignored-labels\": [\"infra\"]}, error: labels filter cannot contain labels that are in ignored-labels filter",
 		},
 		{
 			name:            "no PRs found without message",
@@ -360,14 +360,14 @@ func TestScenarios(t *testing.T) {
 		{
 			name:            "all PRs filtered out by labels (by exclusion)",
 			config:          testhelpers.GetDefaultConfigMinimal(),
-			configOverrides: &map[string]any{config.InputGlobalFilters: "{\"labels-ignore\": [\"label-to-ignore\"]}"},
+			configOverrides: &map[string]any{config.InputGlobalFilters: "{\"ignored-labels\": [\"label-to-ignore\"]}"},
 			prs:             getTestPRs(GetTestPRsOptions{Labels: []string{"label-to-ignore"}}).PRs,
 			expectedSummary: "", // no message should be sent
 		},
 		{
 			name:            "PRs by one user filtered out",
 			config:          testhelpers.GetDefaultConfigMinimal(),
-			configOverrides: &map[string]any{config.InputGlobalFilters: "{\"authors-ignore\": [\"alice\"]}"},
+			configOverrides: &map[string]any{config.InputGlobalFilters: "{\"ignored-authors\": [\"alice\"]}"},
 			prs: []*github.PullRequest{
 				getTestPR(GetTestPROptions{Number: 1, AuthorLogin: "alice", Title: "PR by Alice"}),
 				getTestPR(GetTestPROptions{Number: 2, AuthorLogin: "bob", Title: "PR by Bob"}),
@@ -385,7 +385,7 @@ func TestScenarios(t *testing.T) {
 		{
 			name:            "all PRs filtered out by users (by exclusion)",
 			config:          testhelpers.GetDefaultConfigMinimal(),
-			configOverrides: &map[string]any{config.InputGlobalFilters: "{\"authors-ignore\": [\"lilo\"]}"},
+			configOverrides: &map[string]any{config.InputGlobalFilters: "{\"ignored-authors\": [\"lilo\"]}"},
 			prs:             getTestPRs(GetTestPRsOptions{AuthorUser: "lilo"}).PRs,
 			expectedSummary: "", // no message should be sent
 		},
@@ -414,7 +414,7 @@ func TestScenarios(t *testing.T) {
 			config: testhelpers.GetDefaultConfigMinimal(),
 			configOverrides: &map[string]any{
 				config.InputGithubRepositories: "some-org/repo1; some-org/repo2",
-				config.InputRepositoryFilters:  "repo1: {\"authors-ignore\": [\"alice\"]}",
+				config.InputRepositoryFilters:  "repo1: {\"ignored-authors\": [\"alice\"]}",
 			},
 			prsByRepo: map[string][]*github.PullRequest{
 				"repo1": {
@@ -432,7 +432,7 @@ func TestScenarios(t *testing.T) {
 			config: testhelpers.GetDefaultConfigMinimal(),
 			configOverrides: &map[string]any{
 				config.InputGithubRepositories: "some-org/repo1; some-org/repo2",
-				config.InputRepositoryFilters:  "some-org/repo1: {\"authors-ignore\": [\"alice\"]}",
+				config.InputRepositoryFilters:  "some-org/repo1: {\"ignored-authors\": [\"alice\"]}",
 			},
 			prsByRepo: map[string][]*github.PullRequest{
 				"repo1": {
@@ -450,7 +450,7 @@ func TestScenarios(t *testing.T) {
 			config: testhelpers.GetDefaultConfigMinimal(),
 			configOverrides: &map[string]any{
 				config.InputGithubRepositories: "some-org/repo1; some-org/repo2",
-				config.InputGlobalFilters:      "{\"authors-ignore\": [\"alice\"]}",
+				config.InputGlobalFilters:      "{\"ignored-authors\": [\"alice\"]}",
 				config.InputRepositoryFilters:  "repo2: {}",
 			},
 			prsByRepo: map[string][]*github.PullRequest{
@@ -858,7 +858,7 @@ func TestScenariosUpdateMode(t *testing.T) {
 			config: testhelpers.GetDefaultConfigMinimal(),
 			configOverrides: &map[string]any{
 				config.InputRunMode:       config.RunModeUpdate,
-				config.InputGlobalFilters: "{\"authors-ignore\": [\"alice\", \"bob\"]}",
+				config.InputGlobalFilters: "{\"ignored-authors\": [\"alice\", \"bob\"]}",
 			},
 			mockState: testhelpers.AsPointer(getTestState(GetTestStateOptions{PRNumbers: []int{1, 2}})),
 			prByNumber: map[int]*github.PullRequest{
@@ -872,7 +872,7 @@ func TestScenariosUpdateMode(t *testing.T) {
 			config: testhelpers.GetDefaultConfigMinimal(),
 			configOverrides: &map[string]any{
 				config.InputRunMode:       config.RunModeUpdate,
-				config.InputGlobalFilters: "{\"authors-ignore\": [\"alice\", \"bob\"]}",
+				config.InputGlobalFilters: "{\"ignored-authors\": [\"alice\", \"bob\"]}",
 				config.InputNoPRsMessage:  "All PRs have been resolved! 🎉",
 			},
 			mockState: testhelpers.AsPointer(getTestState(GetTestStateOptions{PRNumbers: []int{1, 2}})),
@@ -899,7 +899,7 @@ func TestScenariosUpdateMode(t *testing.T) {
 			config: testhelpers.GetDefaultConfigMinimal(),
 			configOverrides: &map[string]any{
 				config.InputRunMode:       config.RunModeUpdate,
-				config.InputGlobalFilters: "{\"authors-ignore\": [\"alice\"]}",
+				config.InputGlobalFilters: "{\"ignored-authors\": [\"alice\"]}",
 			},
 			mockState: testhelpers.AsPointer(getTestState(GetTestStateOptions{PRNumbers: []int{1}})),
 			prByNumber: map[int]*github.PullRequest{
@@ -913,7 +913,7 @@ func TestScenariosUpdateMode(t *testing.T) {
 			config: testhelpers.GetDefaultConfigMinimal(),
 			configOverrides: &map[string]any{
 				config.InputRunMode:       config.RunModeUpdate,
-				config.InputGlobalFilters: "{\"authors-ignore\": [\"alice\"]}",
+				config.InputGlobalFilters: "{\"ignored-authors\": [\"alice\"]}",
 			},
 			mockState: testhelpers.AsPointer(getTestState(GetTestStateOptions{PRNumbers: []int{1}})),
 			prByNumber: map[int]*github.PullRequest{

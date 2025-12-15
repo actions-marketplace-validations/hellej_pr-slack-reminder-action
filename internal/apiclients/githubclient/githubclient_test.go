@@ -203,7 +203,7 @@ func TestGetAuthenticatedClient(t *testing.T) {
 	}
 }
 
-func TestFindOpenPRs(t *testing.T) {
+func TestFindOneOrNoPRs(t *testing.T) {
 	tests := []struct {
 		name                    string
 		mockPRs                 []*github.PullRequest
@@ -212,6 +212,7 @@ func TestFindOpenPRs(t *testing.T) {
 		mockTimelineComments    map[int][]*github.IssueComment
 		filters                 config.Filters
 		expectedPRCount         int
+		expectedPRNumber        int
 		expectedApproverLogins  []string
 		expectedCommenterLogins []string
 	}{
@@ -454,10 +455,47 @@ func TestFindOpenPRs(t *testing.T) {
 			expectedApproverLogins:  []string{},
 			expectedCommenterLogins: []string{"issue-commenter", "another-issue-commenter"},
 		},
+		{
+			name: "PR with title containing ignored-term should be filtered out",
+			mockPRs: []*github.PullRequest{
+				{
+					Number:  github.Ptr(132),
+					Title:   github.Ptr("Release v1.0 (beta)"),
+					Draft:   github.Ptr(false),
+					HTMLURL: github.Ptr("https://github.com/owner/repo/pull/132"),
+					User: &github.User{
+						Login: github.Ptr("author"),
+						Name:  github.Ptr("PR Author"),
+					},
+				},
+				{
+					Number:  github.Ptr(133),
+					Title:   github.Ptr("Feature Implementation"),
+					Draft:   github.Ptr(false),
+					HTMLURL: github.Ptr("https://github.com/owner/repo/pull/133"),
+					User: &github.User{
+						Login: github.Ptr("author"),
+						Name:  github.Ptr("PR Author"),
+					},
+				},
+			},
+			mockReviews:             map[int][]*github.PullRequestReview{},
+			mockComments:            map[int][]*github.PullRequestComment{},
+			mockTimelineComments:    map[int][]*github.IssueComment{},
+			filters:                 config.Filters{IgnoredTerms: []string{"Release v", "Automated Update"}},
+			expectedPRCount:         1,
+			expectedPRNumber:        133,
+			expectedApproverLogins:  []string{},
+			expectedCommenterLogins: []string{},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.expectedPRCount != 0 && tt.expectedPRCount != 1 {
+				t.Fatalf("Test setup error: TestFindOneOrNoPRs expects 0 or 1 PR, got expectedPRCount=%d", tt.expectedPRCount)
+			}
+
 			mockPRService := &mockPullRequestService{
 				mockPRs:                tt.mockPRs,
 				mockReviewsByPRNumber:  tt.mockReviews,
@@ -489,7 +527,7 @@ func TestFindOpenPRs(t *testing.T) {
 			}
 
 			getFilters := func(repo models.Repository) config.Filters {
-				return config.Filters{} // empty filters = allow all
+				return tt.filters
 			}
 
 			result, err := client.FindOpenPRs(context.Background(), repos, getFilters)
@@ -506,8 +544,27 @@ func TestFindOpenPRs(t *testing.T) {
 			if tt.expectedPRCount > 0 {
 				pr := result[0]
 
-				if pr.GetNumber() != *tt.mockPRs[0].Number {
-					t.Errorf("Expected PR number %d, got %d", *tt.mockPRs[0].Number, pr.GetNumber())
+				expectedNumber := *tt.mockPRs[0].Number
+				if tt.expectedPRNumber > 0 {
+					expectedNumber = tt.expectedPRNumber
+				}
+				if pr.GetNumber() != expectedNumber {
+					t.Errorf("Expected PR number %d, got %d", expectedNumber, pr.GetNumber())
+				}
+
+				var expectedPR *github.PullRequest
+				if tt.expectedPRNumber > 0 {
+					for _, mockPR := range tt.mockPRs {
+						if *mockPR.Number == tt.expectedPRNumber {
+							expectedPR = mockPR
+							break
+						}
+					}
+					if expectedPR == nil {
+						t.Fatalf("Test setup error: expectedPRNumber %d not found in mockPRs", tt.expectedPRNumber)
+					}
+				} else {
+					expectedPR = tt.mockPRs[0]
 				}
 
 				actualApproverLogins := make([]string, len(pr.ApprovedByUsers))
@@ -533,7 +590,7 @@ func TestFindOpenPRs(t *testing.T) {
 					t.Errorf("Expected repository %v, got %v", expectedRepo, pr.Repository)
 				}
 
-				expectedAuthor := *tt.mockPRs[0].User.Login
+				expectedAuthor := *expectedPR.User.Login
 				if pr.Author.Login != expectedAuthor {
 					t.Errorf("Expected author login %s, got %s", expectedAuthor, pr.Author.Login)
 				}
