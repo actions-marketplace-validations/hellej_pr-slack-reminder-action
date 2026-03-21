@@ -1,12 +1,12 @@
 module github.com/hellej/pr-slack-reminder-action
 
-go 1.24.2
+go 1.25.0
 
 require (
 	github.com/google/go-github/v78 v78.0.0
-	github.com/slack-go/slack v0.17.3
-	golang.org/x/sync v0.19.0
-	golang.org/x/text v0.33.0
+	github.com/slack-go/slack v0.19.0
+	golang.org/x/sync v0.20.0
+	golang.org/x/text v0.35.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
