@@ -1,17 +1,52 @@
-TEST=go test ./...
+TEST=go test -race ./...
 GO_BUILD=go build -ldflags="-s -w"
 MAIN_GO=./cmd/pr-slack-reminder
 COMMIT_HASH := $(shell git rev-parse --short=10 HEAD)
+SNAPSHOT_PACKAGES=./cmd/pr-slack-reminder ./internal/canvasbuilder
+SNAPSHOT_DIRS=cmd/pr-slack-reminder/testdata internal/canvasbuilder/testdata
 SEMVER =
 
 
 test:
 	$(TEST)
 
+check-fmt:
+	@set -e; \
+	unformatted=$$(gofmt -l .); \
+	if [ -n "$$unformatted" ]; then \
+		echo "gofmt needs to run on:"; \
+		echo "$$unformatted"; \
+		exit 1; \
+	fi
+
+check-vet:
+	go vet ./...
+
+check-dead-code:
+	@set -e; \
+	findings=$$(go run golang.org/x/tools/cmd/deadcode@latest ./cmd/...); \
+	if [ -n "$$findings" ]; then \
+		echo "unreachable functions:"; \
+		echo "$$findings"; \
+		exit 1; \
+	fi
+
+check-vulnerabilities:
+	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+lint: check-fmt check-vet check-dead-code check-vulnerabilities
+
+install-hooks:
+	git config core.hooksPath githooks
+
 clean-test-cache:
 	go clean -testcache
 	go clean -cache
 	@echo "Cleared Go test and build caches"
+
+update-test-snapshots:
+	go test $(SNAPSHOT_PACKAGES) -count=1 -update-snapshots
+	@git add -N $(SNAPSHOT_DIRS) && git diff --stat -- $(SNAPSHOT_DIRS)
 
 test-with-coverage: clean-test-cache
 	$(TEST) -coverprofile=coverage.out -covermode=atomic -coverpkg=./cmd/...,./internal/...
@@ -48,12 +83,6 @@ build-linux-amd64:
 build-linux-arm64:
 	env GOOS=linux GOARCH=arm64 $(GO_BUILD) -o dist/main-linux-arm64-$(COMMIT_HASH) $(MAIN_GO)
 
-build-windows-amd64:
-	env GOOS=windows GOARCH=amd64 $(GO_BUILD) -o dist/main-windows-amd64-$(COMMIT_HASH) $(MAIN_GO)
-
-build-windows-arm64:
-	env GOOS=windows GOARCH=arm64 $(GO_BUILD) -o dist/main-windows-arm64-$(COMMIT_HASH) $(MAIN_GO)
-
 update-invoke-binary-targets:
 	@echo "Updating executable versions to $(COMMIT_HASH) in invoke-binary.js"
 	@case "$$(uname)" in \
@@ -76,6 +105,3 @@ release-tag:
 
 draft-release:
 	./create-draft-release.sh
-
-release-workflow:
-	./trigger-release-workflow.sh

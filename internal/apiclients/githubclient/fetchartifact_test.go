@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/go-github/v78/github"
 	"github.com/hellej/pr-slack-reminder-action/internal/apiclients/githubclient"
+	"github.com/hellej/pr-slack-reminder-action/testhelpers/mockgithubclient"
 )
 
 type testState struct {
@@ -288,14 +289,11 @@ func TestFetchLatestArtifactByName(t *testing.T) {
 				mockHTTPClient: mockHTTPClient,
 			}
 
-			mockPRService := &mockPullRequestService{
-				mockResponse: &github.Response{Response: &http.Response{StatusCode: 200}},
-			}
-			mockIssueService := &mockIssueService{
-				mockResponse: &github.Response{Response: &http.Response{StatusCode: 200}},
-			}
-
-			client := githubclient.NewClient(mockHTTPClient, mockPRService, mockIssueService, mockActions)
+			client := githubclient.NewClient(
+				mockHTTPClient,
+				mockActions,
+				mockgithubclient.UnusedGraphQLTransport{},
+			)
 
 			var result testState
 			err = client.FetchLatestArtifactByName(

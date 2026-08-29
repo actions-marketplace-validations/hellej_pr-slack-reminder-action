@@ -1,12 +1,12 @@
-// Package githubclient provides GitHub API integration for fetching PR data.
-// It handles concurrent repository queries, review data fetching, and applies
-// repository-specific and global filters to PRs.
+// Package githubclient provides GitHub API integration for reading PR data.
+// It lists open PRs, fetches PRs by reference, and searches recently merged ones,
+// enriching the first two with reviews and comments in concurrent batches. It applies
+// repository-specific and global filters, detects snooze comments, and fetches the
+// prior run's state from a GitHub Actions artifact.
 package githubclient
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -18,7 +18,6 @@ import (
 	"github.com/hellej/pr-slack-reminder-action/internal/config"
 	"github.com/hellej/pr-slack-reminder-action/internal/models"
 	"github.com/hellej/pr-slack-reminder-action/internal/utilities"
-	"golang.org/x/sync/errgroup"
 )
 
 type Client interface {
@@ -26,6 +25,13 @@ type Client interface {
 		ctx context.Context,
 		repositories []models.Repository,
 		getFiltersForRepository func(repo models.Repository) config.Filters,
+		fetchOptions PRFetchOptions,
+	) (OpenPRsResult, error)
+	FindRecentlyMergedPRs(
+		ctx context.Context,
+		repositories []models.Repository,
+		getFiltersForRepository func(repo models.Repository) config.Filters,
+		mergedSince time.Time,
 	) ([]PR, error)
 	GetPRs(
 		ctx context.Context,
@@ -37,37 +43,6 @@ type Client interface {
 		owner, repo, artifactName, jsonFilePath string,
 		target any,
 	) error
-}
-
-type GithubPullRequestsService interface {
-	Get(
-		ctx context.Context, owner string, repo string, number int,
-	) (
-		*github.PullRequest, *github.Response, error,
-	)
-	List(
-		ctx context.Context, owner string, repo string, opts *github.PullRequestListOptions,
-	) (
-		[]*github.PullRequest, *github.Response, error,
-	)
-	ListReviews(
-		ctx context.Context, owner string, repo string, number int, opts *github.ListOptions,
-	) (
-		[]*github.PullRequestReview, *github.Response, error,
-	)
-	ListComments(
-		ctx context.Context, owner string, repo string, number int, opts *github.PullRequestListCommentsOptions,
-	) (
-		[]*github.PullRequestComment, *github.Response, error,
-	)
-}
-
-type GithubIssuesService interface {
-	ListComments(
-		ctx context.Context, owner string, repo string, number int, opts *github.IssueListCommentsOptions,
-	) (
-		[]*github.IssueComment, *github.Response, error,
-	)
 }
 
 type GithubActionsService interface {
@@ -95,15 +70,13 @@ func (h httpClient) Get(url string) (*http.Response, error) {
 
 func NewClient(
 	httpClient HTTPClient,
-	prService GithubPullRequestsService,
-	issueService GithubIssuesService,
 	actionsService GithubActionsService,
+	transport graphqlTransport,
 ) Client {
 	return &client{
 		http:           httpClient,
-		prService:      prService,
-		issueService:   issueService,
 		actionsService: actionsService,
+		graphql:        graphqlClient{transport: transport},
 	}
 }
 
@@ -121,65 +94,144 @@ func GetAuthenticatedClient(token, tokenForState string) Client {
 
 	return NewClient(
 		httpClient{},
-		ghClient.PullRequests,
-		ghClient.Issues,
 		ghClientForState.Actions,
+		newHTTPGraphQLTransport(token),
 	)
 }
 
 type client struct {
 	http           HTTPClient
-	prService      GithubPullRequestsService
-	issueService   GithubIssuesService
 	actionsService GithubActionsService
+	graphql        graphqlClient
 }
 
-// DefaultGitHubAPIConcurrencyLimit caps concurrent repository fetches to avoid
-// creating excessive simultaneous GitHub API calls when many repositories are configured.
-// Exported to allow tests (and potential future configuration) to reference it.
-const DefaultGitHubAPIConcurrencyLimit = 3
+// defaultGitHubAPIConcurrencyLimit caps how many PR batches run at a time,
+// to avoid creating excessive simultaneous GitHub API calls.
+const defaultGitHubAPIConcurrencyLimit = 3
 
 const MaxPRsToFetch = 50
 
-// Per-call timeout defaults. Overridable in tests.
-const PullRequestListTimeout = 10 * time.Second
-const PullRequestFetchTimeout = 5 * time.Second
-const ReviewsFetchTimeout = 10 * time.Second
+// Drafts are capped lower than open PRs: only the most recently updated ones are worth showing.
+const MaxDraftPRsToFetch = 15
 
-// Returns an error if fetching PRs from any repository fails (and cancels the other requests).
+// The canvas lists the newest merges of the past week, and no more than this many of them.
+const MaxMergedPRsToFetch = 15
+
+const RecentlyMergedWindow = 7 * 24 * time.Hour
+
+type PRFetchOptions struct {
+	IncludeDrafts bool
+}
+
+type OpenPRsResult struct {
+	PRs []PR
+	// Each flag reports that its own bucket was trimmed to its cap. No downstream PR count can
+	// tell, since snooze exclusion and content-level pruning shrink the lists further.
+	OpenPRsCapped  bool
+	DraftPRsCapped bool
+}
+
+// Per-call timeout defaults.
+const pullRequestListTimeout = 30 * time.Second
+const reviewsFetchTimeout = 10 * time.Second
+
+// Returns an error if listing the PRs of any repository fails.
 func (c *client) FindOpenPRs(
 	ctx context.Context,
 	repositories []models.Repository,
 	getFiltersForRepository func(repo models.Repository) config.Filters,
-) ([]PR, error) {
+	fetchOptions PRFetchOptions,
+) (OpenPRsResult, error) {
 	log.Printf("Fetching open pull requests for repositories: %v", repositories)
 
-	listGroup, listCtx := errgroup.WithContext(ctx)
-	listGroup.SetLimit(DefaultGitHubAPIConcurrencyLimit)
-	prResultSlices := make([][]PRResult, len(repositories))
-
-	for i, repo := range repositories {
-		i, repo := i, repo // https://golang.org/doc/faq#closures_and_goroutines
-		listGroup.Go(func() error {
-			res, err := c.fetchOpenPRsForRepository(listCtx, repo)
-			if err == nil {
-				prResultSlices[i] = res
-			}
-			return err
-		})
-	}
-	if err := listGroup.Wait(); err != nil {
-		return nil, err
+	listedPRs, err := c.listOpenPRs(ctx, repositories)
+	if err != nil {
+		return OpenPRsResult{}, err
 	}
 
 	prResults := utilities.Filter(
-		utilities.FlatMap(prResultSlices),
-		getPRFilterFunc(getFiltersForRepository),
+		listedPRs,
+		getPRFilterFunc[PRResult](getFiltersForRepository, fetchOptions.IncludeDrafts),
 	)
-	prResults = includeLatestPRsOnlyIfExceedsLimit(prResults)
-	logFoundPRs(prResults)
+	prResults, openPRsCapped, draftPRsCapped := capOpenPRResultsToLimit(
+		prResults, fetchOptions.IncludeDrafts,
+	)
+	logFoundPRs(prResults, fetchOptions.IncludeDrafts)
 
-	return c.addReviewerInfoToPRs(ctx, prResults)
+	prs, err := c.enrichPRsWithReviewInfo(ctx, prResults)
+	if err != nil {
+		return OpenPRsResult{}, err
+	}
+	return OpenPRsResult{
+		PRs:            excludeSnoozedPRs(prs),
+		OpenPRsCapped:  openPRsCapped,
+		DraftPRsCapped: draftPRsCapped,
+	}, nil
+}
+
+// Returns the PRs merged since the given moment, newest merge first. The window is a parameter
+// rather than a clock read, so the canvas footer and the merged list share one "now". The PRs
+// carry no reviewers and no snooze: a merged row names neither.
+func (c *client) FindRecentlyMergedPRs(
+	ctx context.Context,
+	repositories []models.Repository,
+	getFiltersForRepository func(repo models.Repository) config.Filters,
+	mergedSince time.Time,
+) ([]PR, error) {
+	log.Printf("Fetching recently merged pull requests for repositories: %v", repositories)
+
+	foundPRs, err := c.searchMergedPRs(ctx, repositories, mergedSince)
+	if err != nil {
+		return nil, err
+	}
+
+	// The search cutoff is a day, so it returns up to one extra day of merges.
+	inWindowPRs := utilities.Filter(foundPRs, isMergedSince(mergedSince))
+	mergedPRs := utilities.Filter(
+		inWindowPRs, getPRFilterFunc[PRResult](getFiltersForRepository, false),
+	)
+	mergedPRs = capMergedPRResultsToLimit(sortByMergeTimeNewestFirst(mergedPRs))
+	logFoundMergedPRs(mergedPRs)
+
+	return utilities.Map(mergedPRs, mergedPR), nil
+}
+
+func isMergedSince(mergedSince time.Time) func(result PRResult) bool {
+	return func(result PRResult) bool {
+		mergedAt := result.getPullRequest().GetMergedAt()
+		return mergedAt != nil && !mergedAt.Before(mergedSince)
+	}
+}
+
+// Search cannot order by merge time, so the order is made here.
+func sortByMergeTimeNewestFirst(mergedPRs []PRResult) []PRResult {
+	sorted := slices.Clone(mergedPRs)
+	slices.SortStableFunc(sorted, func(a, b PRResult) int {
+		return b.getPullRequest().GetMergedAt().Compare(*a.getPullRequest().GetMergedAt())
+	})
+	return sorted
+}
+
+func capMergedPRResultsToLimit(mergedPRs []PRResult) []PRResult {
+	if len(mergedPRs) <= MaxMergedPRsToFetch {
+		return mergedPRs
+	}
+	log.Printf(
+		"More than %d recently merged pull requests found (%d), including only the %d newest",
+		MaxMergedPRsToFetch, len(mergedPRs), MaxMergedPRsToFetch,
+	)
+	return mergedPRs[:MaxMergedPRsToFetch]
+}
+
+func logFoundMergedPRs(mergedPRs []PRResult) {
+	log.Printf("Found %d recently merged pull requests:", len(mergedPRs))
+	for _, result := range mergedPRs {
+		log.Printf("%s/%v", result.getRepository().GetPath(), result.getPullRequest().GetNumber())
+	}
+}
+
+func mergedPR(result PRResult) PR {
+	return PR{PullRequest: result.pr, Repository: result.repository}
 }
 
 func (c *client) GetPRs(
@@ -197,107 +249,83 @@ func (c *client) GetPRs(
 		log.Printf("Fetching %d pull requests", len(references))
 	}
 
-	listGroup, listCtx := errgroup.WithContext(ctx)
-	listGroup.SetLimit(DefaultGitHubAPIConcurrencyLimit)
-	prResultSlices := make([]PRResult, len(references))
-
-	for i, prRef := range references {
-		i, prRef := i, prRef // https://golang.org/doc/faq#closures_and_goroutines
-		listGroup.Go(func() error {
-			res, err := c.fetchPR(listCtx, prRef)
-			if err == nil {
-				prResultSlices[i] = res
-			}
-			return err
-		})
-	}
-	if err := listGroup.Wait(); err != nil {
+	fetchedPRs, err := c.getPRsByRef(ctx, references)
+	if err != nil {
 		return nil, err
 	}
 
-	prResults := utilities.Filter(
-		prResultSlices,
-		getPRFilterFunc(getFiltersForRepository),
-	)
-	prResults = includeLatestPRsOnlyIfExceedsLimit(prResults)
-	logFoundPRs(prResults)
+	prs := utilities.Filter(fetchedPRs, getPRFilterFunc[PR](getFiltersForRepository, false))
+	prs = capPRsToLimit(prs)
+	logFoundPRs(prs, false)
 
-	return c.addReviewerInfoToPRs(ctx, prResults)
+	return excludeSnoozedPRs(prs), nil
 }
 
-func getPRFilterFunc(
+func getPRFilterFunc[T repositoryPullRequest](
 	getFiltersForRepository func(repo models.Repository) config.Filters,
-) func(result PRResult) bool {
-	return func(result PRResult) bool {
-		return !result.pr.GetDraft() && includePR(result.pr, getFiltersForRepository(result.repository))
+	includeDrafts bool,
+) func(item T) bool {
+	return func(item T) bool {
+		pullRequest := item.getPullRequest()
+		return (includeDrafts || !pullRequest.GetDraft()) &&
+			includePR(pullRequest, getFiltersForRepository(item.getRepository()))
 	}
 }
 
-func (c *client) fetchOpenPRsForRepository(
-	ctx context.Context, repo models.Repository,
-) ([]PRResult, error) {
-	callCtx, cancel := context.WithTimeout(ctx, PullRequestListTimeout)
-	defer cancel()
-	prs, response, err := c.prService.List(
-		callCtx, repo.Owner, repo.Name, &github.PullRequestListOptions{ListOptions: github.ListOptions{PerPage: 100}},
+func logFoundPRs[T repositoryPullRequest](prs []T, includeDrafts bool) {
+	if includeDrafts {
+		drafts := utilities.Filter(prs, isDraftPR)
+		log.Printf("Found %d open pull requests, %d of them drafts:", len(prs), len(drafts))
+	} else {
+		log.Printf("Found %d open pull requests:", len(prs))
+	}
+	for _, item := range prs {
+		log.Printf("%s/%v", item.getRepository().GetPath(), item.getPullRequest().GetNumber())
+	}
+}
+
+func isDraftPR[T repositoryPullRequest](item T) bool {
+	return item.getPullRequest().GetDraft()
+}
+
+// Caps drafts and non-drafts separately, so an over-cap draft fetch can never displace open PRs
+// the reminder message would otherwise show.
+func capOpenPRResultsToLimit(
+	prResults []PRResult, includeDrafts bool,
+) (capped []PRResult, openPRsCapped, draftPRsCapped bool) {
+	if !includeDrafts {
+		capped = capPRsToLimit(prResults)
+		return capped, len(capped) < len(prResults), false
+	}
+
+	openPRs := utilities.Filter(prResults, func(item PRResult) bool { return !isDraftPR(item) })
+	drafts := utilities.Filter(prResults, isDraftPR)
+
+	cappedOpenPRs := capPRsToLimit(openPRs)
+	cappedDrafts := capDraftPRResultsToLimit(drafts)
+
+	return slices.Concat(cappedOpenPRs, cappedDrafts),
+		len(cappedOpenPRs) < len(openPRs),
+		len(cappedDrafts) < len(drafts)
+}
+
+// Keeps the most recently updated drafts: the canvas orders and prunes its WIP list by activity,
+// and update time is the closest proxy available before enrichment.
+func capDraftPRResultsToLimit(drafts []PRResult) []PRResult {
+	if len(drafts) <= MaxDraftPRsToFetch {
+		return drafts
+	}
+	log.Printf(
+		"More than %d draft pull requests found (%d), including only the %d most recently updated",
+		MaxDraftPRsToFetch, len(drafts), MaxDraftPRsToFetch,
 	)
-	if err == nil {
-		return utilities.Map(prs, getPRResultMapper(repo)), nil
-	}
-	if response != nil && response.StatusCode == 404 {
-		return nil, fmt.Errorf(
-			"repository %s/%s not found - check the repository name and permissions",
-			repo.Owner,
-			repo.Name,
-		)
-	}
-	return nil, fmt.Errorf(
-		"error fetching pull requests from %s/%s: %w", repo.Owner, repo.Name, err,
-	)
+	slices.SortStableFunc(drafts, func(a, b PRResult) int {
+		return b.getPullRequest().GetUpdatedAt().Compare(a.getPullRequest().GetUpdatedAt())
+	})
+	return drafts[:MaxDraftPRsToFetch]
 }
 
-func (c *client) fetchPR(
-	ctx context.Context, prRef models.PullRequestRef,
-) (PRResult, error) {
-	callCtx, cancel := context.WithTimeout(ctx, PullRequestFetchTimeout)
-	defer cancel()
-	pr, response, err := c.prService.Get(
-		callCtx, prRef.Repository.Owner, prRef.Repository.Name, prRef.Number,
-	)
-	if err == nil {
-		return getPRResultMapper(prRef.Repository)(pr), nil
-	}
-	if response != nil && response.StatusCode == 404 {
-		return PRResult{}, fmt.Errorf(
-			"PR %s/%s/%d not found - check the path and permissions",
-			prRef.Repository.Owner,
-			prRef.Repository.Name,
-			prRef.Number,
-		)
-	}
-	return PRResult{}, fmt.Errorf(
-		"error fetching pull request %s/%s/%d: %w",
-		prRef.Repository.Owner, prRef.Repository.Name, prRef.Number, err,
-	)
-}
-
-func getPRResultMapper(repo models.Repository) func(pr *github.PullRequest) PRResult {
-	return func(pr *github.PullRequest) PRResult {
-		return PRResult{
-			pr:         pr,
-			repository: repo,
-		}
-	}
-}
-
-func logFoundPRs(prResults []PRResult) {
-	log.Printf("Found %d open pull requests:", len(prResults))
-	for _, result := range prResults {
-		log.Printf("%s/%v", result.repository.GetPath(), *result.pr.Number)
-	}
-}
-
-func includeLatestPRsOnlyIfExceedsLimit(prs []PRResult) []PRResult {
+func capPRsToLimit[T repositoryPullRequest](prs []T) []T {
 	if len(prs) <= MaxPRsToFetch {
 		return prs
 	}
@@ -305,191 +333,12 @@ func includeLatestPRsOnlyIfExceedsLimit(prs []PRResult) []PRResult {
 		"More than %d pull requests found (%d), including only the latest %d",
 		MaxPRsToFetch, len(prs), MaxPRsToFetch,
 	)
-	slices.SortStableFunc(prs, func(a, b PRResult) int {
-		if !a.pr.GetCreatedAt().Time.Equal(b.pr.GetCreatedAt().Time) {
-			return b.pr.GetCreatedAt().Time.Compare(a.pr.GetCreatedAt().Time)
+	slices.SortStableFunc(prs, func(a, b T) int {
+		createdA, createdB := a.getPullRequest().GetCreatedAt(), b.getPullRequest().GetCreatedAt()
+		if !createdA.Equal(createdB) {
+			return createdB.Compare(createdA)
 		}
-		return b.pr.GetUpdatedAt().Time.Compare(a.pr.GetUpdatedAt().Time)
+		return b.getPullRequest().GetUpdatedAt().Compare(a.getPullRequest().GetUpdatedAt())
 	})
 	return prs[:MaxPRsToFetch]
-}
-
-// Fetches review and comment data for the given PRs and returns enriched PR data.
-// Returns all PRs even if fetching review data for some PRs fails (those will just be missing reviewer info then).
-func (c *client) addReviewerInfoToPRs(ctx context.Context, prResults []PRResult) ([]PR, error) {
-	log.Printf("\nFetching pull request reviews and comments for PRs")
-
-	prProcessingGroup, prProcessingCtx := errgroup.WithContext(ctx)
-	prProcessingGroup.SetLimit(DefaultGitHubAPIConcurrencyLimit)
-	resultChannel := make(chan FetchReviewsResult, len(prResults))
-
-	for _, result := range prResults {
-		repo := result.repository
-		pr := result.pr
-		prProcessingGroup.Go(func() error {
-			callCtx, cancel := context.WithTimeout(prProcessingCtx, ReviewsFetchTimeout)
-			defer cancel()
-
-			var reviews []*github.PullRequestReview
-			var comments []*github.PullRequestComment
-			var timelineComments []*github.IssueComment
-			var reviewsErr, commentsErr, timelineCommentsErr error
-
-			// Inner group for fetching reviews, comments, and timeline comments for this PR in parallel
-			dataFetchGroup, dataFetchCtx := errgroup.WithContext(callCtx)
-
-			dataFetchGroup.Go(func() error {
-				reviews, reviewsErr = fetchPRReviews(
-					dataFetchCtx, c.prService, repo.Owner, repo.Name, *pr.Number,
-				)
-				return nil // capture error in reviewsErr
-			})
-
-			dataFetchGroup.Go(func() error {
-				comments, commentsErr = fetchPRComments(
-					dataFetchCtx, c.prService, repo.Owner, repo.Name, *pr.Number,
-				)
-				return nil // capture error in commentsErr
-			})
-
-			dataFetchGroup.Go(func() error {
-				timelineComments, timelineCommentsErr = fetchPRTimelineComments(
-					dataFetchCtx, c.issueService, repo.Owner, repo.Name, *pr.Number,
-				)
-				return nil // capture error in timelineCommentsErr
-			})
-
-			dataFetchGroup.Wait()
-
-			fetchReviewsResult := FetchReviewsResult{
-				pr:               pr,
-				reviews:          reviews,
-				comments:         comments,
-				timelineComments: timelineComments,
-				repository:       repo,
-				err:              errors.Join(reviewsErr, commentsErr, timelineCommentsErr),
-			}
-
-			resultChannel <- fetchReviewsResult
-			return nil // Don't fail outer group - we handle partial failures gracefully
-		})
-	}
-
-	if err := prProcessingGroup.Wait(); err != nil {
-		return nil, err
-	}
-	close(resultChannel)
-
-	allPRs := []PR{}
-	for result := range resultChannel {
-		result.printResult()
-		allPRs = append(allPRs, result.asPR())
-	}
-	return allPRs, nil
-}
-
-const reviewsMaximumPages = 2
-
-func fetchPRReviews(
-	ctx context.Context,
-	prService GithubPullRequestsService,
-	owner, repo string,
-	number int,
-) ([]*github.PullRequestReview, error) {
-	reviews := []*github.PullRequestReview{}
-	opts := &github.ListOptions{PerPage: 100}
-	pagesFetched := 0
-
-	for {
-		reviewsPage, response, err := prService.ListReviews(ctx, owner, repo, number, opts)
-
-		if err != nil {
-			statusText := ""
-			if response != nil && response.Status != "" {
-				statusText = " status=" + response.Status
-			}
-			return nil, fmt.Errorf(
-				"error fetching reviews for pull request %s/%s/%d%s: %w",
-				owner,
-				repo,
-				number,
-				statusText,
-				err,
-			)
-		}
-
-		reviews = append(reviews, reviewsPage...)
-		pagesFetched++
-
-		if response == nil || response.NextPage == 0 || pagesFetched >= reviewsMaximumPages {
-			break
-		}
-		opts.Page = response.NextPage
-	}
-	return reviews, nil
-}
-
-const commentsPerPage = 100 // Fetch only the first 100 comments to keep things simple and performant
-
-func fetchPRComments(
-	ctx context.Context,
-	prService GithubPullRequestsService,
-	owner, repo string,
-	number int,
-) ([]*github.PullRequestComment, error) {
-	opts := &github.PullRequestListCommentsOptions{
-		ListOptions: github.ListOptions{PerPage: commentsPerPage},
-	}
-
-	comments, response, err := prService.ListComments(ctx, owner, repo, number, opts)
-
-	if err == nil {
-		return comments, nil
-	}
-
-	statusText := ""
-	if response != nil && response.Status != "" {
-		statusText = " status=" + response.Status
-	}
-	return nil, fmt.Errorf(
-		"error fetching comments for pull request %s/%s/%d%s: %w",
-		owner,
-		repo,
-		number,
-		statusText,
-		err,
-	)
-
-}
-
-const timelineCommentsPerPage = 100 // Fetch only the first 100 timeline comments to keep things simple and performant
-
-func fetchPRTimelineComments(
-	ctx context.Context,
-	issueService GithubIssuesService,
-	owner, repo string,
-	number int,
-) ([]*github.IssueComment, error) {
-	opts := &github.IssueListCommentsOptions{
-		ListOptions: github.ListOptions{PerPage: timelineCommentsPerPage},
-	}
-
-	comments, response, err := issueService.ListComments(ctx, owner, repo, number, opts)
-
-	if err == nil {
-		return comments, nil
-	}
-
-	statusText := ""
-	if response != nil && response.Status != "" {
-		statusText = " status=" + response.Status
-	}
-	return nil, fmt.Errorf(
-		"error fetching timeline comments for pull request %s/%s/%d%s: %w",
-		owner,
-		repo,
-		number,
-		statusText,
-		err,
-	)
 }

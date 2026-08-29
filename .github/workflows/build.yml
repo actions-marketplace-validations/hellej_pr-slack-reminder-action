@@ -1,6 +1,9 @@
 name: Build
 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
@@ -11,17 +14,19 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #v6.0.2
-        with:
-          ssh-key: ${{ secrets.DEPLOY_KEY }}
-
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v7.0.1
+ 
       - name: Build application
         uses: ./.github/actions/build
-        with:
-          commit-binary: true
 
+      # Fork and Dependabot PRs can't read these secrets
       - name: Smoke/E2E test
+        if: >-
+          github.actor != 'dependabot[bot]' &&
+          (github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository)
         uses: ./.github/actions/e2e-tests
         with:
-          github-token: ${{ secrets.TEST_GITHUB_TOKEN }}
+          github-app-client-id: ${{ secrets.APP_CLIENT_ID }}
+          github-app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
           slack-bot-token: ${{ secrets.DEV_SLACK_TOKEN }}

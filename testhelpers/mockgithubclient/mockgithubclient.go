@@ -3,62 +3,43 @@ package mockgithubclient
 import (
 	"archive/zip"
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/google/go-github/v78/github"
 	"github.com/hellej/pr-slack-reminder-action/internal/apiclients/githubclient"
 	"github.com/hellej/pr-slack-reminder-action/internal/state"
+	"github.com/hellej/pr-slack-reminder-action/internal/utilities"
 )
 
 type MockGitHubClientOptions struct {
-	PRsByNumber            map[int]*github.PullRequest
-	ErrByPRNumber          map[int]error
-	PRs                    []*github.PullRequest
-	PRsByRepo              map[string][]*github.PullRequest
-	ListPRsResponseStatus  int
-	ReviewsByPRNumber      map[int][]*github.PullRequestReview
-	CommentsByPRNumber     map[int][]*github.PullRequestComment
-	PRServiceError         error
-	IssueServiceError      error
-	MockStateForUpdateMode *state.State
-	ListArtifactsError     error
-	DownloadArtifactError  error
+	PRsByNumber                map[int]*github.PullRequest
+	ErrByPRNumber              map[int]error
+	PRs                        []*github.PullRequest
+	PRsByRepo                  map[string][]*github.PullRequest
+	MergedPRs                  []*github.PullRequest
+	MergedPRsByRepo            map[string][]*github.PullRequest
+	MergedPRsSearchError       error // fails the merged PR search only
+	ListPRsResponseStatus      int
+	ReviewsByPRNumber          map[int][]*github.PullRequestReview
+	TimelineCommentsByPRNumber map[int][]*github.IssueComment
+	PRServiceError             error
+	IssueServiceError          error
+	MockStateForUpdateMode     *state.State
+	ListArtifactsError         error
+	DownloadArtifactError      error
 }
 
 func MakeMockGitHubClientGetter(opts MockGitHubClientOptions) func(token, tokenForState string) githubclient.Client {
-	if opts.ListPRsResponseStatus == 0 {
-		opts.ListPRsResponseStatus = 200
-	}
-
 	return func(token, tokenForState string) githubclient.Client {
-		mockPRService := &mockPullRequestService{
-			prsByNumber:        opts.PRsByNumber,
-			errorByPRNumber:    opts.ErrByPRNumber,
-			prs:                opts.PRs,
-			prsByRepo:          opts.PRsByRepo,
-			reviewsByPRNumber:  opts.ReviewsByPRNumber,
-			commentsByPRNumber: opts.CommentsByPRNumber,
-			response: &github.Response{
-				Response: &http.Response{
-					StatusCode: opts.ListPRsResponseStatus,
-				},
-			},
-			err: opts.PRServiceError,
-		}
-		mockIssueService := &mockIssueService{
-			mockTimelineCommentsByPRNumber: map[int][]*github.IssueComment{},
-			response: &github.Response{
-				Response: &http.Response{
-					StatusCode: 200,
-				},
-			},
-			err: opts.IssueServiceError,
-		}
 		mockHTTPClient := &mockHTTPClient{
 			response: &http.Response{
 				StatusCode: 200,
@@ -75,108 +56,390 @@ func MakeMockGitHubClientGetter(opts MockGitHubClientOptions) func(token, tokenF
 			err:                    opts.ListArtifactsError,
 			mockStateForUpdateMode: opts.MockStateForUpdateMode,
 		}
-		return githubclient.NewClient(mockHTTPClient, mockPRService, mockIssueService, mockActionsService)
+		return githubclient.NewClient(
+			mockHTTPClient,
+			mockActionsService,
+			NewGraphQLTransport(opts),
+		)
 	}
 }
 
-func NewReview(id int64, state, login, name, body string, userType ...string) *github.PullRequestReview {
-	var t *string
-	if len(userType) > 0 && userType[0] != "" {
-		t = github.Ptr(userType[0])
-	}
-	var b *string
-	if body != "" {
-		b = github.Ptr(body)
-	}
+type UnusedGraphQLTransport struct{}
+
+func (UnusedGraphQLTransport) Post(ctx context.Context, body []byte) (int, json.RawMessage, error) {
+	return 0, nil, errors.New("unexpected GraphQL request")
+}
+
+func NewReview(login, name, state string, userType ...string) *github.PullRequestReview {
 	return &github.PullRequestReview{
-		ID:   github.Ptr(id),
-		Body: b,
-		User: &github.User{
-			Login: github.Ptr(login),
-			Name:  github.Ptr(name),
-			Type:  t,
-		},
+		User:  newUser(login, name, userType...),
 		State: github.Ptr(state),
 	}
 }
 
-func NewComment(id int64, login, name, body string, userType ...string) *github.PullRequestComment {
+func NewTimelineComment(login, name, body string, createdAt time.Time, userType ...string) *github.IssueComment {
+	return &github.IssueComment{
+		User:      newUser(login, name, userType...),
+		Body:      github.Ptr(body),
+		CreatedAt: &github.Timestamp{Time: createdAt},
+	}
+}
+
+func newUser(login, name string, userType ...string) *github.User {
 	var t *string
 	if len(userType) > 0 && userType[0] != "" {
 		t = github.Ptr(userType[0])
 	}
-	var b *string
-	if body != "" {
-		b = github.Ptr(body)
-	}
-	return &github.PullRequestComment{
-		ID:   github.Ptr(id),
-		Body: b,
-		User: &github.User{
-			Login: github.Ptr(login),
-			Name:  github.Ptr(name),
-			Type:  t,
-		},
+	return &github.User{
+		Login: github.Ptr(login),
+		Name:  github.Ptr(name),
+		Type:  t,
 	}
 }
 
-type mockPullRequestService struct {
-	prsByNumber        map[int]*github.PullRequest
-	errorByPRNumber    map[int]error
-	prs                []*github.PullRequest
-	prsByRepo          map[string][]*github.PullRequest
-	reviewsByPRNumber  map[int][]*github.PullRequestReview
-	commentsByPRNumber map[int][]*github.PullRequestComment
-	response           *github.Response
-	err                error
+// Renders the fixture options into GraphQL responses. The phase is read off the query text, and
+// each alias is bound from the request variables: rN to ownerN/nameN, pN to ownerN/nameN/numN,
+// sN to the repository named in the qN search query string.
+type GraphQLTransport struct {
+	opts MockGitHubClientOptions
 }
 
-func (m *mockPullRequestService) Get(
-	ctx context.Context, owner string, repo string, number int,
-) (*github.PullRequest, *github.Response, error) {
-	if err, ok := m.errorByPRNumber[number]; ok {
-		return nil, m.response, err
+func NewGraphQLTransport(opts MockGitHubClientOptions) GraphQLTransport {
+	return GraphQLTransport{opts: opts}
+}
+
+func (t GraphQLTransport) Post(ctx context.Context, body []byte) (int, json.RawMessage, error) {
+	var request struct {
+		Query     string         `json:"query"`
+		Variables map[string]any `json:"variables"`
 	}
-	if pr, ok := m.prsByNumber[number]; ok {
-		return pr, m.response, m.err
+	if err := json.Unmarshal(body, &request); err != nil {
+		return 0, nil, err
 	}
-	return nil, m.response, m.err
-}
-
-func (m *mockPullRequestService) List(
-	ctx context.Context, owner string, repo string, opts *github.PullRequestListOptions,
-) ([]*github.PullRequest, *github.Response, error) {
-	if m.prsByRepo != nil {
-		return m.prsByRepo[repo], m.response, m.err
+	if strings.Contains(request.Query, "pullRequests(") {
+		return t.openPRsResponse(request.Variables)
 	}
-	return m.prs, m.response, m.err
+	if strings.Contains(request.Query, "pullRequest(number:") {
+		return t.enrichedPRsResponse(request.Variables)
+	}
+	if strings.Contains(request.Query, "search(") {
+		return t.mergedPRsResponse(request.Variables)
+	}
+	return 0, nil, errors.New("unrecognized GraphQL query: " + request.Query)
 }
 
-func (m *mockPullRequestService) ListReviews(
-	ctx context.Context, owner string, repo string, number int, opts *github.ListOptions,
-) ([]*github.PullRequestReview, *github.Response, error) {
-	reviews := m.reviewsByPRNumber[number]
-	return reviews, m.response, m.err
+type renderedResponse struct {
+	Data   map[string]any  `json:"data"`
+	Errors []renderedError `json:"errors,omitempty"`
 }
 
-func (m *mockPullRequestService) ListComments(
-	ctx context.Context, owner string, repo string, number int, opts *github.PullRequestListCommentsOptions,
-) ([]*github.PullRequestComment, *github.Response, error) {
-	comments := m.commentsByPRNumber[number]
-	return comments, m.response, m.err
+type renderedError struct {
+	Type    string `json:"type,omitempty"`
+	Path    []any  `json:"path"`
+	Message string `json:"message"`
 }
 
-type mockIssueService struct {
-	mockTimelineCommentsByPRNumber map[int][]*github.IssueComment
-	response                       *github.Response
-	err                            error
+const notFoundStatus = 404
+
+// A 404 renders NOT_FOUND on the aliases of the repositories that have no PRs fixture; any other
+// non-200 status fails the whole request at the transport level.
+func (t GraphQLTransport) openPRsResponse(variables map[string]any) (int, json.RawMessage, error) {
+	status := cmp.Or(t.opts.ListPRsResponseStatus, http.StatusOK)
+	if status != http.StatusOK && status != notFoundStatus {
+		body, err := json.Marshal(map[string]string{"message": errorMessage(t.opts.PRServiceError)})
+		return status, body, err
+	}
+
+	response := renderedResponse{Data: map[string]any{"rateLimit": rateLimitJSON()}}
+	for index, repoName := range postedRepositoryNames(variables) {
+		alias := fmt.Sprintf("r%d", index)
+		if status == notFoundStatus && !t.hasOpenPRsFixture(repoName) {
+			response.Data[alias] = nil
+			response.Errors = append(response.Errors, renderedError{
+				Type:    "NOT_FOUND",
+				Path:    []any{alias},
+				Message: errorMessage(t.opts.PRServiceError),
+			})
+			continue
+		}
+		response.Data[alias] = map[string]any{
+			"pullRequests": connectionJSON(utilities.Map(t.openPRs(repoName), openPullRequestNodeJSON)),
+		}
+	}
+	return marshalResponse(response)
 }
 
-func (m *mockIssueService) ListComments(
-	ctx context.Context, owner string, repo string, number int, opts *github.IssueListCommentsOptions,
-) ([]*github.IssueComment, *github.Response, error) {
-	comments := m.mockTimelineCommentsByPRNumber[number]
-	return comments, m.response, m.err
+// An ErrByPRNumber entry renders as a PR-level error, a reference with no PR fixture as a
+// PR-level NOT_FOUND, and an IssueServiceError as a field error on every PR's comments connection.
+func (t GraphQLTransport) enrichedPRsResponse(variables map[string]any) (int, json.RawMessage, error) {
+	response := renderedResponse{Data: map[string]any{"rateLimit": rateLimitJSON()}}
+	for index, ref := range postedPullRequestRefs(variables) {
+		alias := fmt.Sprintf("p%d", index)
+		if err, hasError := t.opts.ErrByPRNumber[ref.number]; hasError {
+			response.Data[alias] = map[string]any{"pullRequest": nil}
+			response.Errors = append(response.Errors, renderedError{
+				Path: []any{alias, "pullRequest"}, Message: err.Error(),
+			})
+			continue
+		}
+		pr := t.findPullRequest(ref)
+		if pr == nil {
+			response.Data[alias] = map[string]any{"pullRequest": nil}
+			response.Errors = append(response.Errors, renderedError{
+				Type: "NOT_FOUND",
+				Path: []any{alias, "pullRequest"},
+				Message: fmt.Sprintf(
+					"Could not resolve to a PullRequest with the number of %d.", ref.number,
+				),
+			})
+			continue
+		}
+		response.Data[alias] = map[string]any{"pullRequest": t.enrichedPullRequestNodeJSON(pr, ref.number)}
+		if t.opts.IssueServiceError != nil {
+			response.Errors = append(response.Errors, renderedError{
+				Type:    "RESOURCE_LIMITS_EXCEEDED",
+				Path:    []any{alias, "pullRequest", "comments"},
+				Message: t.opts.IssueServiceError.Error(),
+			})
+		}
+	}
+	return marshalResponse(response)
+}
+
+// The merged PR search has its own failure knob: a canvas refresh fetches merged PRs and open
+// PRs separately, and only one of the two failing is the interesting case.
+func (t GraphQLTransport) mergedPRsResponse(variables map[string]any) (int, json.RawMessage, error) {
+	if t.opts.MergedPRsSearchError != nil {
+		body, err := json.Marshal(
+			map[string]string{"message": t.opts.MergedPRsSearchError.Error()},
+		)
+		return http.StatusInternalServerError, body, err
+	}
+
+	response := renderedResponse{Data: map[string]any{"rateLimit": rateLimitJSON()}}
+	for index, repoName := range searchedRepositoryNames(variables) {
+		mergedPRs := t.mergedPRs(repoName)
+		response.Data[fmt.Sprintf("s%d", index)] = map[string]any{
+			"issueCount": len(mergedPRs),
+			"nodes":      utilities.Map(mergedPRs, mergedPullRequestNodeJSON),
+		}
+	}
+	return marshalResponse(response)
+}
+
+func (t GraphQLTransport) mergedPRs(repoName string) []*github.PullRequest {
+	if t.opts.MergedPRsByRepo != nil {
+		return t.opts.MergedPRsByRepo[repoName]
+	}
+	return t.opts.MergedPRs
+}
+
+func (t GraphQLTransport) openPRs(repoName string) []*github.PullRequest {
+	if t.opts.PRsByRepo != nil {
+		return t.opts.PRsByRepo[repoName]
+	}
+	return t.opts.PRs
+}
+
+func (t GraphQLTransport) hasOpenPRsFixture(repoName string) bool {
+	if t.opts.PRsByRepo != nil {
+		_, isConfigured := t.opts.PRsByRepo[repoName]
+		return isConfigured
+	}
+	return len(t.opts.PRs) > 0
+}
+
+// PR scalars come from PRsByNumber when it is set, and from the listing fixtures otherwise.
+func (t GraphQLTransport) findPullRequest(ref pullRequestRef) *github.PullRequest {
+	if pr, isSet := t.opts.PRsByNumber[ref.number]; isSet {
+		return pr
+	}
+	pr, _ := utilities.Find(t.openPRs(ref.repoName), func(pr *github.PullRequest) bool {
+		return pr.GetNumber() == ref.number
+	})
+	return pr
+}
+
+// GetPRs selects state, merged and labels alongside the scalars both phases share.
+func (t GraphQLTransport) enrichedPullRequestNodeJSON(
+	pr *github.PullRequest, number int,
+) map[string]any {
+	node := pullRequestScalarsJSON(pr)
+	node["number"] = number
+	node["state"] = pullRequestNodeState(pr)
+	node["merged"] = pr.GetMerged()
+	node["labels"] = labelsJSON(pr)
+	node["reviews"] = connectionJSON(utilities.Map(t.opts.ReviewsByPRNumber[number], reviewNodeJSON))
+	node["comments"] = t.commentsJSON(number)
+	return node
+}
+
+func pullRequestNodeState(pr *github.PullRequest) string {
+	if pr.GetMerged() {
+		return "MERGED"
+	}
+	if pr.GetState() == "closed" {
+		return "CLOSED"
+	}
+	return "OPEN"
+}
+
+// The failed connection comes back null.
+func (t GraphQLTransport) commentsJSON(number int) any {
+	if t.opts.IssueServiceError != nil {
+		return nil
+	}
+	return connectionJSON(utilities.Map(t.opts.TimelineCommentsByPRNumber[number], commentNodeJSON))
+}
+
+func openPullRequestNodeJSON(pr *github.PullRequest) map[string]any {
+	node := pullRequestScalarsJSON(pr)
+	node["labels"] = labelsJSON(pr)
+	return node
+}
+
+// The search selects neither isDraft nor updatedAt.
+func mergedPullRequestNodeJSON(pr *github.PullRequest) map[string]any {
+	return map[string]any{
+		"number":    pr.GetNumber(),
+		"title":     pr.GetTitle(),
+		"url":       pr.GetHTMLURL(),
+		"createdAt": pr.GetCreatedAt().Time,
+		"mergedAt":  mergedAtJSON(pr),
+		"author":    authorNodeJSON(pr.GetUser()),
+		"labels":    labelsJSON(pr),
+	}
+}
+
+// A PR fixture with no merge timestamp renders the null GitHub returns for an unmerged PR.
+func mergedAtJSON(pr *github.PullRequest) any {
+	if pr.MergedAt == nil {
+		return nil
+	}
+	return pr.MergedAt.Time
+}
+
+func labelsJSON(pr *github.PullRequest) map[string]any {
+	return connectionJSON(utilities.Map(pr.Labels, labelNodeJSON))
+}
+
+func pullRequestScalarsJSON(pr *github.PullRequest) map[string]any {
+	return map[string]any{
+		"number":    pr.GetNumber(),
+		"title":     pr.GetTitle(),
+		"url":       pr.GetHTMLURL(),
+		"isDraft":   pr.GetDraft(),
+		"createdAt": pr.GetCreatedAt().Time,
+		"updatedAt": pr.GetUpdatedAt().Time,
+		"author":    authorNodeJSON(pr.GetUser()),
+	}
+}
+
+func labelNodeJSON(label *github.Label) map[string]any {
+	return map[string]any{"name": label.GetName()}
+}
+
+func reviewNodeJSON(review *github.PullRequestReview) map[string]any {
+	return map[string]any{
+		"state":  review.GetState(),
+		"author": authorNodeJSON(review.GetUser()),
+	}
+}
+
+func commentNodeJSON(comment *github.IssueComment) map[string]any {
+	return map[string]any{
+		"createdAt": comment.GetCreatedAt().Time,
+		"body":      comment.GetBody(),
+		"author":    authorNodeJSON(comment.GetUser()),
+	}
+}
+
+// An unset user type renders as "User" - anything else drops the name in the collaborator mapper.
+func authorNodeJSON(user *github.User) map[string]any {
+	if user == nil {
+		return nil
+	}
+	return map[string]any{
+		"login":      user.GetLogin(),
+		"__typename": cmp.Or(user.GetType(), "User"),
+		"name":       user.GetName(),
+	}
+}
+
+func connectionJSON[T any](nodes []T) map[string]any {
+	return map[string]any{"nodes": nodes}
+}
+
+func rateLimitJSON() map[string]any {
+	return map[string]any{"cost": 1, "remaining": 4999, "limit": 5000}
+}
+
+func marshalResponse(response renderedResponse) (int, json.RawMessage, error) {
+	body, err := json.Marshal(response)
+	if err != nil {
+		return 0, nil, err
+	}
+	return http.StatusOK, body, nil
+}
+
+func errorMessage(err error) string {
+	if err == nil {
+		return "GraphQL request failed"
+	}
+	return err.Error()
+}
+
+type pullRequestRef struct {
+	repoName string
+	number   int
+}
+
+func postedRepositoryNames(variables map[string]any) []string {
+	names := []string{}
+	for index := 0; ; index++ {
+		name, isSet := variables[fmt.Sprintf("name%d", index)].(string)
+		if !isSet {
+			return names
+		}
+		names = append(names, name)
+	}
+}
+
+// The search query declares no name variable, since GraphQL rejects an operation declaring a
+// variable it never uses. The repository comes out of the qN query string's repo: qualifier.
+func searchedRepositoryNames(variables map[string]any) []string {
+	names := []string{}
+	for index := 0; ; index++ {
+		searchQuery, isSet := variables[fmt.Sprintf("q%d", index)].(string)
+		if !isSet {
+			return names
+		}
+		names = append(names, repositoryNameOfSearchQuery(searchQuery))
+	}
+}
+
+func repositoryNameOfSearchQuery(searchQuery string) string {
+	for _, qualifier := range strings.Fields(searchQuery) {
+		path, isRepositoryQualifier := strings.CutPrefix(qualifier, "repo:")
+		if !isRepositoryQualifier {
+			continue
+		}
+		_, name, _ := strings.Cut(path, "/")
+		return name
+	}
+	return ""
+}
+
+func postedPullRequestRefs(variables map[string]any) []pullRequestRef {
+	refs := []pullRequestRef{}
+	for index, repoName := range postedRepositoryNames(variables) {
+		number, isSet := variables[fmt.Sprintf("num%d", index)].(float64)
+		if !isSet {
+			return refs
+		}
+		refs = append(refs, pullRequestRef{repoName: repoName, number: int(number)})
+	}
+	return refs
 }
 
 type mockActionsService struct {

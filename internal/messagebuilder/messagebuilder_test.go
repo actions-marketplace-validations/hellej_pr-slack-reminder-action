@@ -2,10 +2,10 @@ package messagebuilder_test
 
 import (
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/google/go-github/v78/github"
 	"github.com/slack-go/slack"
 
 	"github.com/hellej/pr-slack-reminder-action/internal/apiclients/githubclient"
@@ -74,8 +74,8 @@ func TestBuildSlackBlocksMessage(t *testing.T) {
 		prAgeElement := prBulletPointTextElements[1].(*slack.RichTextSectionTextElement)
 		prBeforeUserElement := prBulletPointTextElements[2].(*slack.RichTextSectionTextElement)
 		prUserElement := prBulletPointTextElements[3].(*slack.RichTextSectionUserElement)
-		if prLinkElement.Text != *testPRs.PR1.Title {
-			t.Errorf("Expected text to be '%s', got '%s'", *testPRs.PR1.Title, prLinkElement.Text)
+		if prLinkElement.Text != testPRs.PR1.Title {
+			t.Errorf("Expected text to be '%s', got '%s'", testPRs.PR1.Title, prLinkElement.Text)
 		}
 		expectedAgeText := " 3 hours ago"
 		if prAgeElement.Text != expectedAgeText {
@@ -177,8 +177,13 @@ func TestLimitMessageSizeByMaxBlocks(t *testing.T) {
 				},
 			)
 
-			if len(message.Blocks.BlockSet) != tc.expectedBlocks {
-				t.Errorf("Expected %d blocks, got %d", tc.expectedBlocks, len(message.Blocks.BlockSet))
+			blocks := message.Blocks.BlockSet
+			if len(blocks) != tc.expectedBlocks {
+				t.Fatalf("Expected %d blocks, got %d", tc.expectedBlocks, len(blocks))
+			}
+			lastBlock, isRichText := blocks[len(blocks)-1].(*slack.RichTextBlock)
+			if isRichText && strings.HasPrefix(lastBlock.BlockID, "pr_list_heading") {
+				t.Errorf("Expected the message not to end on a repository heading with no PR list under it, got '%s'", lastBlock.BlockID)
 			}
 		})
 	}
@@ -201,13 +206,10 @@ type TestPRs struct {
 func getTestPRs() TestPRs {
 	pr1 := prparser.PR{
 		PR: &githubclient.PR{
-			PullRequest: &github.PullRequest{
-				CreatedAt: &github.Timestamp{Time: time.Now().Add(-3 * time.Hour)}, // 1 day ago
-				Title:     github.Ptr("This is a test PR"),
-				User: &github.User{
-					Login: github.Ptr("testuser"),
-					Name:  github.Ptr("Test User"),
-				},
+			PullRequest: &githubclient.PullRequest{
+				CreatedAt: time.Now().Add(-3 * time.Hour),
+				Title:     "This is a test PR",
+				Author:    githubclient.Collaborator{Login: "testuser", Name: "Test User"},
 			},
 		},
 		Author: prparser.Collaborator{
@@ -235,15 +237,12 @@ func TestMergedAndClosedPRFormatting(t *testing.T) {
 			name: "Open PR - no special formatting",
 			pr: prparser.PR{
 				PR: &githubclient.PR{
-					PullRequest: &github.PullRequest{
-						CreatedAt: &github.Timestamp{Time: time.Now().Add(-3 * time.Hour)},
-						Title:     github.Ptr("Open PR"),
-						State:     github.Ptr("open"),
-						Merged:    github.Ptr(false),
-						User: &github.User{
-							Login: github.Ptr("alice"),
-							Name:  github.Ptr("Alice"),
-						},
+					PullRequest: &githubclient.PullRequest{
+						CreatedAt: time.Now().Add(-3 * time.Hour),
+						Title:     "Open PR",
+						State:     "open",
+						Merged:    false,
+						Author:    githubclient.Collaborator{Login: "alice", Name: "Alice"},
 					},
 				},
 				Author: prparser.Collaborator{
@@ -258,15 +257,12 @@ func TestMergedAndClosedPRFormatting(t *testing.T) {
 			name: "Merged PR with reviewers",
 			pr: prparser.PR{
 				PR: &githubclient.PR{
-					PullRequest: &github.PullRequest{
-						CreatedAt: &github.Timestamp{Time: time.Now().Add(-3 * time.Hour)},
-						Title:     github.Ptr("Merged PR"),
-						State:     github.Ptr("closed"),
-						Merged:    github.Ptr(true),
-						User: &github.User{
-							Login: github.Ptr("bob"),
-							Name:  github.Ptr("Bob"),
-						},
+					PullRequest: &githubclient.PullRequest{
+						CreatedAt: time.Now().Add(-3 * time.Hour),
+						Title:     "Merged PR",
+						State:     "closed",
+						Merged:    true,
+						Author:    githubclient.Collaborator{Login: "bob", Name: "Bob"},
 					},
 				},
 				Author: prparser.Collaborator{
@@ -284,15 +280,12 @@ func TestMergedAndClosedPRFormatting(t *testing.T) {
 			name: "Closed PR without merge",
 			pr: prparser.PR{
 				PR: &githubclient.PR{
-					PullRequest: &github.PullRequest{
-						CreatedAt: &github.Timestamp{Time: time.Now().Add(-3 * time.Hour)},
-						Title:     github.Ptr("Closed PR"),
-						State:     github.Ptr("closed"),
-						Merged:    github.Ptr(false),
-						User: &github.User{
-							Login: github.Ptr("charlie"),
-							Name:  github.Ptr("Charlie"),
-						},
+					PullRequest: &githubclient.PullRequest{
+						CreatedAt: time.Now().Add(-3 * time.Hour),
+						Title:     "Closed PR",
+						State:     "closed",
+						Merged:    false,
+						Author:    githubclient.Collaborator{Login: "charlie", Name: "Charlie"},
 					},
 				},
 				Author: prparser.Collaborator{
@@ -307,15 +300,12 @@ func TestMergedAndClosedPRFormatting(t *testing.T) {
 			name: "Merged PR without reviewers",
 			pr: prparser.PR{
 				PR: &githubclient.PR{
-					PullRequest: &github.PullRequest{
-						CreatedAt: &github.Timestamp{Time: time.Now().Add(-3 * time.Hour)},
-						Title:     github.Ptr("Merged PR no reviewers"),
-						State:     github.Ptr("closed"),
-						Merged:    github.Ptr(true),
-						User: &github.User{
-							Login: github.Ptr("dave"),
-							Name:  github.Ptr("Dave"),
-						},
+					PullRequest: &githubclient.PullRequest{
+						CreatedAt: time.Now().Add(-3 * time.Hour),
+						Title:     "Merged PR no reviewers",
+						State:     "closed",
+						Merged:    true,
+						Author:    githubclient.Collaborator{Login: "dave", Name: "Dave"},
 					},
 				},
 				Author: prparser.Collaborator{
@@ -380,5 +370,57 @@ func TestMergedAndClosedPRFormatting(t *testing.T) {
 				t.Error("Did not expect merged indicator (🚀) but it was found")
 			}
 		})
+	}
+}
+
+func prSectionElements(t *testing.T, pr prparser.PR) []slack.RichTextSectionElement {
+	t.Helper()
+	message, _ := messagebuilder.BuildMessage(messagecontent.Content{
+		SummaryText:   "Test",
+		PRListHeading: "Test PRs",
+		PRs:           []prparser.PR{pr},
+	})
+	prBlock := message.Blocks.BlockSet[1].(*slack.RichTextBlock)
+	return prBlock.Elements[0].(*slack.RichTextList).Elements[0].(*slack.RichTextSection).Elements
+}
+
+func TestOldPRWarningMarker(t *testing.T) {
+	pr := getTestPRs().PR1
+	pr.PullRequest.CreatedAt = time.Now().Add(-72 * time.Hour)
+	pr.IsOldPR = true
+
+	elements := prSectionElements(t, pr)
+
+	warningElement := elements[1].(*slack.RichTextSectionTextElement)
+	if warningElement.Text != " 🚨 " {
+		t.Errorf("expected warning marker ' 🚨 ', got '%s'", warningElement.Text)
+	}
+	if warningElement.Style != nil && (warningElement.Style.Bold || warningElement.Style.Code) {
+		t.Error("expected the warning marker to sit outside the styled age element")
+	}
+
+	ageElement := elements[2].(*slack.RichTextSectionTextElement)
+	if ageElement.Text != "3 days old" {
+		t.Errorf("expected age text '3 days old', got '%s'", ageElement.Text)
+	}
+	if ageElement.Style == nil || !ageElement.Style.Bold || !ageElement.Style.Code {
+		t.Errorf("expected bold+code style on the age text, got %+v", ageElement.Style)
+	}
+}
+
+func TestAuthorFallsBackToGitHubName(t *testing.T) {
+	pr := getTestPRs().PR1
+	pr.Author = prparser.Collaborator{
+		Collaborator: &githubclient.Collaborator{Login: "testuser", Name: "Test User"},
+	}
+
+	elements := prSectionElements(t, pr)
+
+	authorElement, ok := elements[3].(*slack.RichTextSectionTextElement)
+	if !ok {
+		t.Fatalf("expected a text element for the author, got %T", elements[3])
+	}
+	if authorElement.Text != "Test User" {
+		t.Errorf("expected author name 'Test User', got '%s'", authorElement.Text)
 	}
 }

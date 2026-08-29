@@ -40,7 +40,7 @@ type StateArtifactFetcher interface {
 func PRToPullRequestRef(pr prparser.PR) models.PullRequestRef {
 	return models.PullRequestRef{
 		Repository: pr.Repository,
-		Number:     *pr.Number,
+		Number:     pr.GetNumber(),
 	}
 }
 
@@ -63,13 +63,6 @@ func Load(
 	return &state, nil
 }
 
-func (s *State) Validate() error {
-	if s.SchemaVersion != CurrentSchemaVersion {
-		return fmt.Errorf("unsupported schema version %d, expected %d", s.SchemaVersion, CurrentSchemaVersion)
-	}
-	return nil
-}
-
 func SavePostState(
 	filePath string,
 	parsedPRs []prparser.PR,
@@ -84,7 +77,7 @@ func SavePostState(
 		})
 }
 
-func SaveSentSlackBlocks(
+func SaveSentSlackBlocksToFile(
 	filePath string,
 	sentBlocks []string,
 ) error {
